@@ -2824,7 +2824,8 @@ async function joinOnline(code){
     if(g.players.includes(myId)){ await openOnline(code); return; }
     if(g.status!=='waiting' || g.players[1]){ lobbyMsg='That game already has two players.'; renderLobby(); return; }
     const choices=Object.keys(HEROES).filter(k=>k!==g.heroes[0]);
-    const hpick=await pickOne('Choose your hero', choices.map(k=>({v:k,label:HEROES[k].name})), {sub:`${nm(g.players[0])} is playing ${HEROES[g.heroes[0]].name}.`});
+    const otherName=(names[g.players[0]]&&names[g.players[0]].name)||'Someone';
+    const hpick=await pickOne('Choose your hero', choices.map(k=>({v:k,label:HEROES[k].name})), {sub:`${otherName} is playing ${HEROES[g.heroes[0]].name}.`});
     if(!hpick){ renderLobby(); return; }
     pickedHero=hpick;
     const S0=g.coop ? makeCoop([g.heroes[0],pickedHero],[g.players[0],myId],'online',code) : makeGame([g.heroes[0],pickedHero],[g.players[0],myId],'online',code);
@@ -4269,8 +4270,11 @@ function showDelve(){
 }
 
 /* ---------- version badge + history ---------- */
-const GAME_VERSION='0.34';
+const GAME_VERSION='0.35';
 const VERSION_HISTORY=[
+  {v:'0.35', date:'October 2026', notes:[
+    'Fixed: joining an open online game always failed with "Could not join: error" (a leftover bug, not from a recent change) — a broken reference when showing whose game it was. Online join now works correctly.'
+  ]},
   {v:'0.34', date:'October 2026', notes:[
     'Fixed: the die you place in an unclaimed core stone was never returned once it bonded to you after 2 fights, permanently leaving you with one fewer die. You now get the die back the moment the bond completes, on top of the resource it grants every turn.'
   ]},
