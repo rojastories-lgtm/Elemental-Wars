@@ -585,6 +585,20 @@ body.turn-me::before{ background:
 .fstep.now{ background:#ffc400; opacity:1; } .fstep.done{ background:#c8f2cf; opacity:1; }
 .phasechip{ font-weight:800; font-size:.85rem; background:#1a1030; color:#fff; border-radius:99px; padding:3px 10px; }
 .rewardbox{ background:#fffbe6; border:4px solid #ffc400; border-radius:16px; padding:10px; box-shadow:0 5px 0 #1a1030; }
+.pathmap{ position:relative; width:100%; max-width:720px; margin:10px auto; aspect-ratio:8/5; }
+.pathsvg{ position:absolute; inset:0; width:100%; height:100%; }
+.pathsvg .pline{ stroke:#c9bfa8; stroke-width:1.2; }
+.pathsvg .pline.ptaken{ stroke:#ffc400; stroke-width:2; }
+.pathnodes{ position:absolute; inset:0; }
+.pnode{ position:absolute; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:2px; width:78px; padding:6px 4px; border-radius:12px; border:3px solid #1a1030; background:#fff; font-family:var(--body); font-weight:800; font-size:.68rem; text-align:center; box-shadow:0 3px 0 #1a1030; }
+.pnode .picon{ font-size:1.25rem; line-height:1; }
+.pnode.future{ opacity:.55; background:#f3f0e8; box-shadow:none; }
+.pnode.skip{ opacity:.35; background:#f3f0e8; box-shadow:none; }
+.pnode.done{ background:#fff1c2; border-color:#ffc400; }
+.pnode.now{ background:#ffe3d6; border-color:#ff7a3d; animation:pulse 1.4s ease infinite; }
+.pnode.choice{ background:#e6f7ff; border-color:#1a90c9; cursor:pointer; animation:pulse 1.4s ease infinite; }
+.pnode.choice:hover{ transform:translate(-50%,-50%) scale(1.06); }
+@keyframes pulse{ 0%,100%{ box-shadow:0 3px 0 #1a1030; } 50%{ box-shadow:0 3px 0 #1a1030, 0 0 0 5px rgba(255,196,0,.5); } }
 .rewardbox h3{ margin:0 0 8px; }
 .rewardopts{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
 .rewardopts .mcard{ flex:0 0 160px; }
@@ -1187,7 +1201,32 @@ const CARDS = {
   ['Lava Shell','Instant',['V','E'],0,'Gain 5 shield and heal 3.',[['shield',86,56,86],['heart',156,42,44]],'vol'],
   ['Pyre','Action',['V','V','V'],0,'Apply 6 Burn.',[['fire',80,56,84],['burst',152,40,52,'+6']],'vol'],
   ['Firestorm','Action',['V','F'],0,'Deal 3 damage to every enemy core stone or minion and apply 2 Burn.',[['fire',62,46,52],['fire',100,64,44],['core',148,62,50],['burst',174,30,34,'3']],'vol'],
-  ['Caldera Core','Passive',['V','V'],5,'At the start of your turn, apply 2 Burn and heal 2.',[['core',92,56,96],['lava',92,58,44],['heart',162,34,40]],'vol']
+  ['Caldera Core','Passive',['V','V'],5,'At the start of your turn, apply 2 Burn and heal 2.',[['core',92,56,96],['lava',92,58,44],['heart',162,34,40]],'vol'],
+  ['Overcurrent','Instant',['L','L'],0,'Deal 6 unblockable damage.',[['bolt',80,56,82],['burstx',152,32,54,'6']],'ele'],
+  ['Grid Lock','Action',['L','E'],0,'Deal 3 damage to every enemy core stone or minion. Draw a card.',[['bolt',60,50,66],['core',128,64,52],['card',172,58,44]],'ele'],
+  ['Voltaic Surge','Instant',['L'],0,'Gain 3 {L}.',[['bolt',80,56,82],['burst',152,32,52,'+3']],'ele'],
+  ['Short Circuit','Action',['L','L','W'],0,'Deal 5 damage. Drain 1 resource.',[['bolt',64,56,74],['burst',122,34,42,'5'],['token',168,58,46]],'ele'],
+  ['Faraday Cage','Instant',['L','E'],0,'Gain 8 shield.',[['shield',90,56,92],['bolt',150,40,42]],'ele'],
+  ['Permafrost Spike','Action',['I','I'],0,'Deal 5 damage. Freeze 1 enemy die.',[['snow',64,56,72],['burst',124,34,44,'5'],['die',168,56,46]],'ice'],
+  ['Snowcap','Action',['I','I','W'],0,'Freeze 2 of your dice. Heal 4.',[['snow',66,56,72],['die',130,58,50],['heart',172,58,44]],'ice'],
+  ['Icebound Fury','Instant',['I'],0,'Deal 1 damage for each frozen die you have (max 4), plus 2.',[['snow',76,56,78],['burst',150,32,52,'X']],'ice'],
+  ['Absolute Chill','Instant',['I','I','I'],0,'Freeze 2 enemy dice. Draw a card.',[['snow',64,56,78],['die',132,58,52],['card',174,58,44]],'ice'],
+  ['Winter\'s Embrace','Action',['W','I'],0,'Heal 3. Freeze 1 of your dice.',[['snow',70,58,70],['heart',140,56,50],['die',178,58,44]],'ice'],
+  ['Despair','Action',['D','D'],0,'Deal 5 damage. Drain 1 resource.',[['dark',64,56,72],['burst',124,34,44,'5'],['token',168,58,46]],'drk'],
+  ['Hex Bolt','Instant',['D'],0,'Deal 3 unblockable damage.',[['dark',80,56,80],['burstx',152,32,52,'3']],'drk'],
+  ['Wraith Form','Instant',['D','W'],0,'Prevent all damage from 1 attack.',[['dark',72,56,76],['shield',142,58,58]],'drk'],
+  ['Soul Harvest','Action',['D','D','D'],0,'Heal 5. Drain 1 resource.',[['dark',66,56,74],['heart',130,46,46],['token',170,58,44]],'drk'],
+  ['Nightfall','Action',['D','E'],0,'Draw 2 cards. The enemy discards a random card.',[['dark',64,56,70],['card',128,58,56],['slash',128,58,66]],'drk'],
+  ['Siege Breaker','Action',['S','S','F'],0,'Deal 6 damage, plus 1 for each of your cores (max 8).',[['steel',70,56,74],['burst',148,46,56,'6+']],'stl'],
+  ['Rapid Repair','Instant',['S'],0,'Heal 3 to each of your cores.',[['core',80,56,84],['heart',150,56,50]],'stl'],
+  ['Plated Guard','Instant',['E','S'],0,'Gain 2 shield for each of your cores.',[['core',64,62,56],['shield',140,52,64]],'stl'],
+  ['Scrap Cannon','Action',['S','S'],0,'Deal 2 damage to one of your cores, then deal 6 damage.',[['core',62,60,70],['burst',122,40,44,'2'],['burst',168,62,52,'6']],'stl'],
+  ['Full Overhaul','Action',['S','S','W'],0,'Heal 4 to each of your cores. Draw a card.',[['core',66,56,74],['heart',130,46,46],['card',172,58,44]],'stl'],
+  ['Inferno Pulse','Action',['V','V'],0,'Deal 4 damage. Apply 2 Burn.',[['lava',70,56,76],['burst',140,38,50,'4'],['fire',172,78,30]],'vol'],
+  ['Smoke Screen','Instant',['V','E'],0,'Gain 4 shield. Apply 1 Burn.',[['shield',86,56,90],['fire',86,62,40],['burst',160,34,44,'+1']],'vol'],
+  ['Wildfire','Action',['V','V','F'],0,'Deal 2 damage to every enemy core stone or minion and apply 3 Burn.',[['fire',62,46,52],['fire',100,64,44],['core',148,62,50],['burst',174,30,34,'2']],'vol'],
+  ['Combustion','Instant',['V','V'],0,'The enemy\'s Burn hits right now, then apply 2 Burn.',[['lava',70,58,76],['cycle',142,50,56]],'vol'],
+  ['Molten Core Shard','Action',['V','F'],0,'Heal 2. Apply 2 Burn. Draw a card.',[['lava',66,56,72],['heart',130,46,46],['card',172,58,44]],'vol']
  ]
 };
 
@@ -1298,7 +1337,12 @@ const CFX = {
   'Blizzard':[['freezeEnemy',2],['coreAll',3]], 'Ice Shard':[['dmg',3],['freezeOwn',1]], 'Permafrost':[['freezeOwn',3],['shield',5]], 'Glacial Spike':[['dmgX','frozen',6,4]],
   'Night Terror':[['dmg',6],['drain',1,0]], 'Shadow Feast':[['heal',6],['draw',2]], 'Withering Curse':[['coreAll',3],['drain',1,0]], 'Dark Bargain':[['gainChoice',3],['selfHurt',1]],
   'Forge Wall':[['shieldPerCore'],['shieldPerCore'],['shieldPerCore']], 'Hammerfall':[['dmgX','cores',8,5]], 'Spare Parts':[['falseCore'],['draw',2]], 'Overdrive':[['healCores',3],['dmgX','cores',12,0,2]],
-  'Magma Burst':[['dmg',6],['burn',2]], 'Lava Shell':[['shield',5],['heal',3]], 'Pyre':[['burn',6]], 'Firestorm':[['coreAll',3],['burn',2]], 'Ash Cloud':[['ashCloud']], 'Fire Rain':[['burn',1],['coreAll',1,'enemy']], 'Cinder Shield':[['shield',3],['burn',1]], 'Heat Wave':[['burnTickNow']], 'Roll Hex':[['hex',1]], 'Shadow Step':[['preventAll']], 'Black Market':[['gainChoice',2],['discard',1]]
+  'Magma Burst':[['dmg',6],['burn',2]], 'Lava Shell':[['shield',5],['heal',3]], 'Pyre':[['burn',6]], 'Firestorm':[['coreAll',3],['burn',2]], 'Ash Cloud':[['ashCloud']], 'Fire Rain':[['burn',1],['coreAll',1,'enemy']], 'Cinder Shield':[['shield',3],['burn',1]], 'Heat Wave':[['burnTickNow']], 'Roll Hex':[['hex',1]], 'Shadow Step':[['preventAll']], 'Black Market':[['gainChoice',2],['discard',1]],
+  'Overcurrent':[['dmg',6,{unb:1}]], 'Grid Lock':[['coreAll',3],['draw',1]], 'Voltaic Surge':[['gain','L',3]], 'Short Circuit':[['dmg',5],['drain',1,0]], 'Faraday Cage':[['shield',8]],
+  'Permafrost Spike':[['dmg',5],['freezeEnemy',1]], 'Snowcap':[['freezeOwn',2],['heal',4]], 'Icebound Fury':[['dmgX','frozen',4,2]], 'Absolute Chill':[['freezeEnemy',2],['draw',1]], 'Winter\'s Embrace':[['heal',3],['freezeOwn',1]],
+  'Despair':[['dmg',5],['drain',1,0]], 'Hex Bolt':[['dmg',3,{unb:1}]], 'Wraith Form':[['preventAll']], 'Soul Harvest':[['heal',5],['drain',1,0]], 'Nightfall':[['draw',2],['mindRot']],
+  'Siege Breaker':[['dmgX','cores',8,6]], 'Rapid Repair':[['healCores',3]], 'Plated Guard':[['shieldPerCore'],['shieldPerCore']], 'Scrap Cannon':[['selfCoreDmg',2],['dmg',6]], 'Full Overhaul':[['healCores',4],['draw',1]],
+  'Inferno Pulse':[['dmg',4],['burn',2]], 'Smoke Screen':[['shield',4],['burn',1]], 'Wildfire':[['coreAll',2],['burn',3]], 'Combustion':[['burnTickNow'],['burn',2]], 'Molten Core Shard':[['heal',2],['burn',2],['draw',1]]
 };
 const CEL = {Shatter:'I', Whiteout:'I'};
 const DICE_CARDS = new Set(['Second Chance','Flip Side','Loaded Dice','Twist Fate']);
@@ -1404,10 +1448,14 @@ function checkWin(S){
 }
 
 /* ---------- Damage ---------- */
-function destroyCore(S,seat,idx){
+function destroyCore(S,seat,idx,by){
   const P=S.p[seat], core=P.cores[idx]; if(!core) return;
   P.cores.splice(idx,1); if(!CARDLIST[core.id].token) P.disc.push(core.id); const nm=CARDLIST[core.id].name;
   lg(S,`{${seat}}'s ${nm} is destroyed.`);
+  if(S.coop && seat===2 && core.m && core.m.coreStone && by!=null && by<2){
+    const K=S.p[by], el=heroEl(S,by); addRes(K,el,2); addRes(K,'F',1); addRes(K,'W',1);
+    lg(S,`💠 {${by}} shatters the core stone and absorbs its energy!`); flash(S,'💠 +resources from the core stone!');
+  }
   if(S.coop) coopCheck(S);
   if(nm==='Bolt Core'){ lg(S,`💥 Bolt Core explodes!`); heroDamage(S,FOE(S,seat),3,seat,'Bolt Core','S'); }
 }
@@ -1424,7 +1472,7 @@ function damageCore(S,seat,idx,n,src,by,el){
   sfx(S,'glass',el); lg(S,`${src||'Damage'} hits {${seat}}'s ${nm} for ${n}.`);
   if(core.hp<=0 && P.st.ironWill===S.tn){ core.hp=1; lg(S,`Iron Will keeps ${nm} standing at 1.`); flash(S,`Iron Will keeps ${nm} standing!`); }
   if(hasCore(P,'Anvil Core')){ lg(S,`Anvil Core rings out.`); heroDamage(S,FOE(S,seat),1,seat,'Anvil Core','S'); }
-  if(core.hp<=0) destroyCore(S,seat,P.cores.indexOf(core));
+  if(core.hp<=0) destroyCore(S,seat,P.cores.indexOf(core),by);
 }
 function healCore(S,seat,core,n){
   const max=core.max||CARDLIST[core.id].hp, before=core.hp; core.hp=Math.min(max,core.hp+n); return core.hp-before;
@@ -1668,6 +1716,7 @@ function doCollect(S, seatArg){
     if(got.length) lg(S,`🌑 Roll Seal: {${by}} also gains ${got.map(k=>EL_NAME[k]).join(' and ')}.`);
     P.sealDice=null; }
   lg(S,`{${seat}} collects ${gained.length} resources${P.fogPend.length?` (${P.fogPend.length} fogged)`:''}.`);
+  if(P.coreBond){ addRes(P,P.coreBond,1); lg(S,`💠 {${seat}}'s bonded core stone grants 1 more ${EL_NAME[P.coreBond]}.`); }
   if(hasCore(P,'Frozen Heart')){ const fz=P.dice.filter(d=>d.fz).length; if(fz){ P.shield+=fz; lg(S,`❄ Frozen Heart grants ${fz} shield.`); } }
   if(hasCore(P,'Capacitor Core')){ addRes(P,'L',1); lg(S,`Capacitor Core adds 1 Lightning.`); }
   if(hasCore(P,'Hollow Core')) drainFrom(S,seat,autoDrainEls(S,seat,1),0);
@@ -2639,6 +2688,10 @@ document.addEventListener('click', e=>{
   switch(a){
     case 'roll': case 'collect': case 'next': case 'energy': case 'rime': case 'tesla': case 'concede': act[a](); break;
     case 'deckrefresh': act.pickDeckRefresh(+b.dataset.c); break;
+    case 'corefind': act.pickCorefind(b.dataset.el||null); break;
+    case 'leyline': act.pickLeyline(b.dataset.c); break;
+    case 'pathvote': act.pickPath(parseInt(b.dataset.i,10)); break;
+    case 'ultimate': act.ultimate(); break;
     case 'assign': act.assign(i); break;
     case 'ability': act.ability(i); break;
     case 'play': act.play(i, b.dataset.seat!=null ? +b.dataset.seat : viewSeat()); break;
@@ -3319,7 +3372,7 @@ function stopMusic(){
 /* =====================================================================
    ASYNC PLAY: saved games, "your move" tracking, alerts
    ===================================================================== */
-function gameNeedsMeCoop(g,seat){ if(g.status!=='playing'||!g.p) return false; const q=g.q&&g.q[0]; if(q && INPUT[q.k]) return q.actor===seat; if(g.phase==='reward') return !(g.reward&&g.reward.done&&g.reward.done[seat]); if(g.phase==='deckrefresh') return !(g.deckRefresh&&g.deckRefresh.done&&g.deckRefresh.done[seat]); if(g.phase==='enemy') return false; const P=g.p[seat]; if(!P||P.down) return false; if(g.phase==='income') return P.inc!=='done'; return !P.ready; }
+function gameNeedsMeCoop(g,seat){ if(g.status!=='playing'||!g.p) return false; const q=g.q&&g.q[0]; if(q && INPUT[q.k]) return q.actor===seat; if(g.phase==='reward') return !(g.reward&&g.reward.done&&g.reward.done[seat]); if(g.phase==='deckrefresh') return !(g.deckRefresh&&g.deckRefresh.done&&g.deckRefresh.done[seat]); if(g.phase==='corefind') return !(g.corefind&&g.corefind.done&&g.corefind.done[seat]); if(g.phase==='leyline') return !(g.leyline&&g.leyline.done&&g.leyline.done[seat]); if(g.phase==='pathchoice') return !(g.pathChoice&&g.pathChoice.done&&g.pathChoice.done[seat]); if(g.phase==='enemy') return false; const P=g.p[seat]; if(!P||P.down) return false; if(g.phase==='income') return P.inc!=='done'; return !P.ready; }
 function gameActor(g){ if(!g || g.status!=='playing' || !g.p) return null; const q=g.q&&g.q[0]; return (q && INPUT[q.k]) ? q.actor : g.turn; }
 function gameNeedsMe(g){ if(!g || !myId) return false; const seat=(g.players||[]).indexOf(myId); if(seat<0) return false; if(g.coop) return gameNeedsMeCoop(g,seat); return gameActor(g)===seat; }
 function gameHeroes(g){
@@ -3450,10 +3503,14 @@ const MINIONS={
   ember:  {name:'The Ember Stalker',    el:'F', hp:14, img:'m_ember',   art:'fire',  ai:[['atk',3],['atk',3],['burn',2]]},
   tempest:{name:'The Tempest Skylord',  el:'E', hp:13, img:'m_tempest', art:'earth', ai:[['atkAll',2],['healAll',3],['atkAll',2]]},
   sand:   {name:'The Sand Titan',       el:'S', hp:24, img:'m_sand',    art:'steel', ai:[['charge',0],['atk',7]]},
+  mimic:  {name:'The Mirrorback',       el:'D', hp:13, img:'m_frost',   art:'dark',  ai:[['atk',3],['mirror',0],['atk',3]]},
+  thief:  {name:'The Dice Thief',       el:'L', hp:12, img:'m_volt',    art:'bolt',  ai:[['atk',2],['steal',1],['atk',2]]},
+  guard:  {name:'The Bulwark Golem',    el:'E', hp:17, img:'m_sand',    art:'steel', ai:[['guard',1],['atk',4],['guard',1]]},
+  corestone:{name:'Unstable Core Stone', el:'A', hp:10, img:'m_tempest', art:'earth', ai:[['charge',0]]},
   root:   {name:'Ancient Root Warden',  el:'E', hp:60, img:'m_root',    art:'earth', elite:1, ai:[['atk',5],['atkAll',3],['fort',6],['atk',7]]},
   wave:   {name:'The Wave Leviathan',   el:'W', hp:55, img:'m_wave',    art:'water', elite:1, ai:[['atkAll',3],['healAll',5],['atk',6],['freeze',2]]}
 };
-const WEAK=['volt','frost','abyss','ember','tempest'], STRONG=['sand','ember','abyss','volt','frost','tempest'], ELITES=['root','wave'];
+const WEAK=['volt','frost','abyss','ember','tempest','mimic','thief','guard'], STRONG=['sand','ember','abyss','volt','frost','tempest','mimic','thief','guard'], ELITES=['root','wave'];
 Object.entries(MINIONS).forEach(([k,m])=>{ if(CI[m.name]==null){ CARDLIST.push({name:m.name, type:'Minion', cost:'free', hp:m.hp, text:'', art:[['core',100,56,90],[m.art,100,58,46]], grp:'enemy', token:true, minion:k}); CI[m.name]=CARDLIST.length-1; } });
 const BOSS={name:'Malkorr, the Elemental Overlord', short:'Malkorr', el:'A', hp:100};
 const BOSS_FACES={1:'claw',2:'claw',3:'wing',4:'scale',5:'breath',6:'eclipse'};
@@ -3474,6 +3531,19 @@ const RELICS={
   'Insight Core':'Draw 1 extra card every turn.',
   'Titan Core':'+8 maximum health (and heal 8).'
 };
+const PAIR_COMBOS={
+  'electro+ice':      {name:'Frozen Circuit',      fx:[['dmg',10],['freezeEnemy',2]]},
+  'dark+electro':     {name:'Voidshock',           fx:[['dmg',11],['drain',2,0]]},
+  'electro+steel':    {name:'Overload Cannon',     fx:[['dmg',14]]},
+  'electro+volcanic': {name:'Plasma Storm',        fx:[['dmg',10],['burn',3]]},
+  'dark+ice':         {name:'Null Frost',          fx:[['dmg',10],['freezeEnemy',2]]},
+  'ice+steel':        {name:'Absolute Lockdown',   fx:[['dmg',9],['freezeEnemy',2]]},
+  'ice+volcanic':     {name:'Steam Burst',         fx:[['dmg',10],['burn',2]]},
+  'dark+steel':       {name:'Corrupted Iron',      fx:[['dmg',11],['drain',2,0]]},
+  'dark+volcanic':    {name:'Shadowflame Eruption',fx:[['dmg',12],['burn',4]]},
+  'steel+volcanic':   {name:'Molten Forge',        fx:[['dmg',13],['burn',2]]}
+};
+const pairKey=(h1,h2)=>[h1,h2].sort().join('+');
 function makeEnemy(name){ return {name:name||'Enemies', hp:0, maxhp:0, shield:0, res:{}, dice:[], cores:[], hand:[], deck:[], disc:[], st:{used:[],fog:0,hex:0,reflN:0}, burn:0, fogPend:[], assign:{}}; }
 function aliveHeroes(S){ return [0,1].filter(i=>!S.p[i].down); }
 function aggroTarget(S){
@@ -3481,9 +3551,14 @@ function aggroTarget(S){
   const d0=S.p[0].dealt||0, d1=S.p[1].dealt||0; if(d0===d1) return a[rnd(a.length)]; return d0>d1?0:1;
 }
 function addMinion(S,key,bonus){
-  const m=MINIONS[key], b=bonus||0, hp=Math.round((m.hp+(b?5*b:0))*(S.solo?0.6:1));
+  const m=MINIONS[key], b=bonus||0, hp=Math.round((m.hp+(b?5*b:0))*(S.solo?0.6:1)*(1+0.15*(S.coreEmpower||0)));
   S.uid=(S.uid||0)+1;
   S.p[2].cores.push({id:CI[m.name], hp, max:hp, prot:0, m:{key, el:m.el, step:rnd(m.ai.length), tgt:0, bonus:b, uid:S.uid}});
+}
+function addCoreStoneMinion(S){
+  const m=MINIONS.corestone, hp=Math.round(m.hp*(S.solo?0.6:1)*(1+0.15*(S.coreEmpower||0)));
+  S.uid=(S.uid||0)+1;
+  S.p[2].cores.push({id:CI[m.name], hp, max:hp, prot:0, m:{key:'corestone', el:m.el, step:0, tgt:0, bonus:0, uid:S.uid, coreStone:1, optional:1}});
 }
 function makeCoop(heroes, players, mode, code, solo){
   const S0=makeGame(heroes, players, mode, code);
@@ -3495,19 +3570,59 @@ function makeCoop(heroes, players, mode, code, solo){
     if(pool.length){ const repl=pool[rnd(pool.length)], P=S0.p[i]; const swap=arr=>{ const idx=arr.indexOf(ldId); if(idx>=0) arr[idx]=repl; }; swap(P.hand); swap(P.deck); }
   });
   if(solo){ const P1=S0.p[1]; P1.absent=1; P1.down=1; P1.hp=0; P1.hand=[]; }
-  S0.p[2]=makeEnemy(); S0.fightIdx=0;
-  lg(S0, solo ? '🗡 A solo dungeon run begins! Three minion fights, an elite, then the boss.' : '🤝 A co-op dungeon run begins! Three minion fights, an elite, then the boss.');
-  setupFight(S0);
+  S0.p[2]=makeEnemy(); S0.fightIdx=-1;
+  S0.pathLog=[]; S0.leyResolved=false;
+  lg(S0, solo ? '🗡 A solo dungeon run begins! A branching path, a ley line, an elite, then the boss — choose your way at every fork.' : '🤝 A co-op dungeon run begins! A branching path, a ley line, an elite, then the boss — choose your way at every fork.');
+  advancePath(S0);
   return S0;
+}
+function bucketLabel(b){ return b==='monster' ? 'a monster encounter' : 'an item encounter'; }
+function rollForkOptions(T){
+  const log=T.pathLog, n=log.length;
+  const blockItem = n>=2 && log[n-1]==='item' && log[n-2]==='item';
+  const opts=['monster','monster','monster'];
+  if(!blockItem){
+    const itemCount = rnd(3); // 0, 1, or 2 of the 3 options are items — never all 3, always a safe monster pick
+    const idxs=shuffle([0,1,2]);
+    for(let k=0;k<itemCount;k++) opts[idxs[k]]='item';
+  }
+  return opts;
+}
+function advancePath(T){
+  const i=T.pathLog.length;
+  if(i<4){
+    T.phase='pathchoice'; T.pathChoice={done:{}, pick:{}, opts:rollForkOptions(T)};
+    lg(T,'🗺 The path splits three ways. Which do the heroes take?'); flash(T,'🗺 A fork in the path!');
+  } else if(!T.leyResolved){ T.phase='leyline'; T.leyline={done:T.solo?{1:1}:{}}; lg(T,'⛩ Just before the way forward, you come to a shimmering ley line…'); flash(T,'⛩ A ley line!'); }
+  else { T.fightIdx=3; setupFight(T); }
+}
+function coopPickPath(T,seat,idx){
+  const PC=T.pathChoice; if(!PC||PC.done[seat]) return;
+  PC.pick[seat]=idx; PC.done[seat]=1;
+  if(T.solo){ PC.pick[1]=idx; PC.done[1]=1; }
+  if(PC.done[0] && PC.done[1]){
+    let chosenIdx=PC.pick[0];
+    if(PC.pick[0]!==PC.pick[1]){
+      chosenIdx = rnd(2) ? PC.pick[0] : PC.pick[1];
+      lg(T, `🗳 {0} heads toward ${bucketLabel(PC.opts[PC.pick[0]])}, {1} toward ${bucketLabel(PC.opts[PC.pick[1]])} — the vote is split, so fate decides: onward to ${bucketLabel(PC.opts[chosenIdx])}!`);
+    } else lg(T, `🗺 Both heroes head toward ${bucketLabel(PC.opts[chosenIdx])}.`);
+    const bucket=PC.opts[chosenIdx];
+    T.pathChoice=null;
+    resolvePath(T, bucket);
+  }
+}
+function resolvePath(T, bucket){
+  if(bucket==='item'){ T.pathLog.push('item'); T.phase='corefind'; T.corefind={done:T.solo?{1:1}:{}}; lg(T,'💠 Deeper in, you find an inert core stone with no power of its own…'); flash(T,'💠 An unclaimed core stone!'); }
+  else { T.pathLog.push('monster'); T.fightIdx++; setupFight(T); }
 }
 function setupFight(S){
   const f=COOP_FIGHTS[S.fightIdx]; S.fight={kind:f.kind, n:S.fightIdx+1, title:f.title};
   S.p[2]=makeEnemy();
-  if(f.kind==='minion'){ const pool=f.tier>=2?STRONG:WEAK; const keys=shuffle(pool.slice()).slice(0,f.n); keys.forEach(k=>addMinion(S,k,f.tier===3?1:0)); }
+  if(f.kind==='minion'){ const pool=f.tier>=2?STRONG:WEAK; const keys=shuffle(pool.slice()).slice(0,f.n); keys.forEach(k=>addMinion(S,k,f.tier===3?1:0)); if(f.tier===3) addCoreStoneMinion(S); }
   else if(f.kind==='elite'){ addMinion(S,ELITES[rnd(ELITES.length)],0); addMinion(S,WEAK[rnd(WEAK.length)],0); S.p[2].name='Elite'; }
   else { const E=S.p[2]; E.name=BOSS.name; E.boss=1; E.hp=E.maxhp=Math.round(BOSS.hp*(S.solo?0.6:1)); E.dice=Array.from({length:6},()=>({f:1+rnd(6),fz:0,fzE:0,fog:0})); E.deck=shuffle(BOSS_CARDS.map((c,i)=>i)); E.disc=[]; }
-  // heroes: the first fight starts fresh; after that you keep your cores, resources, shield, hand, deck and discard
-  const fresh = S.fightIdx===0;
+  // heroes: the very first encounter starts fresh; after that you keep your cores, resources, shield, hand, deck and discard
+  const fresh = !S.freshDone; S.freshDone=true;
   [0,1].forEach(i=>{
     const P=S.p[i]; if(P.absent) return;
     if(fresh){
@@ -3517,6 +3632,7 @@ function setupFight(S){
       P.dice.forEach(d=>{ d.f=1+rnd(6); d.fz=0; });
     }
     P.burn=0; P.st={used:[],fog:0,hex:0,energy:0,rime:0,tesla:0,bulwark:0,pierce:0,reflN:0}; P.fogPend=[]; P.freeCard=null; P.sealDice=null; P.sealNext=0;
+    if(P.coreCharge){ P.coreCharge.left--; if(P.coreCharge.left<=0){ P.coreBond=P.coreCharge.el; P.coreCharge=null; P.dice.push({f:1+rnd(6),fz:0,fzE:0,fog:0}); lg(S,`💠 {${i}}'s core stone is fully charged: they get their die back, and will gain 1 ${EL_NAME[P.coreBond]} every turn from now on.`); } }
     P.dice.forEach(d=>{ d.fzE=0; d.fog=0; });
     if(P.down){ P.down=0; P.hp=4; }
     if(fresh) draw(S,i,HAND0);
@@ -3565,7 +3681,7 @@ function intentText(S,c){
   if(k==='atk' && c.m.core && S.p[c.m.tgt] && S.p[c.m.tgt].cores.length) return `<span class="ilabel">💢 Smash a core</span>${coreBubble(S,c.m.tgt,dmg(n+b),el)}`;
   if(k==='atk') return `<span class="ilabel">⚔ Attack</span>${hitBubble(S,c.m.tgt,dmg(n+b),el)}`;
   if(k==='atkAll') return `<span class="ilabel">⚔ Sweep</span>${hitBubble(S,c.m.tgt,true,dmg(n+b),el)}`;
-  const fx={burn:`🔥 +${n} Burn`, freeze:`❄ Freeze ${n} die`, drain:`🌑 Drain ${n}`, fort:`🛡 Grows +${n} health`, healAll:`💚 Heals allies ${n}`, charge:`⏳ Charging`}[k]||k;
+  const fx={burn:`🔥 +${n} Burn`, freeze:`❄ Freeze ${n} die`, drain:`🌑 Drain ${n}`, fort:`🛡 Grows +${n} health`, healAll:`💚 Heals allies ${n}`, charge:`⏳ Charging`, mirror:`🪞 Mirrors your hit`, steal:`🕵 Steal a die &amp; resource`, guard:`🛡 Guards itself`}[k]||k;
   return `<span class="ilabel">${fx}</span>${hitBubble(S,c.m.tgt,dmg(side),el)}`;
 }
 function bossDiceCounts(E){ const c={claw:0,wing:0,scale:0,breath:0,eclipse:0}; E.dice.forEach(d=>{ if(!d.fzE) c[BOSS_FACES[d.f]]++; }); return c; }
@@ -3633,6 +3749,9 @@ function coopStep(S,st){
       else if(k==='fort'){ c.hp+=n; c.max+=n; lg(S,`🛡 ${name} grows +${n} health.`); }
       else if(k==='healAll'){ E.cores.forEach(x=>{ x.hp=Math.min(x.max,x.hp+n); }); lg(S,`💚 ${name} heals its allies ${n}.`); }
       else if(k==='charge') lg(S,`${name} is charging up…`);
+      else if(k==='mirror'){ const mn=Math.max(2,S.p[0].dealt||0,S.p[1].dealt||0); steps.push(enemyPacket(S,mn,c.m.el,name,tgt,false,c.m.uid)); lg(S,`🪞 ${name} mirrors your biggest hit for ${mn}!`); }
+      else if(k==='steal'){ freezeHero(S,tgt,1); loseRes(S,tgt,1); lg(S,`🕵 ${name} steals a resource and freezes a die of {${tgt}}!`); }
+      else if(k==='guard'){ c.prot=S.tn+n; lg(S,`🛡 ${name} raises its guard for ${n} turn(s).`); }
       steps.push(enemyPacket(S,SIDE_HIT+b,c.m.el,name,tgt,false,c.m.uid));
     }
     c.m.step++;
@@ -3677,13 +3796,14 @@ function coopCheck(S){
   [0,1].forEach(i=>{ const P=S.p[i]; if(P.hp<=0 && !P.down && !P.absent){ P.down=1; P.hp=0; P.burn=0; P.ready=0; P.inc='done'; S.q=S.q.filter(st=>!(st.k==='defend'&&st.actor===i) && !(st.k==='burnwin'&&st.actor===i) && !(st.k==='wellspring'&&st.actor===i)); lg(S,`💀 {${i}} is knocked out! Their partner can revive them for 6 resources.`); flash(S,'💀 A hero is knocked out!'); } });
   if(S.p[0].down && S.p[1].down){ S.status='over'; S.winner=-2; S.q=[]; lg(S, S.solo ? 'You have fallen. The run is over.' : 'Both heroes have fallen. The run is over.'); return; }
   const E=S.p[2];
-  const won = S.fight.kind==='boss' ? E.hp<=0 : !E.cores.some(c=>c.m);
+  const won = S.fight.kind==='boss' ? E.hp<=0 : !E.cores.some(c=>c.m && !c.m.optional);
   if(won) fightWon(S);
   else if(S.phase==='income') coopIncomeDone(S);
   else if(['main1','combat','main2'].includes(S.phase) && aliveHeroes(S).every(i=>S.p[i].ready)){ const hero=aliveHeroes(S)[0]; S.p[hero].ready=0; coopReady(S,hero); }
 }
 function fightWon(S){
   S.q=[]; sfx(S,'deflect');
+  { const E0=S.p[2]; if(E0.cores.some(c=>c.m && c.m.optional)){ S.coreEmpower=(S.coreEmpower||0)+1; lg(S,'💠 The core stone\'s unstable power surges into future enemies!'); flash(S,'💠 Enemies grow stronger!'); } }
   if(S.fight.kind==='boss'){ S.status='over'; S.winner=-1; S.coopWin=true; lg(S,`🏆 ${BOSS.name} is defeated! You win the run!`); flash(S,'🏆 Victory!'); return; }
   lg(S,`🏆 Fight ${S.fight.n} won!`); flash(S,'🏆 Fight won! Choose your reward.');
   [0,1].forEach(i=>{ const P=S.p[i]; if(P.down && !P.absent){ P.down=0; P.hp=4; lg(S,`{${i}} gets back up with 4 health.`); } });
@@ -3708,8 +3828,22 @@ function coopPickReward(T,seat,choice){
   if(R.done[0] && R.done[1]){
     T.reward=null;
     if(T.fight.kind==='elite'){ T.phase='deckrefresh'; T.deckRefresh={done:T.solo?{1:1}:{}}; lg(T,'Choose whether to refresh your deck before the boss.'); }
-    else { T.fightIdx++; setupFight(T); }
+    else { advancePath(T); }
   }
+}
+function coopPickCorefind(T,seat,el){
+  const CF=T.corefind, P=T.p[seat]; if(!CF||CF.done[seat]) return;
+  if(!P.absent && el){ P.coreCharge={el,left:2}; if(P.dice.length>1) P.dice.pop(); lg(T,`💠 {${seat}} sets a die of ${EL_NAME[el]} into the core stone (now rolling ${P.dice.length}).`); }
+  else if(!P.absent) lg(T,`{${seat}} leaves the core stone untouched.`);
+  CF.done[seat]=1;
+  if(CF.done[0] && CF.done[1]){ T.corefind=null; advancePath(T); }
+}
+function coopPickLeyline(T,seat,choice){
+  const LY=T.leyline, P=T.p[seat]; if(!LY||LY.done[seat]) return;
+  if(!P.absent && choice==='power'){ P.dice.push({f:1+rnd(6),fz:0,fzE:0,fog:0}); lg(T,`⛩ {${seat}} gathers power at the ley line: an extra die!`); }
+  else if(!P.absent && choice==='heal'){ P.hp=maxHp(P); lg(T,`⛩ {${seat}} is fully healed by the ley line!`); }
+  LY.done[seat]=1;
+  if(LY.done[0] && LY.done[1]){ T.leyline=null; T.leyResolved=true; advancePath(T); }
 }
 function coopPickDeckRefresh(T,seat,yes){
   const DR=T.deckRefresh, P=T.p[seat]; if(!DR || DR.done[seat]) return;
@@ -3722,6 +3856,27 @@ function coopPickDeckRefresh(T,seat,yes){
 act.unready = ()=>guard(async()=>{ const seat=ACTOR(); if(!S.coop || !S.p[seat].ready || !['main1','combat','main2'].includes(S.phase)) return; const T=clone(S); T.p[seat].ready=0; lg(T,`{${seat}} isn't ready yet.`); await commitA(T,seat,null); });
 act.pickReward = (choice)=>guard(async()=>{ const seat=ACTOR(); if(!S.reward || S.reward.done[seat]) return; const T=clone(S); coopPickReward(T,seat,choice); await commitA(T,seat,null); });
 act.pickDeckRefresh = (yes)=>guard(async()=>{ const seat=ACTOR(); if(!S.deckRefresh || S.deckRefresh.done[seat]) return; const T=clone(S); coopPickDeckRefresh(T,seat,yes); await commitA(T,seat,null); });
+act.pickCorefind = (el)=>guard(async()=>{ const seat=ACTOR(); if(!S.corefind || S.corefind.done[seat]) return; const T=clone(S); coopPickCorefind(T,seat,el); await commitA(T,seat,null); });
+act.pickLeyline = (choice)=>guard(async()=>{ const seat=ACTOR(); if(!S.leyline || S.leyline.done[seat]) return; const T=clone(S); coopPickLeyline(T,seat,choice); await commitA(T,seat,null); });
+act.pickPath = (idx)=>guard(async()=>{ const seat=ACTOR(); if(!S.pathChoice || S.pathChoice.done[seat]) return; const T=clone(S); coopPickPath(T,seat,idx); await commitA(T,seat,null); });
+act.ultimate = ()=>guard(async()=>{
+  const seat=ACTOR(); if(!S.coop || S.solo || !S.fight || S.fight.ultUsed) return;
+  if(!['main1','combat','main2'].includes(S.phase) || pendingInput(S)) return;
+  const other=1-seat, P=S.p[seat], O=S.p[other]; if(!P || !O || P.down || O.down || O.absent) return;
+  const el1=heroEl(S,seat), el2=heroEl(S,other);
+  if((P.res[el1]||0)<2 || (O.res[el2]||0)<2){ toast('Both heroes need 2 of their own resource to combine.'); return; }
+  const v0=S.ver;
+  const tgt=await coopPickTarget(seat); if(!tgt || boardChanged(v0)) return;
+  const T=clone(S);
+  T.p[seat].res[el1]-=2; T.p[other].res[el2]-=2;
+  const combo=PAIR_COMBOS[pairKey(T.heroes[seat],T.heroes[other])] || {name:'Elemental Fusion', fx:[['dmg',10],['burn',3]]};
+  lg(T,`✨ {${seat}} and {${other}} unleash ${combo.name}!`); flash(T,`✨ ${combo.name}!`); sfx(T,'instant');
+  const ctx={tgt, burnTgt: tgt.core};
+  T.q.unshift(...expand(T,seat,combo.fx,ctx,el1,combo.name));
+  T.fight.ultUsed=1;
+  advance(T);
+  await commitA(T,seat,'ultimate');
+});
 act.revive = ()=>guard(async()=>{
   const seat=ACTOR(), P=S.p[seat], other=1-seat, O=S.p[other], v0=S.ver;
   if(!O.down || P.down || !['main1','combat','main2'].includes(S.phase) || pendingInput(S)) return;
@@ -3783,6 +3938,20 @@ function coopPrompt(S,v){
     const DR=S.deckRefresh; if(DR.done[v]) return `<div class="prompt thinking"><span class="spin"></span><span>Waiting for your partner to decide…</span></div>`;
     return `<div class="rewardbox"><h3>🔄 Refresh your deck before the boss?</h3><p class="msub">Shuffle all ${P.disc.length} discarded card${P.disc.length===1?'':'s'} back into your deck.</p><div class="rewardopts"><button class="btn" data-act="deckrefresh" data-c="1">🔄 Yes, refresh (${P.disc.length})</button><button class="btn ghost" data-act="deckrefresh" data-c="0">Keep deck as is</button></div></div>`;
   }
+  if(S.phase==='corefind'){
+    const CF=S.corefind; if(CF.done[v]) return `<div class="prompt thinking"><span class="spin"></span><span>Waiting for your partner to decide…</span></div>`;
+    const els=resKeys(S,v);
+    return `<div class="rewardbox"><h3>💠 An unclaimed core stone</h3><p class="msub">Place one of your resource dice in it. After 2 more fights, it bonds to you and grants that resource every turn, forever.</p><div class="rewardopts">${els.map(el=>`<button class="btn" data-act="corefind" data-el="${el}">${pip(el)} ${esc(EL_NAME[el])}</button>`).join('')}</div><button class="btn ghost skipreward" data-act="corefind">Leave it untouched</button></div>`;
+  }
+  if(S.phase==='leyline'){
+    const LY=S.leyline; if(LY.done[v]) return `<div class="prompt thinking"><span class="spin"></span><span>Waiting for your partner to decide…</span></div>`;
+    return `<div class="rewardbox"><h3>⛩ A ley line</h3><p class="msub">Gather its power, or let it heal you fully.</p><div class="rewardopts"><button class="btn" data-act="leyline" data-c="power">🎲 Gather power: +1 die</button><button class="btn ghost" data-act="leyline" data-c="heal">💚 Heal completely</button></div></div>`;
+  }
+  if(S.phase==='pathchoice'){
+    const PC=S.pathChoice;
+    const waiting = PC.done[v] ? `<p class="msub">Waiting for your partner to choose a path…</p>` : `<p class="msub">Click a path below. If you and your partner disagree, the vote is split and fate decides. Never more than 2 item encounters in a row.</p>`;
+    return `<div class="rewardbox"><h3>🗺 The path splits three ways</h3>${waiting}${pathMapHTML(S)}</div>`;
+  }
   if(S.phase==='enemy') return `<div class="prompt thinking"><span class="spin"></span><span>The enemies are acting…</span></div>`;
   if(P.down){ return `<div class="prompt">💀 You're knocked out. Your partner can revive you with 6 resources.</div>`; }
   if(S.phase==='income'){
@@ -3792,23 +3961,88 @@ function coopPrompt(S,v){
   }
   const O=S.p[1-v];
   const revive = (O.down && !O.absent) ? ` <button class="btn ghost" data-act="revive">💚 Revive partner (6 resources)</button>` : '';
+  const ult = (!S.solo && S.fight && !S.fight.ultUsed && !P.down && !O.down && !O.absent) ? ` <button class="btn ghost" data-act="ultimate">✨ Combo ultimate (2+2)</button>` : '';
   if(P.ready) return `<div class="prompt thinking"><span class="spin"></span><span>Ready. Waiting for your partner to finish ${PHASE_NAME[S.phase]}…</span> <button class="btn ghost" data-act="unready">↩ Not ready yet</button>${canUndo()&&undoLabel()!=='ready'?` <button class="btn ghost" data-act="undo">↶ Undo: ${esc(undoLabel())}</button>`:''}</div>`;
   if(S.solo){ const hint1={main1:'Play actions, cores, and instants.', combat:'Use your hero abilities (each once per combat).', main2:'Play more cards. Then the enemies act.'}[S.phase]; const nx={main1:'To Combat!',combat:'To Main 2',main2:'End Turn'}[S.phase]; const nk={main1:'combat',combat:'main2',main2:'enemy'}[S.phase]; return `<div class="prompt you"><span>${hint1}</span> ${phaseBtn(nk,nx)}</div>`; }
   const hint={main1:'Play actions, cores, and instants.', combat:'Use your hero abilities (each once per combat).', main2:'Play more cards. Then the enemies act.'}[S.phase];
   const nxt={main1:'Ready: Combat!', combat:'Ready: Main 2', main2:'Ready: Enemy Turn'}[S.phase];
   const nk={main1:'combat',combat:'main2',main2:'enemy'}[S.phase];
-  return `<div class="prompt you"><span>${hint}${O.ready?' <b>Your partner is ready.</b>':''}</span>${revive} ${phaseBtn(nk,nxt)}</div>`;
+  return `<div class="prompt you"><span>${hint}${O.ready?' <b>Your partner is ready.</b>':''}</span>${revive}${ult} ${phaseBtn(nk,nxt)}</div>`;
+}
+function pathBarHTML(S){
+  const icons={monster:'⚔',item:'💠'}, titles={monster:'Monsters',item:'Item'};
+  const slots=[];
+  for(let i=0;i<4;i++){
+    const e=S.pathLog[i];
+    slots.push(e ? `<span class="fstep done">${icons[e]} ${titles[e]}</span>` : `<span class="fstep">? Unknown</span>`);
+  }
+  slots.push(`<span class="fstep ${S.leyResolved?'done':S.pathLog.length>=4?'now':''}">⛩ Ley line</span>`);
+  slots.push(`<span class="fstep ${S.fightIdx>3?'done':S.fightIdx===3?'now':''}">⭐ Elite</span>`);
+  slots.push(`<span class="fstep ${S.fightIdx>=4?'now':''}">👑 Boss</span>`);
+  return slots.map((s,i)=> i===0?s:'<span class="sep">›</span>'+s).join('');
+}
+function pnode(x,y,icon,label,state,attr){
+  return `<div class="pnode ${state}" style="left:${x}%;top:${y}%"${attr?` ${attr}`:''}><span class="picon">${icon}</span><span>${label}</span></div>`;
+}
+function pline(x1,y1,x2,y2,taken){ return `<line class="pline ${taken?'ptaken':''}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`; }
+function pathMapHTML(S){
+  const X=[12,26,40,54,68,82,96];
+  const Y3=[14,50,86];
+  const icons={monster:'⚔',item:'💠'}, titles={monster:'Monster',item:'Item'};
+  const doneCount=S.pathLog.length;
+  const nodes=[pnode(0,50,'🚪','Start','done')];
+  const lines=[];
+  let prev=[{x:0,y:50}];
+  for(let i=0;i<4;i++){
+    const x=X[i];
+    const resolved=i<doneCount;
+    if(resolved){
+      const taken=S.pathLog[i], state = (i===doneCount-1?'now':'done');
+      nodes.push(pnode(x,50,icons[taken],titles[taken],state));
+      prev.forEach(p=>lines.push(pline(p.x,p.y,x,50,true)));
+      prev=[{x,y:50}];
+    } else if(S.phase==='pathchoice' && i===doneCount){
+      const opts=S.pathChoice.opts;
+      opts.forEach((o,k)=>{
+        nodes.push(pnode(x,Y3[k],icons[o],titles[o],'choice',`data-act="pathvote" data-i="${k}"`));
+      });
+      prev.forEach(p=> Y3.forEach(y=>lines.push(pline(p.x,p.y,x,y,false))) );
+      prev=Y3.map(y=>({x,y}));
+    } else {
+      nodes.push(pnode(x,50,'❔','?','future'));
+      prev.forEach(p=>lines.push(pline(p.x,p.y,x,50,false)));
+      prev=[{x,y:50}];
+    }
+  }
+  {
+    const x=X[4], state = S.leyResolved?'done': doneCount>=4?'now':'future';
+    nodes.push(pnode(x,50,'⛩','Ley Line',state));
+    prev.forEach(p=>lines.push(pline(p.x,p.y,x,50,doneCount>=4)));
+    prev=[{x,y:50}];
+  }
+  {
+    const x=X[5], state = S.fightIdx>3?'done':S.fightIdx===3?'now':'future';
+    nodes.push(pnode(x,50,'⭐','Elite',state));
+    prev.forEach(p=>lines.push(pline(p.x,p.y,x,50,S.fightIdx>=3)));
+    prev=[{x,y:50}];
+  }
+  {
+    const x=X[6], state = S.fightIdx>=4?'now':'future';
+    nodes.push(pnode(x,50,'👑','Boss',state));
+    prev.forEach(p=>lines.push(pline(p.x,p.y,x,50,S.fightIdx>=4)));
+  }
+  return `<div class="pathmap"><svg class="pathsvg" viewBox="0 0 100 100" preserveAspectRatio="none">${lines.join('')}</svg><div class="pathnodes">${nodes.join('')}</div></div>`;
 }
 function coopHTML(v){
   const P=S.p[v], o=1-v, O=S.p[o];
   const handHTML = (S.mode==='local' || mySeat===v) ? P.hand.map((id,hi)=>{ const why=cardBlockReason(S,v,hi); const ok=!why&&canAct(v); return miniCard(id, `data-act="play" data-i="${hi}" data-seat="${v}"`, ok?null:why, P.freeCard===id); }).join('') : '';
   const relics = p=> (p.relics||[]).length ? `<div class="relics">${p.relics.map(r=>`<span class="relicchip" title="${esc(RELICS[r])}">💎 ${esc(r)}</span>`).join('')}</div>` : '';
-  const phaseName = S.phase==='enemy'?'Enemy turn':S.phase==='reward'?'Rewards':S.phase==='deckrefresh'?'Deck refresh':PHASE_NAME[S.phase];
+  const phaseName = S.phase==='enemy'?'Enemy turn':S.phase==='reward'?'Rewards':S.phase==='deckrefresh'?'Deck refresh':S.phase==='corefind'?'Core stone':S.phase==='leyline'?'Ley line':S.phase==='pathchoice'?'Choose a path':PHASE_NAME[S.phase];
   return `
   <div class="gtop">
     <button class="btn ghost sm" data-act="lobby">← Lobby</button>
     <span class="gcode">${S.solo?'🗡 Solo dungeon':'🤝 Co-op dungeon'} ${S.mode==='online'?'· '+esc(S.code):''}</span>
-    <span class="fightbar">${COOP_FIGHTS.map((f,i)=>`<span class="fstep ${i<S.fightIdx?'done':i===S.fightIdx?'now':''}">${i===4?'👑':i===3?'⭐':'⚔'} ${f.title}</span>`).join('<span class="sep">›</span>')}</span>
+    <span class="fightbar">${pathBarHTML(S)}</span>
     <span class="phasechip">Round ${S.round} · ${phaseName}</span>
     ${canUndo()?`<button class="btn sm undo" data-act="undo">↶ Undo: ${esc(undoLabel())}</button>`:''}
     <button class="btn ghost sm" data-act="sound">${soundOn?'🔔':'🔕'}</button>
@@ -4035,8 +4269,56 @@ function showDelve(){
 }
 
 /* ---------- version badge + history ---------- */
-const GAME_VERSION='0.2';
+const GAME_VERSION='0.34';
 const VERSION_HISTORY=[
+  {v:'0.34', date:'October 2026', notes:[
+    'Fixed: the die you place in an unclaimed core stone was never returned once it bonded to you after 2 fights, permanently leaving you with one fewer die. You now get the die back the moment the bond completes, on top of the resource it grants every turn.'
+  ]},
+  {v:'0.33', date:'October 2026', notes:[
+    'The path now branches at every single encounter, not just once — pick from 3 routes each time, then the path converges back to one before splitting three ways again.',
+    'Never more than 2 item encounters in a row: if the last two floors were both items, the next fork is always all monsters.',
+    'The map is rolled live at each fork, so floors you have not reached yet show as unknown until you get there.'
+  ]},
+  {v:'0.32', date:'October 2026', notes:[
+    'The dungeon path is now a real branching map you can see, with connecting lines, like a dungeon-crawler map screen — not just text buttons.',
+    'There is exactly one fork on the way to the elite. Picking the item route always leads into a core stone, and you are always routed through at least one more monster fight before the ley line — item encounters never happen twice in a row.',
+    'The ley line now always sits immediately before the elite fight, every run.',
+    'The top path bar reflects the new map: known monster floors are shown in advance, with only the fork floor marked "? Fork" until you choose.'
+  ]},
+  {v:'0.31', date:'October 2026', notes:[
+    'Fixed: placing a die in an unclaimed core stone now actually removes that die from your roll (it used to leave your dice count unchanged).',
+    'The dungeon path now branches: at the very start, and after every encounter, you and your partner each pick a direction. You can see whether it leads to a monster or an item encounter, but not exactly what — if you disagree, the vote is split and fate decides.',
+    'The path bar at the top now shows what you\'ve actually encountered so far, with unrevealed stops marked "? Unknown".',
+    'The elite and the boss are still guaranteed at the end of the path, however you route the 3 monster fights and 2 item encounters before them.'
+  ]},
+  {v:'0.3', date:'October 2026', notes:[
+    'The PvE dungeon is now a path with side encounters, not just 5 fixed fights.',
+    'Unclaimed core stone: place a resource die in it; after 2 more fights it bonds to you, granting that resource every turn for the rest of the run.',
+    'Ley line: gather power for an extra die, or heal completely.',
+    'Core Stone enemies can appear in the third minion pack: destroy one for a burst of resources, or let the fight end around it and it empowers enemies for the rest of the run.',
+    'New elemental combination ultimate: once per fight, spend 2 of each hero\'s own resource to unleash a combined hit with a unique name and effect for every hero pairing.',
+    'Three new enemy types: one that mirrors your biggest hit back at you, one that steals a resource and freezes a die, and one that raises its own guard to block damage for a turn.',
+    '25 new reward cards, 5 per hero, added to the PvE card-draft pool.'
+  ]},
+  {v:'0.25', date:'October 2026', notes:[
+    'Defend screen now shows your HP and shield, not just resources.',
+    'The story intro no longer auto-plays on first load — watch it any time from the Story button.',
+    'Drain (Dark Hero) now always gains you a resource in the PvE dungeon.',
+    'Water Stone now redirects damage automatically, and damage over its health bleeds through to you.',
+    'Tesla Coil can only fire once per turn.',
+    'Reflect (flat and half) now triggers before shields or core mitigation, and a reflecting shield glows purple with a log warning.',
+    'Joining an online game now asks which hero you want to play.',
+    'Burn in the PvE dungeon is now placed on and tracked per enemy, with its own badge, instead of one shared pool.',
+    'The “7” in card and stat numbers is now slanted so it doesn’t look like a “1”.',
+    'Loaded Dice is no longer in your PvE starting deck — replaced by one of the stronger dungeon-reward cards.',
+    'Defend (and other) popups can be hidden with a Hide button; tap anywhere to bring them back.',
+    'Healing cards in PvE co-op can now be cast on your ally instead of only yourself.',
+    'After beating the elite, each hero is asked whether to refresh their deck (shuffle discards back in) before the boss.',
+    'Overclock (Steel Hero) deals bonus damage if it destroys one of your own cores.',
+    'Cards you can’t play are now just grayed out with their text still visible, instead of hiding the text behind a reason.',
+    'Volcano Core’s health dropped from 6 to 3, and its Burn-halving-prevention now actually works in the PvE dungeon.',
+    'Scalded Flow (Volcanic Lord) now heals 1 for every 2 Burn on the enemy, down from 1-for-1.'
+  ]},
   {v:'0.2', date:'October 2026', notes:[
     'Online co-op: both heroes can roll and act at the same time without wiping out each other’s moves.',
     'Undo and “Not ready yet” work while you wait on your ally.',
