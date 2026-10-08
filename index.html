@@ -70,7 +70,7 @@ button:focus-visible,input:focus-visible{ outline:3px solid #ffc400; outline-off
 .lcard{ background:var(--panel); color:var(--ink); border:4px solid #1a1030; border-radius:18px; padding:12px 16px 16px; margin:16px auto; max-width:900px; box-shadow:0 6px 0 #1a1030; }
 .lcard h2{ margin:2px 0 10px; font-size:1.6rem; }
 .lcard h3{ margin:16px 0 6px; font-size:1.2rem; }
-.heroes{ display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
+.heroes{ display:grid; grid-template-columns:repeat(auto-fit,minmax(100px,1fr)); gap:10px; }
 .hpick{ border:0; border-radius:14px; padding:0; overflow:hidden; background:none; cursor:pointer; display:block; box-shadow:0 4px 0 rgba(0,0,0,.35); transition:transform .15s; }
 .hpick:hover{ transform:translateY(-3px); }
 .hcard{ display:block; width:100%; height:auto; }
@@ -78,6 +78,15 @@ button:focus-visible,input:focus-visible{ outline:3px solid #ffc400; outline-off
 .hpick svg{ display:block; width:100%; height:auto; }
 .hpick span{ font-family:var(--display); font-size:1.2rem; letter-spacing:.05em; background:var(--c1); color:#fff; text-shadow:1px 1px 0 #1a1030,-1px -1px 0 #1a1030,1px -1px 0 #1a1030,-1px 1px 0 #1a1030; padding:4px; border-top:3px solid #1a1030; }
 .hpick.on{ outline:5px solid #ffc400; outline-offset:3px; transform:translateY(-3px); }
+.hpick.soon{ cursor:default; filter:none !important; opacity:.85; user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent; outline:none; }
+.hpick.soon:hover{ transform:none; }
+.soonCard{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; aspect-ratio:3/4; background:repeating-linear-gradient(135deg,#2a2440,#2a2440 10px,#231f38 10px,#231f38 20px); border:3px dashed #6a5fa8; border-radius:14px; color:#cfc8f0; font-family:var(--display); text-align:center; padding:10px; font-size:1.6rem; }
+.soonCard b{ font-size:.95rem; letter-spacing:.04em; }
+.soonCard small{ font-size:.72rem; opacity:.8; }
+.timecard{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; aspect-ratio:3/4; border:4px solid #1a1030; border-radius:16px; color:#f1e9ff; font-family:var(--display); text-align:center; background:radial-gradient(circle at 50% 35%, #6b4bd6, #2a1a66 65%, #140b33); box-shadow:0 6px 0 #1a1030; }
+.timecard .tglass{ font-size:3.4rem; } .timecard b{ font-size:1.2rem; letter-spacing:.06em; } .timecard small{ font-size:.8rem; opacity:.8; }
+.ttimer{ font-style:normal; font-size:.72rem; font-weight:900; background:#efe4ff; color:#3b2a7a; border:2px solid #1a1030; border-radius:99px; padding:0 7px; margin-left:4px; }
+.ttimer.now{ background:#fff3c4; color:#6a4a00; }
 .lrow{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:8px 0; }
 .lrow input{ font:inherit; font-family:var(--display); letter-spacing:.2em; font-size:1.2rem; width:7.5em; min-height:44px; padding:4px 10px; border:3px solid #1a1030; border-radius:12px; text-transform:uppercase; background:#fff; color:#1a1030; }
 .or{ color:var(--muted); font-size:.9rem; }
@@ -585,6 +594,72 @@ body.turn-me::before{ background:
 .fstep.now{ background:#ffc400; opacity:1; } .fstep.done{ background:#c8f2cf; opacity:1; }
 .phasechip{ font-weight:800; font-size:.85rem; background:#1a1030; color:#fff; border-radius:99px; padding:3px 10px; }
 .rewardbox{ background:#fffbe6; border:4px solid #ffc400; border-radius:16px; padding:10px; box-shadow:0 5px 0 #1a1030; }
+.goldtag{ display:inline-flex; align-items:center; gap:3px; font-family:var(--body); font-size:.85rem; font-weight:900; background:#ffe680; color:#1a1030; border:2px solid #1a1030; border-radius:99px; padding:1px 9px; vertical-align:middle; }
+.fstep.goldstep{ background:#ffe680; opacity:1; }
+.vgold{ font-family:var(--display); font-size:1.6rem; color:#ffd84d; text-shadow:2px 2px 0 #1a1030; margin-top:4px; }
+.mapbox{ background:#f3e7c9; border-color:#8a6a3a; }
+.mapmodal h3{ margin:0 0 4px; }
+#modal .mbox:has(.mapmodal){ width:min(1100px,96vw); max-width:min(1100px,96vw); }
+.mapscroll{ overflow-x:auto; overflow-y:hidden; padding:2px; -webkit-overflow-scrolling:touch; }
+.mapwrap{ position:relative; min-width:680px; aspect-ratio:16/8.4; overflow:hidden;
+  background:
+    radial-gradient(ellipse 55% 45% at 26% 34%, rgba(255,246,220,.6), transparent 70%),
+    radial-gradient(ellipse 45% 40% at 74% 72%, rgba(120,80,30,.16), transparent 70%),
+    radial-gradient(ellipse 30% 20% at 60% 20%, rgba(90,60,25,.12), transparent 70%),
+    radial-gradient(ellipse at center, #dfc89e 0%, #cfb385 55%, #a8885b 100%);
+  box-shadow: inset 0 0 46px 12px rgba(80,50,20,.55);
+  clip-path: polygon(0% 2%, 3% 0%, 9% 1.6%, 15% 0%, 24% 1.2%, 31% 0%, 40% 2%, 48% .5%, 57% 1.6%, 66% 0%, 74% 1.8%, 83% .4%, 91% 1.6%, 97% 0%, 100% 2.2%, 99% 12%, 100% 25%, 98.8% 40%, 100% 55%, 99% 70%, 100% 84%, 98.6% 96%, 100% 100%, 92% 98.6%, 84% 100%, 75% 98.4%, 66% 100%, 57% 98.6%, 47% 100%, 38% 98.2%, 29% 100%, 20% 98.6%, 11% 100%, 4% 98.4%, 0% 100%, 1% 88%, 0% 74%, 1.4% 60%, 0% 46%, 1.2% 32%, 0% 18%); }
+.mrune{ position:absolute; font-size:.8rem; letter-spacing:.3em; color:rgba(70,45,20,.45); font-weight:700; pointer-events:none; white-space:nowrap; }
+.mrune.tl{ left:4%; top:3.5%; } .mrune.tr{ right:4%; top:3.5%; } .mrune.br{ right:4%; bottom:3.5%; }
+.medges{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.medge{ fill:none; stroke:#3b2a1a; stroke-width:3.5px; vector-effect:non-scaling-stroke; stroke-linecap:round; opacity:.8; }
+.medge.past{ opacity:.3; }
+.medge.dim{ opacity:.28; stroke-dasharray:4 7; }
+.medge.taken{ stroke:#ffcf4a; stroke-width:5px; opacity:1; filter:drop-shadow(0 0 3px rgba(255,190,40,.95)); }
+.medge.avail{ stroke:#fff6d0; stroke-width:4.5px; opacity:1; stroke-dasharray:9 7; animation:medgeflow 1s linear infinite; filter:drop-shadow(0 0 3px rgba(255,240,180,.95)); }
+@keyframes medgeflow{ to{ stroke-dashoffset:-16; } }
+.mnodes{ position:absolute; inset:0; }
+.mnode{ position:absolute; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; z-index:2; }
+.mbadge{ position:relative; display:grid; place-items:center; width:48px; height:48px; border-radius:50%; overflow:hidden; border:3px solid #1a0f08; background:#3a0d0d; box-shadow:0 3px 0 rgba(26,15,8,.55); transition:transform .15s; }
+.mbadge img{ width:100%; height:100%; object-fit:cover; display:block; }
+.mbadge svg{ width:76%; height:76%; }
+.mdemon .horn{ fill:#1d0606; } .mdemon .head{ fill:#140404; } .mdemon .eye{ fill:#ff6a2a; }
+.t-monster .mbadge{ border-color:#a8231a; background:radial-gradient(circle at 40% 35%, #b02a1f, #5a0e0a 70%); box-shadow:0 3px 0 rgba(26,15,8,.55), 0 0 10px 2px rgba(220,60,40,.6); }
+.t-elite .mbadge{ width:58px; height:62px; border:0; border-radius:0; padding:5px; background:linear-gradient(#ffc061,#d9560f); clip-path:polygon(50% 100%, 6% 74%, 0 14%, 18% 0, 50% 10%, 82% 0, 100% 14%, 94% 74%); box-shadow:none; }
+.t-elite .mbadge img, .t-elite .mbadge svg{ width:100%; height:100%; clip-path:polygon(50% 100%, 6% 74%, 0 14%, 18% 0, 50% 10%, 82% 0, 100% 14%, 94% 74%); background:#5a0e0a; }
+.mnode.t-elite{ filter:drop-shadow(0 0 7px rgba(255,140,40,.9)) drop-shadow(0 3px 0 rgba(26,15,8,.6)); }
+.t-event .mbadge{ border-color:#1a1636; background:radial-gradient(circle at 40% 35%, #3a3a64, #121228 72%); }
+.mq{ font-family:var(--display); font-size:1.75rem; color:#fff; line-height:1; text-shadow:0 0 6px rgba(255,255,255,.55), 2px 2px 0 #000; }
+.t-crystal .mbadge{ border-color:#0b2346; background:radial-gradient(circle at 40% 35%, #23406e, #0b1830 72%); box-shadow:0 3px 0 rgba(26,15,8,.55), 0 0 12px 3px rgba(90,170,255,.6); }
+.mnode.t-boss{ z-index:3; }
+.t-boss .mbadge{ width:96px; height:96px; border:4px solid #1a0f08; box-shadow:0 0 0 4px #ff8a1f, 0 0 26px 10px rgba(255,120,30,.75), 0 0 46px 16px rgba(80,160,255,.45); animation:mbossglow 2.4s ease-in-out infinite; }
+@keyframes mbossglow{ 50%{ box-shadow:0 0 0 4px #ffb347, 0 0 34px 14px rgba(255,140,40,.85), 0 0 56px 20px rgba(80,160,255,.55); } }
+.t-start .mbadge{ width:34px; height:34px; background:radial-gradient(circle, #fff7cc, #e7b84a 60%, #8a6420); box-shadow:0 0 16px 6px rgba(255,220,120,.9); }
+.mlabel{ margin-top:5px; font-family:var(--display); font-size:.85rem; letter-spacing:.06em; color:#fff; text-align:center; line-height:1.05; white-space:nowrap; text-shadow:2px 2px 0 #2a1608,-1px -1px 0 #2a1608,1px -1px 0 #2a1608,-1px 1px 0 #2a1608; }
+.mnode.past{ opacity:.42; filter:grayscale(.7); }
+.mnode.done .mbadge{ filter:grayscale(.3) brightness(.85); box-shadow:0 0 0 3px #ffcf4a, 0 3px 0 rgba(26,15,8,.55); }
+.mnode.cur .mbadge{ box-shadow:0 0 0 4px #ffcf4a, 0 0 18px 6px rgba(255,210,80,.95); }
+.mnode.dim{ opacity:.5; filter:grayscale(.55); }
+.mnode.choice{ cursor:pointer; }
+.mnode.choice .mbadge{ animation:mchoice 1.3s ease-in-out infinite; }
+.mnode.choice.t-elite .mbadge{ animation:none; }
+.mnode.choice.t-elite{ animation:mchoiceE 1.3s ease-in-out infinite; }
+.mnode.choice:hover .mbadge, .mnode.choice:focus-visible .mbadge{ transform:scale(1.15); }
+@keyframes mchoice{ 0%,100%{ box-shadow:0 0 0 3px #fff6d0, 0 0 8px 2px rgba(255,240,180,.6); } 50%{ box-shadow:0 0 0 4px #fff6d0, 0 0 24px 9px rgba(255,240,180,1); } }
+@keyframes mchoiceE{ 0%,100%{ filter:drop-shadow(0 0 4px rgba(255,246,208,.8)) drop-shadow(0 3px 0 rgba(26,15,8,.6)); } 50%{ filter:drop-shadow(0 0 14px rgba(255,246,208,1)) drop-shadow(0 3px 0 rgba(26,15,8,.6)); } }
+.mvote{ position:absolute; top:-8px; right:-14px; z-index:4; font-size:.65rem; font-weight:900; background:#ffc400; color:#1a1030; border:2px solid #1a1030; border-radius:99px; padding:0 5px; }
+.mfog{ position:absolute; top:0; bottom:0; right:0; z-index:1; pointer-events:none;
+  background:
+    radial-gradient(ellipse 30% 24% at 22% 30%, rgba(255,250,235,.5), transparent 70%),
+    radial-gradient(ellipse 26% 22% at 52% 76%, rgba(255,250,235,.45), transparent 70%),
+    radial-gradient(ellipse 30% 26% at 78% 24%, rgba(255,250,235,.4), transparent 70%),
+    linear-gradient(90deg, rgba(196,172,128,0) 0%, rgba(190,166,122,.94) 9%, rgba(172,148,106,.97) 100%); }
+.mlegend{ display:flex; flex-wrap:wrap; justify-content:center; gap:6px 16px; margin-top:8px; font-size:.75rem; font-weight:800; }
+.mlegend span{ display:inline-flex; align-items:center; gap:6px; }
+.mlegend .lg{ display:grid; place-items:center; width:22px; height:22px; border-radius:50%; border:2px solid #1a0f08; overflow:hidden; }
+.mlegend .lg svg{ width:82%; height:82%; } .mlegend .lg img{ width:100%; height:100%; object-fit:cover; } .mlegend .lg .mq{ font-size:.9rem; }
+.mlegend .lg.t-monster{ background:#8a1a14; } .mlegend .lg.t-elite{ background:linear-gradient(#ffc061,#d9560f); border-radius:4px 4px 50% 50%; } .mlegend .lg.t-event{ background:#1c1c3a; } .mlegend .lg.t-crystal{ background:#12284a; } .mlegend .lg.t-boss{ box-shadow:0 0 0 2px #ff8a1f; }
+@media (prefers-reduced-motion: reduce){ .medge.avail,.mnode.choice .mbadge,.mnode.choice.t-elite,.t-boss .mbadge{ animation:none; } }
 .pathmap{ position:relative; width:100%; max-width:720px; margin:10px auto; aspect-ratio:8/5; }
 .pathsvg{ position:absolute; inset:0; width:100%; height:100%; }
 .pathsvg .pline{ stroke:#c9bfa8; stroke-width:1.2; }
@@ -607,7 +682,7 @@ body.turn-me::before{ background:
 .relicgem{ font-size:2rem; }
 .relicopt small{ font-size:.8rem; }
 .prompt.over{ font-size:1.2rem; font-weight:800; }
-@media (max-width:760px){ .allies{ grid-template-columns:minmax(0,1fr); } .ally.partner{ order:2; } .minion{ width:46%; } .minion.elite{ width:94%; } .fightbar{ display:none; } }
+@media (max-width:760px){ .allies{ grid-template-columns:minmax(0,1fr); } .ally.partner{ order:2; } .minion{ width:46%; } .minion.elite{ width:94%; } .fightbar{ font-size:.7rem; } }
 .minion.lunge,.bossbanner.lunge{ animation:lunge .55s ease; z-index:3; position:relative; }
 @keyframes lunge{ 0%{ transform:none; } 35%{ transform:translateY(22px) scale(1.07); filter:brightness(1.25); } 100%{ transform:none; } }
 .strike{ position:fixed; z-index:72; width:52px; height:52px; display:grid; place-items:center; font-size:1.8rem; pointer-events:none;
@@ -848,7 +923,18 @@ body.aiming{ touch-action:none; }
 .mthought{ position:relative; width:100%; background:#fffaf0; color:#1a1030; border:3px solid #1a1030; border-radius:16px; padding:5px 8px 7px; box-shadow:0 4px 0 #1a1030; margin-bottom:12px; z-index:2; }
 .mthought::after{ content:''; position:absolute; left:50%; bottom:-13px; width:18px; height:18px; background:#fffaf0; border-right:3px solid #1a1030; border-bottom:3px solid #1a1030; transform:translateX(-50%) rotate(45deg); }
 .mnext{ display:block; font-size:.62rem; font-weight:900; letter-spacing:.12em; text-transform:uppercase; color:#7a6aa0; margin-bottom:2px; }
-.mthought .intent{ background:none; border:0; padding:0; }
+.mthought .intent{ background:none; border:0; padding:0; flex-direction:column; align-items:stretch; gap:4px; }
+.irow{ display:inline-flex; align-items:center; flex-wrap:wrap; gap:3px 5px; background:#fff; color:#1a1030; border:2px solid #1a1030; border-left-width:6px; border-radius:10px; padding:3px 8px 3px 6px; line-height:1.1; box-shadow:0 2px 0 rgba(26,16,48,.2); }
+.irow.dmg{ border-left-color:#1a1030; } .irow.heal{ border-left-color:#2fae4e; } .irow.buff{ border-left-color:#3d7bff; } .irow.debuff{ border-left-color:#8a4fff; } .irow.card{ border-left-color:#c9a2ff; }
+.iico{ font-size:.95rem; line-height:1; }
+.iname{ font-weight:800; font-size:.76rem; }
+.inum{ font-family:var(--display); font-size:1.15rem; line-height:1; white-space:nowrap; }
+.irow .pip{ width:18px; height:18px; flex:none; }
+.iwho{ margin-left:auto; font-weight:900; font-size:.64rem; letter-spacing:.05em; white-space:nowrap; border-radius:99px; padding:1px 6px; background:#efedf6; color:#1a1030; border:1.5px solid #1a1030; }
+.iwho.me{ background:#ffe680; } .iwho.ally{ background:#d6ecff; } .iwho.self{ background:#ececec; }
+.inext{ font-size:.68rem; font-weight:800; color:#5a4a80; }
+.bplist .irow{ border-width:2px; border-left-width:6px; }
+.tint .irow{ font-size:.9em; }
 .mbody{ position:relative; width:100%; height:150px; display:grid; place-items:center; animation:mbob 3.2s var(--bob,0s) ease-in-out infinite; }
 .minion.elite .mbody{ height:180px; }
 @keyframes mbob{ 50%{ transform:translateY(-6px); } }
@@ -905,6 +991,15 @@ body.aiming{ touch-action:none; }
 /* reflect warning glow */
 .shbar.reflecting{ animation:reflglow 1.1s ease-in-out infinite; }
 .shbar.reflecting .shfill{ background:linear-gradient(90deg,#b35cff,#7a1fd1); }
+.shadowbar{ position:relative; height:22px; border:3px solid #1a1030; border-radius:99px; background:#171025; overflow:visible; margin:2px 0 4px; }
+.shadowbar.empty{ opacity:.6; }
+.shadowfill{ position:absolute; inset:0 auto 0 0; border-radius:99px; background:linear-gradient(90deg,#4a1f8a,#8a4fff); transition:width .6s cubic-bezier(.3,.7,.3,1); }
+.shadowtxt{ position:absolute; left:8px; top:50%; transform:translateY(-50%); line-height:1; font-size:.8rem; font-weight:700; color:#fff; white-space:nowrap; }
+.shadowbar.ready{ border-color:#8a4fff; animation:shpulse 1.4s ease-in-out infinite; }
+.shadowbar.over .shadowfill{ background:linear-gradient(90deg,#8a4fff,#d6b3ff); }
+@keyframes shpulse{ 0%,100%{ box-shadow:0 3px 0 #1a1030; } 50%{ box-shadow:0 3px 0 #1a1030, 0 0 10px 3px rgba(138,79,255,.8); } }
+@media (prefers-reduced-motion: reduce){ .shadowfill{ transition:none; } .shadowbar.ready{ animation:none; box-shadow:0 0 8px 2px rgba(138,79,255,.7); } }
+.shreq{ display:inline-flex; align-items:center; font-size:.78rem; font-weight:800; color:#fff; background:#4a1f8a; border:2px solid #1a1030; border-radius:8px; padding:1px 5px; margin-right:2px; }
 @keyframes reflglow{ 0%,100%{ box-shadow:0 0 0 0 rgba(138,79,255,.0); } 50%{ box-shadow:0 0 10px 3px rgba(138,79,255,.75); } }
 @media (prefers-reduced-motion: reduce){ .shbar.reflecting{ animation:none; box-shadow:0 0 8px 2px rgba(138,79,255,.6); } }
 .mburn{ font-size:.72rem; padding:2px 7px; margin:2px 0; }
@@ -1031,11 +1126,12 @@ const ICONS = {
   cloud: '<path class="el" d="M24 78 C6 78 4 52 26 50 C26 28 58 22 68 42 C90 36 98 68 80 78 Z"/>',
   lava: '<path class="el lvm" d="M6 94 L34 44 H66 L94 94 Z"/><path class="el lvp" d="M34 44 C30 30 40 18 50 24 C56 8 74 14 68 30 C76 32 74 44 66 44 Z"/><path class="lvc" d="M50 44 L44 62 L52 60 L46 82"/>',
   steel: '<path class="el" fill-rule="evenodd" d="M86.5 43.7 L95.7 45.0 L95.7 55.0 L86.5 56.3 L84.2 64.2 L80.2 71.4 L85.9 78.8 L78.8 85.9 L71.4 80.2 L64.2 84.2 L56.3 86.5 L55.0 95.7 L45.0 95.7 L43.7 86.5 L35.8 84.2 L28.6 80.2 L21.2 85.9 L14.1 78.8 L19.8 71.4 L15.8 64.2 L13.5 56.3 L4.3 55.0 L4.3 45.0 L13.5 43.7 L15.8 35.8 L19.8 28.6 L14.1 21.2 L21.2 14.1 L28.6 19.8 L35.8 15.8 L43.7 13.5 L45.0 4.3 L55.0 4.3 L56.3 13.5 L64.2 15.8 L71.4 19.8 L78.8 14.1 L85.9 21.2 L80.2 28.6 L84.2 35.8 Z M64 50 A14 14 0 1 0 36 50 A14 14 0 1 0 64 50 Z"/>',
-  arrowR:'<path class="bold" d="M6 50 H88 M60 24 L90 50 L60 76"/>'
+  arrowR:'<path class="bold" d="M6 50 H88 M60 24 L90 50 L60 76"/>',
+  hourglass:'<path class="el" d="M24 8 H76 V18 C76 34 60 42 57 50 C60 58 76 66 76 82 V92 H24 V82 C24 66 40 58 43 50 C40 42 24 34 24 18 Z"/><path class="solid" d="M36 84 C40 72 60 72 64 84 Z"/>'
 };
-const EL = { F:'fire', W:'water', E:'earth', L:'bolt', I:'snow', D:'dark', S:'steel', V:'lava', A:'star' };
-const EL_NAME = { F:'Fire', W:'Water', E:'Nature', L:'Lightning', I:'Ice', D:'Darkness', S:'Steel', V:'Lava', A:'Any element' };
-const COL = { F:'#ff6a3d', W:'#3da5ff', E:'#47c25a', L:'#ffd42a', I:'#7ee4ff', D:'#8a4fff', S:'#9aa7b8', V:'#1d1416', A:'#ffe066' };
+const EL = { F:'fire', W:'water', E:'earth', L:'bolt', I:'snow', D:'dark', S:'steel', V:'lava', A:'star', T:'hourglass' };
+const EL_NAME = { F:'Fire', W:'Water', E:'Nature', L:'Lightning', I:'Ice', D:'Darkness', S:'Steel', V:'Lava', A:'Any element', T:'Time' };
+const COL = { F:'#ff6a3d', W:'#3da5ff', E:'#47c25a', L:'#ffd42a', I:'#7ee4ff', D:'#8a4fff', S:'#9aa7b8', V:'#1d1416', A:'#ffe066', T:'#c9a2ff' };
 
 function pip(sym){
   if(sym==='free') return `<svg class="pip" viewBox="0 0 100 100" aria-label="Free"><circle class="ring" cx="50" cy="50" r="44"/><path d="M24 76 L76 24" stroke="#1a1030" stroke-width="9" stroke-linecap="round" fill="none"/></svg>`;
@@ -1281,13 +1377,13 @@ const ABIL = {
   ],
   dark:[
     {n:'Gloom Ward',   cost:['E','E'],             el:'E', fx:[['shield',2],['gainChoice',1]], t:'Gain 2 shield and 1 resource of your choice.'},
-    {n:'Cinder Curse', cost:['F','F'],             el:'F', fx:[['dmg',3],['lose',1]], t:'Deal 3 damage. The enemy loses 1 resource of their choice.'},
+    {n:'Cinder Curse', cost:['F','F'],             el:'F', fx:[['dmg',3],['lose',1]], t:'Deal 3 damage. Drain 1 resource of the enemy’s choice.'},
     {n:'Life Leech',   cost:['W','W'],             el:'W', fx:[['dmg',2],['heal',1]], t:'Deal 2 damage. Heal 1.'},
-    {n:'Wither',       cost:['D'],                 el:'D', fx:[['dmg',1],['drain',1,0]], t:'Deal 1 damage. The enemy loses 1 resource (you choose which).'},
+    {n:'Wither',       cost:['D'],                 el:'D', fx:[['dmg',1],['drain',1,0]], t:'Deal 1 damage. Drain 1 resource (you choose which).'},
     {n:'Soul Leech',   cost:['D','W','W'],         el:'W', fx:[['drain',2,1]], t:'Drain 2 resources from the enemy and gain 1 of them.'},
     {n:'Roll Seal',    cost:['D','E','E'],         el:'D', fx:[['sealNext']], t:'Seal the enemy’s next roll: after they roll, you choose 2 of their dice to reroll, and you gain a copy of what those 2 dice give.'},
     {n:'Shadow Bolt',  cost:['D','F','F'],         el:'D', fx:[['dmg',4],['drain',1,0]], t:'Deal 4 damage. Drain 1 resource.'},
-    {n:'Eclipse',      cost:['D','D','D','D','E'], el:'D', sig:1, fx:[['eclipse']], t:'Steal a random card from the enemy’s hand and play it for free.'}
+    {n:'Eclipse',      cost:['D','D','D','D','E','F','W'], el:'D', sig:1, shadowReq:4, fx:[['shadowblast']], t:'Also requires 4 Shadow banked. Deal damage equal to your entire Shadow bar (no limit), then empty it.'}
   ],
   steel:[
     {n:'Iron Wall',        cost:['E','E'],         el:'E', fx:[['shield',2],['healCore',1]], t:'Gain 2 shield. Heal 1 to one of your cores.'},
@@ -1296,7 +1392,7 @@ const ABIL = {
     {n:'Rivet Shot',       cost:['S'],             el:'S', fx:[['dmg',2],['healCore',1]], t:'Deal 2 damage. Heal 1 to one of your cores.'},
     {n:'Overclock',        cost:['S','S','F'],     el:'S', needCore:1, fx:[['selfCoreDmg',2],['dmg',5]], t:'Deal 2 damage to one of your cores, then deal 5 damage.'},
     {n:'Bulwark Protocol', cost:['S','E','E'],     el:'E', fx:[['shield',2],['healCores',2]], t:'Gain 2 shield. Heal 2 to each of your cores.'},
-    {n:'Decoy Forge',      cost:['S','W'],         el:'S', fx:[['falseCore']], t:'Create a False Core: a decoy core stone with 2 health and no effect.'},
+    {n:'Core Implode',     cost:['S','W'],         el:'S', needCore:1, fx:[['implodeCore']], t:'Destroy one of your cores. Deal damage equal to that core’s remaining health.'},
     {n:'Iron Tempest',     cost:['S','S','S','S'], el:'S', sig:1, needCore:1, fx:[['tempest']], t:'Deal 2 damage for each core stone you have.'}
   ],
   volcanic:[
@@ -1316,7 +1412,7 @@ const CARDLIST = [];
 const pushGroup = g => (CARDS[g]||[]).forEach(c=>CARDLIST.push({name:c[0],type:c[1],cost:c[2],hp:c[3],text:c[4],art:c[5],grp: g==='coop' ? 'cx_'+c[6] : (c[6]||g), th:c[6]||g}));
 // Card ids are saved in games, so the order here must never change: new groups only go at the end.
 ['gen','ele','ice','drk','add','stl','vol','w2'].forEach(pushGroup);
-CARDLIST.push({name:'False Core', type:'Passive', cost:'free', hp:2, text:'A decoy core stone. No effect.', art:[['core',100,56,92]], grp:'token', token:true});
+CARDLIST.push({name:'False Core', type:'Passive', cost:'free', hp:3, text:'A decoy core stone. No effect.', art:[['core',100,56,92]], grp:'token', token:true});
 pushGroup('coop');
 const CI = Object.fromEntries(CARDLIST.map((c,i)=>[c.name,i]));
 const CFX = {
@@ -1417,7 +1513,7 @@ function makePlayer(hero){
   const grp=HEROES[hero].grp;
   const deck=shuffle(CARDLIST.map((c,i)=>i).filter(i=>!CARDLIST[i].token && (CARDLIST[i].grp==='gen'||CARDLIST[i].grp===grp)));
   const res={F:1,W:1,E:1}; res[HEROES[hero].el]=1;
-  return {hp:START_HP, shield:0, res, dice:Array.from({length:6},()=>({f:1+rnd(6),fz:0,fzE:0,fog:0})),
+  return {hp:START_HP, shield:0, shadow:0, res, dice:Array.from({length:6},()=>({f:1+rnd(6),fz:0,fzE:0,fog:0})),
     hand:deck.splice(0,HAND0), deck, disc:[], cores:[], fogPend:[], assign:{},
     st:{reflN:0, reflHalf:0, bulwark:0, energy:0, rime:0, tesla:0, fog:0, hex:0, used:[]}};
 }
@@ -1509,6 +1605,7 @@ function drainFrom(S,seat,els,keep){
       lg(S,`{${seat}} drains ${got.map(k=>EL_NAME[k]).join(', ')} from {${FOE(S,seat)}}.`);
       for(let i=0;i<Math.min(keep||0,got.length);i++){ if(P.res[got[i]]!==undefined) addRes(P,got[i],1); else addRes(P,Object.keys(P.res).sort((a,b)=>P.res[a]-P.res[b])[0],1); }
     }
+    if(S.heroes[seat]==='dark'){ P.shadow=(P.shadow||0)+got.length; lg(S,`🌑 {${seat}}'s Shadow grows to ${P.shadow}.`); }
     if(hasCore(P,'Leech Core') && P.hp<maxHp(P)){ P.hp=Math.min(maxHp(P),P.hp+1); lg(S,`Leech Core heals {${seat}} 1.`); }
     if(hasCore(P,'Umbral Core')){ P.shield+=2*got.length; lg(S,`Umbral Core grants ${2*got.length} shield.`); }
     if(hasCore(P,'Void Maw Core')){ lg(S,`Void Maw Core bites for ${got.length}.`); heroDamage(S,FOE(S,seat),got.length,seat,'Void Maw Core','D'); }
@@ -1620,6 +1717,14 @@ function runOp(S,st){
       break;
     }
     case 'selfCoreDmg': { if(ctx.ownCore!=null && P.cores[ctx.ownCore]){ const before=P.cores.length; damageCore(S,seat,ctx.ownCore,op[1],st.src,seat); if(P.cores.length<before) ctx.coreDestroyed=true; } break; }
+    case 'implodeCore': {
+      if(ctx.ownCore!=null && P.cores[ctx.ownCore]){
+        const core=P.cores[ctx.ownCore], n=core.hp, nm=CARDLIST[core.id].name;
+        destroyCore(S,seat,ctx.ownCore,seat);
+        if(n>0){ lg(S,`💥 {${seat}} implodes ${nm} for ${n} damage!`); S.q.unshift({k:'packet', from:seat, unb:0, blk:n, el:'S', src:st.src, tgt:ctx.tgt||null, fire:ctx.fire}); }
+      }
+      break;
+    }
     case 'selfHitIdx': if(ctx.forge!=null && P.cores[ctx.forge]) damageCore(S,seat,ctx.forge,op[1],st.src,seat); break;
     case 'healCore': { const c=P.cores[ctx.healCore!=null?ctx.healCore:-1]; if(c){ const h=healCore(S,seat,c,op[1]); lg(S,`{${seat}} repairs ${CARDLIST[c.id].name} (+${h}).`); if(h>0) coresHealed(S,seat); } break; }
     case 'healCores': { let tot=0; P.cores.forEach(c=>tot+=healCore(S,seat,c,op[1])); if(P.cores.length) lg(S,`{${seat}} repairs their cores (+${tot}).`); if(tot>0) coresHealed(S,seat); break; }
@@ -1627,6 +1732,12 @@ function runOp(S,st){
     case 'tempest': { const n=P.cores.length; if(n) S.q.unshift({k:'packet', from:seat, unb:0, blk:2*n, el:'S', src:st.src, tgt:ctx.tgt||null, fire:ctx.fire, piston:1}); break; }
     case 'reforge': { if(ctx.discCore!=null && P.cores.length<maxCores(S,seat)){ const di=P.disc.indexOf(ctx.discCore); if(di>=0){ P.disc.splice(di,1); const mx=CARDLIST[ctx.discCore].hp; P.cores.push({id:ctx.discCore,hp:op[1]==='full'?mx:2,prot:0,max:mx}); lg(S,`{${seat}} reforges ${CARDLIST[ctx.discCore].name}.`); } } break; }
     case 'sealNext': E.sealNext=seat+1; lg(S,`🌑 {${seat}} seals {${FOE(S,seat)}}'s next roll.`); flash(S,'🌑 Roll Seal: their next roll is yours to twist'); break;
+    case 'shadowblast': {
+      const n=P.shadow||0; P.shadow=0;
+      if(n>0){ lg(S,`🌑 {${seat}} unleashes Eclipse: ${n} shadow damage!`); S.q.unshift({k:'packet', from:seat, unb:0, blk:n, el:'D', src:st.src, tgt:ctx.tgt||null, fire:ctx.fire}); }
+      flash(S,'🌑 Eclipse empties the Shadow bar!');
+      break;
+    }
     case 'eclipse': {
       if(!E.hand.length){ lg(S,`{${FOE(S,seat)}} has no cards to steal.`); break; }
       const id=E.hand.splice(rnd(E.hand.length),1)[0]; P.hand.push(id); P.freeCard=id;
@@ -1647,7 +1758,7 @@ function runOp(S,st){
     case 'drawIfBurn': { const total=(S.coop && FOE(S,seat)===2)?enemyBurnTotal(S):(E.burn||0); if(total>0){ const g=draw(S,seat,1); lg(S,`{${seat}} draws ${g.length}.`); } break; }
     case 'ashCloud': E.st.noCool=S.tn+1; lg(S,`🌫 Ash Cloud: {${FOE(S,seat)}} can't cool their Burn with water until their next turn ends.`); flash(S,`🌫 Water can’t cool Burn for now!`); break;
     case 'burnTickNow': burnTick(S,FOE(S,seat),false); break;
-    case 'falseCore': { if(P.cores.length<maxCores(S,seat)){ const id=CI['False Core']; P.cores.push({id,hp:2,prot:0,max:2}); lg(S,`{${seat}} forges a False Core.`); } else lg(S,`{${seat}} has no room for another core.`); break; }
+    case 'falseCore': { if(P.cores.length<maxCores(S,seat)){ const id=CI['False Core']; P.cores.push({id,hp:3,prot:0,max:3}); lg(S,`{${seat}} forges a False Core.`); } else lg(S,`{${seat}} has no room for another core.`); break; }
     case 'healBurn': { const total=(S.coop && FOE(S,seat)===2)?enemyBurnTotal(S):(E.burn||0); const div=op[1]||1; const n=Math.floor(total/div); if(n>0){ P.hp=Math.min(maxHp(P),P.hp+n); lg(S,`♨ {${seat}} heals ${n} from the enemy's Burn.`); } else lg(S,`{${FOE(S,seat)}} isn't burning, so nothing to heal.`); break; }
     case 'burnAmp': { const cur=(S.coop && FOE(S,seat)===2)?enemyBurnAt(S,ctx.burnTgt):(E.burn||0); const amt=op[1]+Math.floor(cur/op[2]); if(S.coop && FOE(S,seat)===2) addBurn(S,2,amt,seat,ctx.burnTgt); else addBurn(S,FOE(S,seat),amt,seat); break; }
     case 'burnHalf': { const cur=(S.coop && FOE(S,seat)===2)?enemyBurnAt(S,ctx.burnTgt):(E.burn||0); let n=op[1]==='ceil'?Math.ceil(cur/2):Math.floor(cur/2); n=Math.max(op[2],Math.min(op[3],n)); if(S.coop && FOE(S,seat)===2) addBurn(S,2,n,seat,ctx.burnTgt); else addBurn(S,FOE(S,seat),n,seat); break; }
@@ -1738,7 +1849,7 @@ function nextPhase(S){
 function endTurn(S){
   const seat=S.turn, P=S.p[seat];
   if(hasCore(P,'Spring Core') && P.hp<maxHp(P)){ P.hp=Math.min(maxHp(P),P.hp+1); lg(S,`Spring Core heals {${seat}} 1.`); }
-  P.fogPend=[]; P.st.energy=0; P.st.rime=0; P.st.tesla=0; P.st.used=[]; P.freeCard=null;
+  P.fogPend=[]; P.st.energy=0; P.st.rime=0; P.st.tesla=0; P.st.forged=0; P.st.used=[]; P.freeCard=null;
   S.turn=1-seat; S.tn++;
   S.p.forEach(x=>x.st.pierce=0);
   if(S.turn===S.first){ S.round++; S.p.forEach(x=>x.st.bulwark=0); }
@@ -1773,6 +1884,8 @@ function resolveBurnWindow(T,seat,n){
   burnTick(T,seat,true); advance(T);
 }
 function canCool(S,seat){ const P=S.p[seat]; return S.status==='playing' && TURN(S,seat) && !pendingInput(S) && (P.burn||0)>0 && (P.res.W||0)>=1 && !(P.st.noCool && P.st.noCool>=S.tn); }
+function canForge(S,seat){ const P=S.p[seat]; return S.heroes[seat]==='steel' && S.status==='playing' && TURN(S,seat) && !pendingInput(S) && S.phase==='income' && !P.st.forged && (P.res.S||0)>=1; }
+function forgeBtnHTML(S,seat){ return canForge(S,seat) ? ` <button type="button" class="btn ghost" data-act="forge">🔩 Forge a False Core (1 ${pip('S')})</button>` : ''; }
 function cardBlockReason(S,seat,hi){
   const P=S.p[seat], c=CARDLIST[P.hand[hi]], n=c.name, mine=TURN(S,seat), free=P.freeCard===P.hand[hi] && mine;
   if(S.coop && (P.down || S.phase==='reward' || S.phase==='enemy' || S.phase==='deckrefresh')) return P.down?'Knocked out':'Not now';
@@ -1787,7 +1900,6 @@ function cardBlockReason(S,seat,hi){
     else if(S.phase==='income' && c.type!=='Instant') return 'Collect your dice first';
     if(c.type!=='Instant' && !DICE_CARDS.has(n) && !['main1','main2'].includes(S.phase) && !(free && S.phase==='combat')) return 'Play in a main phase';
   }
-  if(isCoreCard(c) && P.cores.length>=maxCores(S,seat)) return `You already have ${maxCores(S,seat)} cores`;
   if(free){}
   else if(n==='Fast Shot'){ if((P.res.L||0)<1) return 'Need Lightning'; }
   else if(!canPay(P,c.cost)) return 'Not enough resources';
@@ -1805,6 +1917,7 @@ function abilBlockReason(S,seat,ai){
   if(S.phase!=='combat') return 'Combat phase';
   if((P.st.used||[]).includes(ai)) return 'Already used this combat';
   if(!canPay(P,a.cost)) return 'Not enough';
+  if(a.shadowReq && (P.shadow||0)<a.shadowReq) return `Need ${a.shadowReq} Shadow (have ${P.shadow||0})`;
   if(a.needCore && !P.cores.length) return 'You need a core';
   return null;
 }
@@ -1823,7 +1936,7 @@ const $ = sel => document.querySelector(sel);
 const app = () => $('#app');
 function slant7Pass(root){
   if(!root) return;
-  const sel='.hptxt,.chp,.mhp .hptxt,.shtxt,.rtotal,.dmgsplat,.hitbubble,.vbadge,.bdie,.mcost,.rchip b,.cells b,.projchip b,.mburn,.deadtxt,.bphead,.mres b,.hpchip b';
+  const sel='.hptxt,.chp,.mhp .hptxt,.shtxt,.rtotal,.dmgsplat,.hitbubble,.inum,.vbadge,.bdie,.mcost,.rchip b,.cells b,.projchip b,.mburn,.deadtxt,.bphead,.mres b,.hpchip b';
   root.querySelectorAll(sel).forEach(el=>{
     Array.from(el.childNodes).forEach(n=>{
       if(n.nodeType===3 && n.textContent.indexOf('7')>=0){
@@ -2001,7 +2114,7 @@ async function pickRes(title, seatOf, n, {sub=''}={}){
 async function gather(seat, fx, {needTarget=true}={}){
   const P=S.p[seat], E=S.p[FOE(S,seat)], ctx={};
   const has = k => fx.some(o=>o[0]===k);
-  if(needTarget && (has('dmg')||has('dmgX')||has('drawInstantDmg')||has('thawBurst')||has('scrap')||has('tempest'))){
+  if(needTarget && (has('dmg')||has('dmgX')||has('drawInstantDmg')||has('thawBurst')||has('scrap')||has('tempest')||has('shadowblast')||has('implodeCore'))){
     const t=await pickTarget(seat); if(!t) return null; ctx.tgt=t;
   }
   if(has('heal') && S.coop && seat<2 && FOE(S,seat)===2){
@@ -2029,7 +2142,7 @@ async function gather(seat, fx, {needTarget=true}={}){
       case 'freezeEnemy': { if(!S.p[FOE(S,seat)].dice.some(d=>!d.fzE)){ ctx.efreeze=[]; break; } const r=await pickDice(op[1]===1?'Freeze 1 enemy die':`Freeze ${op[1]} enemy dice`, FOE(S,seat), d=>!d.fzE, op[1], op[1], 'Tap the enemy dice to freeze. They stay frozen (they don’t roll, but still give the resource they show) until the enemy melts them with fire.'); if(r===null) return null; ctx.efreeze=r; break; }
       case 'unfreezeOne': { const r=await pickDice('Unfreeze which die?', seat, d=>d.fz, 1, 1); if(!r||!r.length) return null; ctx.die=r[0]; break; }
       case 'forgeOpt': { if(!P.cores.length) break; const r=await pickOne('Deal 1 damage to one of your cores for +2 damage?', [{v:'no',label:'No thanks'}].concat(P.cores.map((c,i)=>({v:'c'+i, html:`<span class="tgt">${esc(CARDLIST[c.id].name)}<small>Core · ${c.hp} health</small></span>`})))); if(!r) return null; if(r!=='no') ctx.forge=+r.slice(1); break; }
-      case 'selfCoreDmg': case 'scrap': { const r=await pickOne(op[0]==='scrap'?'Scrap which core?':'Which of your cores takes the damage?', P.cores.map((c,i)=>({v:'c'+i, html:`<span class="tgt">${esc(CARDLIST[c.id].name)}<small>Core · ${c.hp} health</small></span>`}))); if(!r) return null; ctx.ownCore=+r.slice(1); break; }
+      case 'selfCoreDmg': case 'scrap': case 'implodeCore': { const r=await pickOne(op[0]==='scrap'?'Scrap which core?':op[0]==='implodeCore'?'Implode which core?':'Which of your cores takes the damage?', P.cores.map((c,i)=>({v:'c'+i, html:`<span class="tgt">${esc(CARDLIST[c.id].name)}<small>Core · ${c.hp} health</small></span>`}))); if(!r) return null; ctx.ownCore=+r.slice(1); break; }
       case 'healCore': { if(!P.cores.length) break; const r=await pickOne('Heal which of your cores?', P.cores.map((c,i)=>({v:'c'+i, html:`<span class="tgt">${esc(CARDLIST[c.id].name)}<small>${c.hp} / ${c.max||CARDLIST[c.id].hp} health</small></span>`}))); if(!r) return null; ctx.healCore=+r.slice(1); break; }
       case 'reforge': { const list=[...new Set(P.disc.filter(i=>isCoreCard(CARDLIST[i])))]; const r=await pickOne('Reforge which core?', list.map(i=>({v:'d'+i,label:CARDLIST[i].name}))); if(!r) return null; ctx.discCore=+r.slice(1); break; }
       case 'emberOpt': { if(!P.dice.some(d=>d.fz)) break; const r=await pickDice('Unfreeze a die for +1 damage? (optional)', seat, d=>d.fz, 0, 1); if(r===null) return null; if(r.length) ctx.ember=r[0]; break; }
@@ -2108,7 +2221,16 @@ const act = {
     if(cardBlockReason(S,seat,hi)) return;
     const fx=CFX[c.name]||[];
     gather._playing=hi;
-    const v0=S.ver; const ctx=isCoreCard(c)?{}:await gather(seat,fx); if(!ctx || boardChanged(v0)) return;
+    const v0=S.ver; let ctx;
+    if(isCoreCard(c)){
+      ctx={};
+      if(P.cores.length>=maxCores(S,seat)){
+        const r=await pickOne('Max cores reached — replace which one?', P.cores.map((c2,i)=>({v:'c'+i, html:`<span class="tgt">${esc(CARDLIST[c2.id].name)}<small>Core · ${c2.hp} health</small></span>`})));
+        if(!r || boardChanged(v0)) return;
+        ctx.replaceIdx=+r.slice(1);
+      }
+    } else ctx=await gather(seat,fx);
+    if(!ctx || boardChanged(v0)) return;
     if(!(S.p[seat].freeCard===id && S.turn===seat)){ const ap=await chooseAny(seat,c.cost,c.name); if(ap===null || boardChanged(v0)) return; ctx.anyPick=ap; }
     ctx.fire = Array.isArray(c.cost) && c.cost.includes('F');
     const T=clone(S), TP=T.p[seat];
@@ -2118,7 +2240,7 @@ const act = {
     if(ctx.discard){ ctx.discard=ctx.discard.map(d=>d>hi?d-1:d); }
     lg(T,`{${seat}} plays ${c.name}${free?' for free':''}.`); sfx(T, c.type==='Instant' ? 'instant' : 'card');
     let steps;
-    if(isCoreCard(c)) steps=[{k:'op',seat,op:['placeCore'],ctx:{id},el:null,src:c.name}];
+    if(isCoreCard(c)) steps=[{k:'op',seat,op:['placeCore'],ctx:{id,replaceIdx:ctx.replaceIdx},el:null,src:c.name}];
     else { TP.disc.push(id); steps=expand(T,seat,fx,ctx,cardEl(c),c.name); if(c.type==='Instant') steps.push({k:'ping',seat}); }
     if(nullWard(T,seat,id,steps)){}
     else if(negateOptions(T,FOE(T,seat)).length) T.q.unshift({k:'respond', actor:FOE(T,seat), card:id, seat, steps});
@@ -2138,6 +2260,13 @@ const act = {
     const T=clone(S), TP=T.p[seat]; TP.res.W--; const before=TP.burn; TP.burn=Math.max(0,TP.burn-2);
     lg(T,`💧 {${seat}} cools off: Burn ${before} → ${TP.burn}.`); flash(T,`💧 Burn cooled to ${TP.burn}`); sfx(T,'el','W');
     await commitA(T,seat,'cool off Burn');
+  }),
+  forge: ()=>guard(async()=>{
+    const seat=ACTOR(), P=S.p[seat];
+    if(!canForge(S,seat)) return;
+    const T=clone(S), TP=T.p[seat]; TP.res.S--; TP.st.forged=1;
+    if(TP.cores.length<maxCores(T,seat)){ const id=CI['False Core']; TP.cores.push({id,hp:3,prot:0,max:3}); lg(T,`🔩 {${seat}} forges a False Core.`); } else lg(T,`{${seat}} has no room for another core.`);
+    await commitA(T,seat,'forge a False Core');
   }),
   sell: ()=>guard(async()=>{
     const seat=ACTOR(), P=S.p[seat], v0=S.ver; if(!P.hand.length) return;
@@ -2188,7 +2317,7 @@ const act = {
 };
 /* place a core (handled here so cores also go through the respond window) */
 const _runOp = runOp;
-runOp = function(S,st){ if(st.op[0]==='placeCore'){ const P=S.p[st.seat]; if(P.cores.length<maxCores(S,st.seat)){ P.cores.push({id:st.ctx.id,hp:CARDLIST[st.ctx.id].hp,prot:0,max:CARDLIST[st.ctx.id].hp}); lg(S,`{${st.seat}} sets down ${CARDLIST[st.ctx.id].name}.`);} else P.disc.push(st.ctx.id); return; } return _runOp(S,st); };
+runOp = function(S,st){ if(st.op[0]==='placeCore'){ const P=S.p[st.seat]; if(st.ctx.replaceIdx!=null && P.cores[st.ctx.replaceIdx]){ const oldNm=CARDLIST[P.cores[st.ctx.replaceIdx].id].name; destroyCore(S,st.seat,st.ctx.replaceIdx,st.seat); P.cores.push({id:st.ctx.id,hp:CARDLIST[st.ctx.id].hp,prot:0,max:CARDLIST[st.ctx.id].hp}); lg(S,`{${st.seat}} replaces ${oldNm} with ${CARDLIST[st.ctx.id].name}.`); } else if(P.cores.length<maxCores(S,st.seat)){ P.cores.push({id:st.ctx.id,hp:CARDLIST[st.ctx.id].hp,prot:0,max:CARDLIST[st.ctx.id].hp}); lg(S,`{${st.seat}} sets down ${CARDLIST[st.ctx.id].name}.`);} else P.disc.push(st.ctx.id); return; } return _runOp(S,st); };
 
 /* ---------- Answering prompts (defend / respond / lose / hex / seal) ---------- */
 async function answerPrompt(){
@@ -2360,6 +2489,7 @@ function playerPanel(S,seat,mine){
       <div class="hpbar"><span class="hpfill" style="width:${Math.min(100,Math.max(0,P.hp)/maxHp(P)*100)}%"></span><span class="hptxt">♥ ${P.hp} / ${maxHp(P)}${P.down?' · knocked out':''}</span></div>
       ${(P.burn||0)>0?`<div class="burnbar"><span class="flame">🔥</span> Burn ${P.burn} <small>· hits for ${P.burn+(hasCore(S.p[FOE(S,seat)],'Molten Core')?1:0)} after their next roll, then halves · 1 ${pip('W')} water removes 2</small>${mine&&canAct(seat)&&canCool(S,seat)?`<button class="mini coolbtn" data-act="cool">💧 Spend 1 ${pip('W')} → −2 Burn</button>`:''}${P.st.noCool&&P.st.noCool>=S.tn?' <small>· ash cloud: can’t cool</small>':''}</div>`:''}
       <div class="shbar ${P.shield?'':'empty'} ${(P.st.reflN||P.st.reflHalf)?'reflecting':''}"><span class="shfill" style="width:${Math.min(P.shield,10)*10}%"></span><span class="shtxt">🛡 ${P.shield} shield${(P.st.reflN||P.st.reflHalf)?' ↩':''}</span></div>
+      ${S.heroes[seat]==='dark'?`<div class="shadowbar ${(P.shadow||0)?'':'empty'} ${(P.shadow||0)>=4?'ready':''} ${(P.shadow||0)>12?'over':''}"><span class="shadowfill" style="width:${Math.min(100,(P.shadow||0)/12*100)}%"></span><span class="shadowtxt">🌑 Shadow ${P.shadow||0}${(P.shadow||0)>=4?' · Eclipse ready!':''}</span></div>`:''}
       <div class="stat">${statuses.map(esc).join(' · ')||'&nbsp;'}</div>
       <div class="counts">${!mine?`<span class="backs">${Array.from({length:Math.min(P.hand.length,8)},()=>'<i></i>').join('')}</span> `:''}Hand ${P.hand.length} · Deck ${P.deck.length} · Discard ${P.disc.length}</div>
     </div>
@@ -2373,13 +2503,17 @@ function playerPanel(S,seat,mine){
     <div class="pcores"><span class="lbl">Cores ${P.cores.length}/${maxCores(S,seat)}</span>${P.cores.map((c,ci)=>coreHTML(S,seat,ci,mine)).join('')||'<span class="none">none</span>'}</div>
   </section>`;
 }
+function abilCostHTML(a){
+  const shadow = a.shadowReq ? `<span class="shreq" title="${a.shadowReq} Shadow">🌑×${a.shadowReq}</span>` : '';
+  return shadow + a.cost.map(pip).join('');
+}
 function abilitiesHTML(S,seat,ro){
   const list=ABIL[S.heroes[seat]], used=S.p[seat].st.used||[];
   if(ro) return `<div class="abils ro">${list.map((a,ai)=>{ const u=used.includes(ai)&&S.turn===seat;
-    return `<div class="abil ${a.sig?'sig':''} ${u?'used':''}"><span class="an">${ai+1}. ${esc(a.n)}${a.enemyTurn?' <em>enemy turn</em>':''}${u?' <em class="usedtag">used</em>':''}</span><span class="acost">${a.cost.map(pip).join('')}</span><span class="at">${esc(a.t)}</span></div>`; }).join('')}</div>`;
+    return `<div class="abil ${a.sig?'sig':''} ${u?'used':''}"><span class="an">${ai+1}. ${esc(a.n)}${a.enemyTurn?' <em>enemy turn</em>':''}${u?' <em class="usedtag">used</em>':''}</span><span class="acost">${abilCostHTML(a)}</span><span class="at">${esc(a.t)}</span></div>`; }).join('')}</div>`;
   return `<div class="abils">${list.map((a,ai)=>{ const why=abilBlockReason(S,seat,ai); const ok=!why&&canAct(seat); const u=used.includes(ai)&&S.turn===seat;
     return `<button type="button" class="abil ${a.sig?'sig':''} ${ok?'':'off'} ${u?'used':''}" data-act="ability" data-i="${ai}" ${ok?'':'aria-disabled="true"'} ${why?`title="${esc(why)}"`:''}>
-      <span class="an">${ai+1}. ${esc(a.n)}${a.enemyTurn?' <em>enemy turn</em>':''}${u?' <em class="usedtag">used</em>':''}</span><span class="acost">${a.cost.map(pip).join('')}</span><span class="at">${esc(a.t)}</span></button>`; }).join('')}</div>`;
+      <span class="an">${ai+1}. ${esc(a.n)}${a.enemyTurn?' <em>enemy turn</em>':''}${u?' <em class="usedtag">used</em>':''}</span><span class="acost">${abilCostHTML(a)}</span><span class="at">${esc(a.t)}</span></button>`; }).join('')}</div>`;
 }
 function promptBar(S){
   const pi=pendingInput(S);
@@ -2391,8 +2525,8 @@ function promptBar(S){
   }
   const seat=S.turn;
   if(!canAct(seat)) return `<div class="prompt">${esc(seatLabel(seat))} is playing (${PHASE_NAME[S.phase]}${S.phase==='income'?` · ${S.step}`:''})…</div>`;
-  if(S.phase==='income' && S.step==='roll') return `<div class="prompt you">Roll your dice and draw a card. ${phaseBtn('income','Roll &amp; Draw','roll')}</div>`;
-  if(S.phase==='income') return `<div class="prompt you">Choose your wild dice, play any dice cards, then collect. <button class="btn" data-act="collect">Collect resources</button></div>`;
+  if(S.phase==='income' && S.step==='roll') return `<div class="prompt you">Roll your dice and draw a card. ${phaseBtn('income','Roll &amp; Draw','roll')}${forgeBtnHTML(S,seat)}</div>`;
+  if(S.phase==='income') return `<div class="prompt you">Choose your wild dice, play any dice cards, then collect. <button class="btn" data-act="collect">Collect resources</button>${forgeBtnHTML(S,seat)}</div>`;
   const nxt={main1:'To Combat!',combat:'To Main 2',main2:'End Turn'}[S.phase];
   const burnHint = (S.p[seat].burn||0)>0 && canCool(S,seat) ? ' <span class="burnhint">🔥 You’re burning: tap 💧 on your board to spend water (1 water = −2 Burn).</span>' : '';
   const hint={main1:'Play actions, cores, and instants.',combat:'Use each hero ability once (as long as you can pay).',main2:'Play more cards, then end your turn.'}[S.phase];
@@ -2422,7 +2556,7 @@ function render(){
   document.body.classList.add('ingame');
   document.body.classList.toggle('turn-me', myTurn && S.status==='playing');
   document.body.classList.toggle('turn-opp', !myTurn && S.status==='playing');
-  if(S.coop) app().innerHTML = coopHTML(v); else app().innerHTML = `
+  if(S.coop){ app().innerHTML = coopHTML(v); setTimeout(mapAutoScroll,0); } else app().innerHTML = `
   <div class="gtop">
     <button class="btn ghost sm" data-act="lobby">← Lobby</button>
     <span class="gcode">${S.mode==='local'?'Pass &amp; play':S.mode==='ai'?'Practice vs AI':'Game '+esc(S.code)}</span>
@@ -2575,7 +2709,7 @@ function announcePhase(){
   const cur={turn:S.turn, tn:S.tn, phase:S.phase};
   const prev=lastPhase; lastPhase=cur;
   if(!prev || prev.tn!==cur.tn || prev.turn!==cur.turn || prev.phase===cur.phase) return;
-  if(S.coop && (cur.phase==='enemy'||cur.phase==='income')) return;
+  if(S.coop && ['enemy','income','pathchoice','event','corefind','leyline','deckrefresh'].includes(cur.phase)) return;
   const name=PHASE_NAME[cur.phase]||cur.phase;
   const mine = S.mode!=='local' && S.turn===mySeat;
   const text = S.coop ? (cur.phase==='enemy' ? '⚔ The enemies act' : cur.phase==='reward' ? '🏆 Rewards' : `▶ Heroes move to ${name}`) : S.mode==='local' ? `▶ ${seatLabel(S.turn)} moves to ${name}` : mine ? `▶ You moved to ${name}` : `▶ ${seatLabel(S.turn)} moved to ${name}`;
@@ -2691,6 +2825,8 @@ document.addEventListener('click', e=>{
     case 'corefind': act.pickCorefind(b.dataset.el||null); break;
     case 'leyline': act.pickLeyline(b.dataset.c); break;
     case 'pathvote': act.pickPath(parseInt(b.dataset.i,10)); break;
+    case 'eventpick': act.pickEvent(b.dataset.c===''?null:b.dataset.c); break;
+    case 'viewmap': showMapModal(); break;
     case 'ultimate': act.ultimate(); break;
     case 'assign': act.assign(i); break;
     case 'ability': act.ability(i); break;
@@ -2739,9 +2875,10 @@ function showRules(){
   <p><b>Instants</b> can be played any time, even on the enemy's turn.</p>
   <p><b>Discard for resources:</b> on your turn, discard a card to gain the resources in its cost, minus the left-most one. Fireball (3 fire) gives 2 fire; a nature + steel card gives 1 steel; free cards give nothing.</p>
   <p><b>Blaze Core</b> adds +1 to damage from anything you paid fire for.</p>
-  <p><b>Steel Hero</b> can have 4 core stones. Steel beats nature and loses to water. Many steel effects hurt or repair your own cores to power attacks.</p>
+  <p><b>Core limit:</b> every hero has a max number of core stones. If you play a core card while already at that limit, you'll be asked to choose one of your existing cores to replace.</p>
+  <p><b>Steel Hero</b> can have 4 core stones. At the start of his turn he may spend 1 Steel to forge a False Core (3 health, no effect, decoy only). Core Implode destroys one of his cores to deal damage equal to that core's remaining health. Steel beats nature and loses to water. Many steel effects hurt or repair your own cores to power attacks.</p>
   <p><b>Ice:</b> frozen dice don't reroll; for the Ice Hero they count as ice or their face. Enemy dice frozen by ice stay on their face for one income.</p>
-  <p><b>Dark:</b> Roll Seal marks the enemy's next roll: after they roll you pick 2 of their dice to reroll and gain a copy of what those dice give. Eclipse steals a random card from the enemy, plays it for free, and gains 1 of its cost. Fog: a fogged die's resource must be cleared by paying 1.</p>
+  <p><b>Dark:</b> Draining a resource (Wither, Soul Leech, Shadow Bolt, Soul Siphon, Void Pact...) fills his Shadow bar by 1 per resource drained, with no limit. Roll Seal marks the enemy's next roll: after they roll you pick 2 of their dice to reroll and gain a copy of what those dice give. Eclipse costs 4 Darkness, 1 Nature, 1 Fire and 1 Water, and also requires 4 Shadow banked: it deals damage equal to his entire Shadow bar, then empties it. Fog: a fogged die's resource must be cleared by paying 1.</p>
   <p><b>Undo:</b> you can undo your last action until the other player acts. Rolling dice and drawing cards can't be undone.</p>
   </div><div class="mfoot"><button class="btn" data-x>Close</button></div>`);
   $('#modal').onclick=e=>{ if(e.target.closest('[data-x]')) hideModal(); };
@@ -2752,7 +2889,7 @@ function showRules(){
 var heroChosen=false;
 let pickedHero='electro', openGames=[], myGames=[], unsubA=null, unsubB=null, lobbyMsg='';
 function heroPick(){
-  return `<div class="heroes">${Object.entries(HEROES).map(([k,h])=>`<button type="button" class="hpick ${heroChosen&&pickedHero===k?'on':''}" data-act="pickhero" data-h="${k}" aria-pressed="${heroChosen&&pickedHero===k}" aria-label="${h.name}" style="--c1:${h.th.c1};--c2:${h.th.c2}">${h.card()}</button>`).join('')}</div>`;
+  return `<div class="heroes">${Object.entries(HEROES).map(([k,h])=>`<button type="button" class="hpick ${heroChosen&&pickedHero===k?'on':''}" data-act="pickhero" data-h="${k}" aria-pressed="${heroChosen&&pickedHero===k}" aria-label="${h.name}" style="--c1:${h.th.c1};--c2:${h.th.c2}">${h.card()}</button>`).join('')}<div class="hpick soon" data-egg="time" aria-label="Time Hero — coming soon"><span class="soonCard">⏳<b>Time Hero</b><small>Coming soon</small></span></div></div>`;
 }
 async function renderLobby(){
   const ids=[...new Set([...openGames,...myGames].flatMap(g=>g.players||[]).filter(Boolean))];
@@ -2960,8 +3097,8 @@ function heroNotes(hk){
   return {
     electro:'Lightning hero. Big unblockable pings and burst damage.',
     ice:'Frozen dice stay put at your income phase and count as ice or the element they show. Many effects freeze enemy dice.',
-    dark:'Drains resources and twists dice. Roll Seal lets him reroll 2 of the enemy’s next dice and copy what they give. Eclipse steals a card from the enemy, plays it for free, and gains 1 of its cost.',
-    steel:'Can hold 4 core stones that power each other. He can forge decoy False Cores. Damage he does to his own cores can never destroy them, but losing cores to the enemy hurts.',
+    dark:'Drains resources and twists dice, filling his Shadow bar with every resource drained. Roll Seal lets him reroll 2 of the enemy’s next dice and copy what they give. Eclipse unleashes his entire banked Shadow as damage, then empties it.',
+    steel:'Can hold 4 core stones that power each other. At the start of his turn he can spend 1 Steel to forge a decoy False Core. Core Implode destroys one of his cores to deal damage equal to its health. Damage he does to his own cores can never destroy them, but losing cores to the enemy hurts.',
     volcanic:'Damage over time. Applies Burn to the enemy: after their roll they take damage equal to their Burn, then it halves. Keep stacking it to keep it high. The enemy can spend water (1 water = −2 Burn) to cool it off before it hits.'
   }[hk]||'';
 }
@@ -3057,6 +3194,7 @@ function howtoHTML(){
 }
 function guideHTML(hk){
   if(hk==='howto') return guideShell(hk, howtoHTML(), {c1:'#ffc400',c2:'#5a3fd0',c3:'#fff7d1'});
+  if(hk==='time') return guideShell(hk, timeGuideHTML(), TIME_TH);
   const H=HEROES[hk], deck=deckOf(hk);
   const own=deck.filter(i=>CARDLIST[i].grp!=='gen'), gen=deck.filter(i=>CARDLIST[i].grp==='gen');
   const list = guideFilter==='hero'?own : guideFilter==='gen'?gen : guideFilter==='core'?deck.filter(i=>isCoreCard(CARDLIST[i])) : guideFilter==='instant'?deck.filter(i=>CARDLIST[i].type==='Instant') : own.concat(gen);
@@ -3085,14 +3223,44 @@ function guideHTML(hk){
 function guideShell(hk, body, th){
   return `<div class="gbox" role="dialog" aria-modal="true" aria-label="How to play, heroes, skills and decks">
     <div class="ghead">
-      <div class="ghtabs"><button type="button" class="ghtab ${hk==='howto'?'on':''}" data-gh="howto" aria-pressed="${hk==='howto'}" style="--c1:#ffc400">📜 How to play</button>${Object.entries(HEROES).map(([k,h])=>`<button type="button" class="ghtab ${k===hk?'on':''}" data-gh="${k}" aria-pressed="${k===hk}" style="--c1:${h.th.c1}"><img class="tabface" src="${IMG[k+'_face']}" alt="">${h.name}${pip(h.el)}</button>`).join('')}</div>
+      <div class="ghtabs"><button type="button" class="ghtab ${hk==='howto'?'on':''}" data-gh="howto" aria-pressed="${hk==='howto'}" style="--c1:#ffc400">📜 How to play</button>${Object.entries(HEROES).map(([k,h])=>`<button type="button" class="ghtab ${k===hk?'on':''}" data-gh="${k}" aria-pressed="${k===hk}" style="--c1:${h.th.c1}"><img class="tabface" src="${IMG[k+'_face']}" alt="">${h.name}${pip(h.el)}</button>`).join('')}${hk==='time'?`<button type="button" class="ghtab on" data-gh="time" aria-pressed="true" style="--c1:${TIME_TH.c1}">⏳ Time Hero${pip('T')}</button>`:''}</div>
       <button type="button" class="btn sm" data-gclose>✕ Close</button>
     </div>
     <div class="gbody" style="--c1:${th.c1};--c2:${th.c2};--c3:${th.c3}">${body}</div>
   </div>`;
 }
+let eggClicks=0;
+document.addEventListener('click', e=>{
+  if(!e.target.closest || !e.target.closest('[data-egg="time"]')){ eggClicks=0; return; }
+  if(++eggClicks>=3){ eggClicks=0; showGuide('time'); }
+}, true);
+const TIME_TH={c1:'#9b6bff', c2:'#3b2a7a', c3:'#f1e9ff'};
+const TIME_ABIL=[
+  {n:'Sand Shield',       cost:['E','E'],         timer:1, t:'Gain 4 shield.'},
+  {n:'Delayed Blast',     cost:['F','F'],         timer:2, t:'Deal 7 damage.'},
+  {n:'Rewind',            cost:['W','W'],         timer:1, t:'Heal 4 and get back 1 spent resource.'},
+  {n:'Accelerate',        cost:['T'],             timer:0, t:'Tick one running timer down by 1. When that ability goes off, it deals +2.'},
+  {n:'Time Bomb',         cost:['T','T','F'],     timer:3, t:'Deal 11 damage.'},
+  {n:'Stasis Field',      cost:['T','W','W'],     timer:2, t:'Freeze 2 enemy dice and gain 3 shield.'},
+  {n:'Borrowed Time',     cost:['T','E','E'],     timer:0, t:'Add 1 to a running timer. When that ability goes off, it deals +4.'},
+  {n:'Temporal Collapse', cost:['T','T','T','T'], timer:0, sig:1, t:'Every running timer ticks down by 1. Any ability whose timer hits 0 this way goes off twice.'}
+];
+function timeGuideHTML(){
+  return `<section class="gintro">
+      <div class="gart"><div class="timecard"><span class="tglass">⏳</span><b>TIME HERO</b><small>coming soon</small></div></div>
+      <div class="ginfo">
+        <h2>Time Hero <small class="msub">sneak peek</small></h2>
+        <p class="gtag">${pip('T')} Time · 3 core slots · ${START_HP} health</p>
+        <p>Every Time Hero ability runs on a timer. Switch an ability on and its countdown starts — it can’t be switched on again until it goes off. Each time you enter combat, every running timer ticks down by 1, and when a timer reaches 0 the ability goes off. Some abilities bend the timers themselves, and an ability that was sped up or held back hits harder when it finally goes off.</p>
+        <p class="msub">A preview: these skills may change before the Time Hero joins the game.</p>
+      </div>
+    </section>
+    <section><h3 class="gsect">Skills <small>⏳ = turns until it goes off</small></h3>
+      <div class="abils ro">${TIME_ABIL.map((a,ai)=>`<div class="abil ${a.sig?'sig':''}"><span class="an">${ai+1}. ${esc(a.n)}${a.sig?' <em class="sigtag">signature</em>':''} <em class="ttimer ${a.timer?'':'now'}">${a.timer?`⏳ ${a.timer}`:'instant'}</em></span><span class="acost">${a.cost.map(pip).join('')}</span><span class="at">${esc(a.t)}</span></div>`).join('')}</div>
+    </section>`;
+}
 function showGuide(hk){
-  guideHero = (HEROES[hk] || hk==='howto') ? hk : 'electro';
+  guideHero = (HEROES[hk] || hk==='howto' || hk==='time') ? hk : 'electro';
   let g=$('#guide'); if(!g){ g=document.createElement('div'); g.id='guide'; document.body.appendChild(g); }
   g.innerHTML=guideHTML(guideHero); g.classList.add('on'); document.body.classList.add('noscroll');
   const f=g.querySelector('[data-gclose]'); if(f) f.focus();
@@ -3113,7 +3281,7 @@ const BOT=1; let botTimer=null;
 function needEl(P){ return Object.keys(P.res).sort((a,b)=>P.res[a]-P.res[b])[0]; }
 function botCtx(S,seat,fx,playingHi){
   const P=S.p[seat], E=S.p[1-seat], ctx={};
-  if(fx.some(o=>['dmg','dmgX','drawInstantDmg','thawBurst','scrap','tempest','dmgBurn'].includes(o[0]))) ctx.tgt={seat:1-seat,core:-1};
+  if(fx.some(o=>['dmg','dmgX','drawInstantDmg','thawBurst','scrap','tempest','dmgBurn','shadowblast','implodeCore'].includes(o[0]))) ctx.tgt={seat:1-seat,core:-1};
   const free=(i,arr)=>arr.map((d,j)=>j).filter(j=>i(arr[j]));
   for(const op of fx){
     switch(op[0]){
@@ -3129,7 +3297,7 @@ function botCtx(S,seat,fx,playingHi){
       case 'discard': { const opts=P.hand.map((id,i)=>i).filter(i=>i!==playingHi); if(!opts.length) return null; ctx.discard=[opts[0]]; break; }
       case 'dmgX': if(op[1]==='xpaid') ctx.x=P.res.L||0; break;
       case 'forgeOpt': { const i=P.cores.findIndex(c=>c.hp>=3); if(i>=0) ctx.forge=i; break; }
-      case 'selfCoreDmg': case 'scrap': { if(!P.cores.length) return null; let m=0; P.cores.forEach((c,i)=>{ if(c.hp>P.cores[m].hp) m=i; }); ctx.ownCore=m; break; }
+      case 'selfCoreDmg': case 'scrap': case 'implodeCore': { if(!P.cores.length) return null; let m=0; P.cores.forEach((c,i)=>{ if(c.hp>P.cores[m].hp) m=i; }); ctx.ownCore=m; break; }
       case 'healCore': { if(!P.cores.length) break; let m=0; P.cores.forEach((c,i)=>{ if(c.hp<P.cores[m].hp) m=i; }); ctx.healCore=m; break; }
       case 'reforge': { const d=P.disc.find(i=>isCoreCard(CARDLIST[i])); if(d==null) return null; ctx.discCore=d; break; }
     }
@@ -3141,14 +3309,14 @@ function fxScore(S,seat,fx){
   fx.forEach(o=>{
     const k=o[0];
     if(k==='dmg') sc+=o[1]*2.2;
-    else if(k==='dmgX'||k==='dmgBurn'||k==='tempest'||k==='scrap'||k==='thawBurst') sc+=6;
+    else if(k==='dmgX'||k==='dmgBurn'||k==='tempest'||k==='scrap'||k==='thawBurst'||k==='implodeCore') sc+=6;
     else if(k==='burn') sc+=o[1]*1.8; else if(k==='burnDouble') sc+=(E.burn||0)*1.5+1; else if(k==='burnIf') sc+=2;
     else if(k==='heal') sc+= P.hp<26 ? o[1]*1.5 : 0.2;
     else if(k==='shield') sc+=o[1]*1.1;
     else if(k==='draw') sc+=o[1]*1.4; else if(k==='gain') sc+=o[2]*1.2; else if(k==='gainChoice') sc+=o[1]*1.2;
     else if(k==='drain') sc+=o[1]*1.4; else if(k==='coreAll') sc+=E.cores.length*o[1]*1.5;
     else if(k==='freezeEnemy') sc+=o[1]; else if(k==='freezeOwn') sc+=0.6*o[1];
-    else if(k==='eclipse') sc+= E.hand.length?6:0; else sc+=0.8;
+    else if(k==='eclipse') sc+= E.hand.length?6:0; else if(k==='shadowblast') sc+=(P.shadow||0)*2.2; else sc+=0.8;
   });
   return sc;
 }
@@ -3168,14 +3336,22 @@ function botAbility(ai){
 }
 function botPlay(hi){
   const seat=BOT, P=S.p[seat], id=P.hand[hi], c=CARDLIST[id], fx=CFX[c.name]||[];
-  const ctx=isCoreCard(c)?{}:botCtx(S,seat,fx,hi); if(!ctx) return false;
+  let ctx;
+  if(isCoreCard(c)){
+    ctx={};
+    if(P.cores.length>=maxCores(S,seat)){
+      let m=0; P.cores.forEach((cc,i)=>{ if(cc.hp<P.cores[m].hp) m=i; });
+      ctx.replaceIdx=m;
+    }
+  } else ctx=botCtx(S,seat,fx,hi);
+  if(!ctx) return false;
   ctx.fire = Array.isArray(c.cost) && c.cost.includes('F');
   const T=clone(S), TP=T.p[seat], free=TP.freeCard===id;
   if(free) TP.freeCard=null; else pay(TP,c.cost,ctx.x);
   TP.hand.splice(hi,1); if(ctx.discard) ctx.discard=ctx.discard.map(d=>d>hi?d-1:d);
   lg(T,`{${seat}} plays ${c.name}${free?' for free':''}.`); sfx(T, c.type==='Instant'?'instant':'card');
   let steps;
-  if(isCoreCard(c)) steps=[{k:'op',seat,op:['placeCore'],ctx:{id},el:null,src:c.name}];
+  if(isCoreCard(c)) steps=[{k:'op',seat,op:['placeCore'],ctx:{id,replaceIdx:ctx.replaceIdx},el:null,src:c.name}];
   else { TP.disc.push(id); steps=expand(T,seat,fx,ctx,cardEl(c),c.name); if(c.type==='Instant') steps.push({k:'ping',seat}); }
   if(nullWard(T,seat,id,steps)){} else if(negateOptions(T,1-seat).length) T.q.unshift({k:'respond', actor:1-seat, card:id, seat, steps}); else T.q.unshift(...steps);
   advance(T); botCommit(T); return true;
@@ -3241,6 +3417,7 @@ function botStep(){
   if(S.turn!==BOT) return;
   const P=S.p[BOT];
   { const fi=P.dice.findIndex(d=>d.fzE); if(fi>=0 && canMelt(S,BOT) && (P.res.F||0)>=1 && !pendingInput(S)){ const T=clone(S); T.p[BOT].res.F--; T.p[BOT].dice[fi].fzE=0; lg(T,`🔥 {${BOT}} melts a frozen die with 1 fire.`); sfx(T,'el','F'); botCommit(T); return; } }
+  if(canForge(S,BOT) && P.cores.length<maxCores(S,BOT) && (P.res.S||0)>=2){ const T=clone(S), TP=T.p[BOT]; TP.res.S--; TP.st.forged=1; const id=CI['False Core']; TP.cores.push({id,hp:3,prot:0,max:3}); lg(T,`🔩 {${BOT}} forges a False Core.`); botCommit(T); return; }
   if(S.phase==='income' && S.step==='roll'){
     if(false){ const T=clone(S), TP=T.p[BOT]; TP.res.W--; const b=TP.burn; TP.burn=Math.max(0,b-2); lg(T,`💧 {${BOT}} cools off: Burn ${b} → ${TP.burn}.`); sfx(T,'el','W'); botCommit(T); return; }
     const T=clone(S); doRoll(T); botCommit(T); return;
@@ -3373,7 +3550,7 @@ function stopMusic(){
 /* =====================================================================
    ASYNC PLAY: saved games, "your move" tracking, alerts
    ===================================================================== */
-function gameNeedsMeCoop(g,seat){ if(g.status!=='playing'||!g.p) return false; const q=g.q&&g.q[0]; if(q && INPUT[q.k]) return q.actor===seat; if(g.phase==='reward') return !(g.reward&&g.reward.done&&g.reward.done[seat]); if(g.phase==='deckrefresh') return !(g.deckRefresh&&g.deckRefresh.done&&g.deckRefresh.done[seat]); if(g.phase==='corefind') return !(g.corefind&&g.corefind.done&&g.corefind.done[seat]); if(g.phase==='leyline') return !(g.leyline&&g.leyline.done&&g.leyline.done[seat]); if(g.phase==='pathchoice') return !(g.pathChoice&&g.pathChoice.done&&g.pathChoice.done[seat]); if(g.phase==='enemy') return false; const P=g.p[seat]; if(!P||P.down) return false; if(g.phase==='income') return P.inc!=='done'; return !P.ready; }
+function gameNeedsMeCoop(g,seat){ if(g.status!=='playing'||!g.p) return false; const q=g.q&&g.q[0]; if(q && INPUT[q.k]) return q.actor===seat; if(g.phase==='reward') return !(g.reward&&g.reward.done&&g.reward.done[seat]); if(g.phase==='deckrefresh') return !(g.deckRefresh&&g.deckRefresh.done&&g.deckRefresh.done[seat]); if(g.phase==='corefind') return !(g.corefind&&g.corefind.done&&g.corefind.done[seat]); if(g.phase==='leyline') return !(g.leyline&&g.leyline.done&&g.leyline.done[seat]); if(g.phase==='pathchoice') return !(g.pathChoice&&g.pathChoice.done&&g.pathChoice.done[seat]); if(g.phase==='event') return !(g.event&&g.event.done&&g.event.done[seat]); if(g.phase==='enemy') return false; const P=g.p[seat]; if(!P||P.down) return false; if(g.phase==='income') return P.inc!=='done'; return !P.ready; }
 function gameActor(g){ if(!g || g.status!=='playing' || !g.p) return null; const q=g.q&&g.q[0]; return (q && INPUT[q.k]) ? q.actor : g.turn; }
 function gameNeedsMe(g){ if(!g || !myId) return false; const seat=(g.players||[]).indexOf(myId); if(seat<0) return false; if(g.coop) return gameNeedsMeCoop(g,seat); return gameActor(g)===seat; }
 function gameHeroes(g){
@@ -3386,7 +3563,7 @@ function gameStatusText(g, nm){
   const hs=g.heroes||[], my=HEROES[hs[seat]], th=HEROES[hs[1-seat]];
   const vs = (my?`${esc(my.name)} `:'') + (opp ? `vs ${esc(nm(opp))}${th?` (${esc(th.name)})`:''}` : '');
   if(g.status==='waiting') return `${g.coop?'🤝 co-op · ':''}${my?esc(my.name)+' · ':''}waiting for someone to join`;
-  if(g.coop){ const tag = g.status==='over' ? (g.coopWin?'run won 🏆':'run lost') : `fight ${(g.fightIdx||0)+1}/5`; return `🤝 co-op with ${opp?esc(nm(opp)):'?'} · ${tag}${g.status==='playing'?(gameNeedsMe(g)?' · <span class="yourmove">▶ Your move!</span>':' · waiting on partner/enemies'):''}`; }
+  if(g.coop){ const tag = g.status==='over' ? (g.coopWin?'run won 🏆':'run lost') : `fight ${(g.fightIdx||0)+1}`; return `🤝 co-op with ${opp?esc(nm(opp)):'?'} · ${tag}${g.status==='playing'?(gameNeedsMe(g)?' · <span class="yourmove">▶ Your move!</span>':' · waiting on partner/enemies'):''}`; }
   if(g.status==='over') return `${vs} · finished${g.winner===seat?' · you won 🏆':g.winner<0?' · draw':' · you lost'}`;
   const q=g.q&&g.q[0], pending=q&&INPUT[q.k];
   if(gameNeedsMe(g)) return `${vs} · <span class="yourmove">${pending&&q.k==='defend'?'🛡 Defend now!':pending?'⚡ Your reaction!':'▶ Your move!'}</span>`;
@@ -3513,6 +3690,20 @@ const MINIONS={
 };
 const WEAK=['volt','frost','abyss','ember','tempest','mimic','thief','guard'], STRONG=['sand','ember','abyss','volt','frost','tempest','mimic','thief','guard'], ELITES=['root','wave'];
 Object.entries(MINIONS).forEach(([k,m])=>{ if(CI[m.name]==null){ CARDLIST.push({name:m.name, type:'Minion', cost:'free', hp:m.hp, text:'', art:[['core',100,56,90],[m.art,100,58,46]], grp:'enemy', token:true, minion:k}); CI[m.name]=CARDLIST.length-1; } });
+// Neutral spell-scrolls any hero can use (found at map events). Card ids are saved, so these always go after the minions.
+const NEUTRAL_CARDS=[
+  ['Prism Bolt','Action',['A','A'],0,'Deal 6 damage.',[['star',78,56,78],['burst',150,32,50,'6']]],
+  ['Piercing Ray','Instant',['A','A'],0,'Deal 5 unblockable damage.',[['star',76,56,70],['burst',150,46,54,'5']]],
+  ['Starfall','Action',['A','A','A'],0,'Deal 3 damage to every enemy. Draw a card.',[['star',70,50,64],['core',140,64,50],['burst',172,30,38,'3']]],
+  ['Overwhelm','Action',['A','A','A','A'],0,'Deal 12 damage.',[['star',80,56,84],['burst',150,32,56,'12']]],
+  ['Second Wind','Instant',['A','A'],0,'Heal 7.',[['heart',82,56,78],['burst',150,32,50,'+7']]],
+  ['Arcane Aegis','Instant',['A'],0,'Gain 5 shield.',[['shield',90,56,86],['star',150,40,40]]],
+  ['Elemental Insight','Action',['A'],0,'Draw 3 cards.',[['card',78,56,74],['burst',150,32,50,'+3']]],
+  ['Wild Bloom','Action',['A'],0,'Gain 3 resources of your choice.',[['star',78,56,74],['burst',150,32,50,'+3']]]
+];
+NEUTRAL_CARDS.forEach(c=>{ if(CI[c[0]]==null){ CARDLIST.push({name:c[0], type:c[1], cost:c[2], hp:c[3], text:c[4], art:c[5], grp:'cx_neutral', th:'gen', neutral:1}); CI[c[0]]=CARDLIST.length-1; } CEL[c[0]]='A'; });
+const NEUTRAL_IDS=NEUTRAL_CARDS.map(c=>CI[c[0]]);
+Object.assign(CFX, {'Prism Bolt':[['dmg',6]], 'Piercing Ray':[['dmg',5,{unb:1}]], 'Starfall':[['coreAll',3],['draw',1]], 'Overwhelm':[['dmg',12]], 'Second Wind':[['heal',7]], 'Arcane Aegis':[['shield',5]], 'Elemental Insight':[['draw',3]], 'Wild Bloom':[['gainChoice',3]]});
 const BOSS={name:'Malkorr, the Elemental Overlord', short:'Malkorr', el:'A', hp:100};
 const BOSS_FACES={1:'claw',2:'claw',3:'wing',4:'scale',5:'breath',6:'eclipse'};
 const BOSS_FACE_ICON={claw:'👊',wing:'🌊',scale:'🧊',breath:'⚡',eclipse:'🌑'};
@@ -3572,55 +3763,139 @@ function makeCoop(heroes, players, mode, code, solo){
   });
   if(solo){ const P1=S0.p[1]; P1.absent=1; P1.down=1; P1.hp=0; P1.hand=[]; }
   S0.p[2]=makeEnemy(); S0.fightIdx=-1;
-  S0.pathLog=[]; S0.leyResolved=false;
-  lg(S0, solo ? '🗡 A solo dungeon run begins! A branching path, a ley line, an elite, then the boss — choose your way at every fork.' : '🤝 A co-op dungeon run begins! A branching path, a ley line, an elite, then the boss — choose your way at every fork.');
+  S0.pathLog=[]; S0.leyResolved=false; S0.gold=0; S0.map=genMap();
+  lg(S0, (solo ? '🗡 A solo dungeon run begins!' : '🤝 A co-op dungeon run begins!') + ' A branching map of monsters, elites, mysteries and crystals lies ahead, revealed as you go — with the Overlord at its end.');
   advancePath(S0);
   return S0;
 }
 function bucketLabel(b){ return b==='monster' ? 'a monster encounter' : 'an item encounter'; }
-function rollForkOptions(T){
-  const log=T.pathLog, n=log.length;
-  const blockItem = n>=2 && log[n-1]==='item' && log[n-2]==='item';
-  const opts=['monster','monster','monster'];
-  if(!blockItem){
-    const itemCount = rnd(3); // 0, 1, or 2 of the 3 options are items — never all 3, always a safe monster pick
-    const idxs=shuffle([0,1,2]);
-    for(let k=0;k<itemCount;k++) opts[idxs[k]]='item';
+/* ---------- the dungeon map: a branching parchment map, revealed left to right ---------- */
+const MAP_FLOORS=7; // floors between the start and the boss
+const NODE_PHRASE={monster:'a monster lair', elite:'an elite’s den', event:'something unknown', crystal:'a glowing crystal', boss:'the Overlord’s lair'};
+const EVENT_KEYS=['spring','shrine','library','cache','merchant'];
+const EVENTS={
+  spring:  {icon:'⛲', title:'Elemental Spring', text:'A spring bubbles over with raw elemental power.', opts:[{k:'drink', l:'💧 Drink deeply: +2 of every resource'},{k:'flask', l:'🛡 Fill a flask: +1 of every resource and 4 shield next fight'}]},
+  shrine:  {icon:'💚', title:'Healing Shrine', text:'A quiet shrine glows with warm green light.', opts:[{k:'pray', l:'💚 Pray: heal 12'},{k:'vow', l:'💪 Make a vow: +5 max health'}]},
+  library: {icon:'📜', title:'Forgotten Library', text:'Dusty spell-scrolls that any hero can read. Take one into your deck.', cards:3},
+  cache:   {icon:'💰', title:'Hidden Cache', text:'Someone hid a stash behind a loose stone.', opts:[{k:'gold', l:'🪙 Take the coins: +20 gold'},{k:'gems', l:'💎 Take the gems: +3 of your hero’s element'}]},
+  merchant:{icon:'🧙', title:'Wandering Merchant', text:'“Rare wares for brave travellers — if you have the gold.”', shop:[{k:'heal', l:'💚 Healing draught: heal 15', cost:20},{k:'res', l:'🔮 Essence pouch: +2 of every resource', cost:25},{k:'card', l:'📜 A random spell-scroll card', cost:30}]}
+};
+function mapSpreadY(n){ if(n===1) return [50]; const lo=16, hi=84; return Array.from({length:n},(_,i)=>Math.round(Math.max(11,Math.min(89, lo+(hi-lo)*i/(n-1)+(rnd(7)-3)*1.5)))); }
+function mapLink(A,B){
+  const na=A.length, nb=B.length, prop=(i,a,b)=>a<=1?0:Math.round(i*(b-1)/(a-1));
+  A.forEach((a,i)=>{ a.next=[prop(i,na,nb)]; });
+  for(let j=0;j<nb;j++) if(!A.some(a=>a.next.includes(j))) A[prop(j,nb,na)].next.push(j);
+  const crosses=(i,j)=>A.some((a,k)=>k!==i && a.next.some(m=>(k<i&&m>j)||(k>i&&m<j)));
+  A.forEach((a,i)=>{ if(rnd(100)<45){ const j=a.next[0]+(rnd(2)?1:-1); if(j>=0 && j<nb && !a.next.includes(j) && !crosses(i,j)) a.next.push(j); } });
+  A.forEach(a=>a.next.sort((x,y)=>x-y));
+}
+function mapFight(f, t){
+  if(t==='elite') return {kind:'elite', keys:[ELITES[rnd(ELITES.length)], WEAK[rnd(WEAK.length)]]};
+  const tier = f<=2 ? 1 : f<=4 ? 2 : 3;
+  return {kind:'minion', tier, keys:shuffle((tier>=2?STRONG:WEAK).slice()).slice(0, tier===1?2:3)};
+}
+function genMap(){
+  const floors=[[{t:'start', y:50, next:[], streak:0}]];
+  for(let f=1; f<=MAP_FLOORS; f++){ const n = f===1 ? 3 : 2+rnd(3); floors.push(mapSpreadY(n).map(y=>({t:null, y, next:[]}))); }
+  floors.push([{t:'boss', y:50, next:[]}]);
+  floors[0][0].next=floors[1].map((_,i)=>i);
+  for(let f=1; f<MAP_FLOORS; f++) mapLink(floors[f], floors[f+1]);
+  floors[MAP_FLOORS].forEach(nd=>{ nd.next=[0]; });
+  for(let f=1; f<=MAP_FLOORS; f++){
+    floors[f].forEach((nd,i)=>{
+      const ps=floors[f-1].filter(p=>p.next.includes(i)), streak=Math.max(0,...ps.map(p=>p.streak||0));
+      let t='monster';
+      if(f>1){ const r=rnd(100); t = r<44 ? 'monster' : r<68 ? 'event' : r<82 ? 'crystal' : (f>=3 ? 'elite' : 'monster'); }
+      if((t==='event'||t==='crystal') && streak>=2) t='monster'; // never more than 2 non-fight stops in a row
+      nd.t=t; nd.streak = (t==='event'||t==='crystal') ? streak+1 : 0;
+    });
   }
-  return opts;
+  if(!floors.slice(3,MAP_FLOORS).some(fl=>fl.some(nd=>nd.t==='elite'))){ const fl=floors[5]; fl[rnd(fl.length)].t='elite'; }
+  floors.forEach((fl,f)=>fl.forEach(nd=>{
+    if(nd.t==='monster'||nd.t==='elite') nd.fight=mapFight(f,nd.t);
+    else if(nd.t==='crystal') nd.sub = rnd(2) ? 'leyline' : 'corefind';
+    else if(nd.t==='event') nd.ev = EVENT_KEYS[rnd(EVENT_KEYS.length)];
+    delete nd.streak;
+  }));
+  return {floors, cur:{f:0,i:0}, trail:[{f:0,i:0}]};
+}
+function ensureMap(T){
+  if(T.map) return;
+  T.map=genMap();
+  if(T.phase==='pathchoice' && T.pathChoice) T.pathChoice={done:{}, pick:{}, opts:T.map.floors[0][0].next.slice()};
 }
 function advancePath(T){
-  const i=T.pathLog.length;
-  if(i<4){
-    T.phase='pathchoice'; T.pathChoice={done:{}, pick:{}, opts:rollForkOptions(T)};
-    lg(T,'🗺 The path splits three ways. Which do the heroes take?'); flash(T,'🗺 A fork in the path!');
-  } else if(!T.leyResolved){ T.phase='leyline'; T.leyline={done:T.solo?{1:1}:{}}; lg(T,'⛩ Just before the way forward, you come to a shimmering ley line…'); flash(T,'⛩ A ley line!'); }
-  else { T.fightIdx=3; setupFight(T); }
+  ensureMap(T);
+  const M=T.map, cur=M.floors[M.cur.f][M.cur.i];
+  T.phase='pathchoice'; T.pathChoice={done:{}, pick:{}, opts:cur.next.slice()};
+  if(M.floors[M.cur.f+1][0].t==='boss'){ lg(T,'👑 The last path leads to Malkorr, the Elemental Overlord.'); flash(T,'👑 The Overlord awaits!'); }
+  else if(cur.next.length>1){ lg(T,`🗺 The path splits ${cur.next.length} ways. Which do the heroes take?`); flash(T,'🗺 A fork in the path!'); }
+  else lg(T,'🗺 The path leads on…');
 }
 function coopPickPath(T,seat,idx){
   const PC=T.pathChoice; if(!PC||PC.done[seat]) return;
+  idx=+idx; if(!(idx>=0 && idx<PC.opts.length)) return;
+  ensureMap(T);
   PC.pick[seat]=idx; PC.done[seat]=1;
   if(T.solo){ PC.pick[1]=idx; PC.done[1]=1; }
   if(PC.done[0] && PC.done[1]){
+    const M=T.map, nf=M.floors[M.cur.f+1];
     let chosenIdx=PC.pick[0];
     if(PC.pick[0]!==PC.pick[1]){
       chosenIdx = rnd(2) ? PC.pick[0] : PC.pick[1];
-      lg(T, `🗳 {0} heads toward ${bucketLabel(PC.opts[PC.pick[0]])}, {1} toward ${bucketLabel(PC.opts[PC.pick[1]])} — the vote is split, so fate decides: onward to ${bucketLabel(PC.opts[chosenIdx])}!`);
-    } else lg(T, `🗺 Both heroes head toward ${bucketLabel(PC.opts[chosenIdx])}.`);
-    const bucket=PC.opts[chosenIdx];
+      lg(T, `🗳 {0} heads toward ${NODE_PHRASE[nf[PC.opts[PC.pick[0]]].t]}, {1} toward ${NODE_PHRASE[nf[PC.opts[PC.pick[1]]].t]} — the vote is split, so fate decides!`);
+    }
+    const ni=PC.opts[chosenIdx], node=nf[ni];
     T.pathChoice=null;
-    resolvePath(T, bucket);
+    M.cur={f:M.cur.f+1, i:ni}; M.trail.push({f:M.cur.f, i:ni}); node.done=1;
+    lg(T,`🗺 The heroes head toward ${NODE_PHRASE[node.t]}.`);
+    resolveNode(T,node);
   }
 }
-function resolvePath(T, bucket){
-  if(bucket==='item'){ T.pathLog.push('item'); T.phase='corefind'; T.corefind={done:T.solo?{1:1}:{}}; lg(T,'💠 Deeper in, you find an inert core stone with no power of its own…'); flash(T,'💠 An unclaimed core stone!'); }
-  else { T.pathLog.push('monster'); T.fightIdx++; setupFight(T); }
+function resolveNode(T,node){
+  if(node.t==='monster'||node.t==='elite'){ T.fightIdx++; setupFight(T,node.fight); return; }
+  if(node.t==='crystal'){
+    if(node.sub==='leyline'){ T.phase='leyline'; T.leyline={done:T.solo?{1:1}:{}}; lg(T,'⛩ The crystal hums above a shimmering ley line…'); flash(T,'⛩ A ley line!'); }
+    else { T.phase='corefind'; T.corefind={done:T.solo?{1:1}:{}}; lg(T,'💠 Inside the crystal sits an inert core stone with no power of its own…'); flash(T,'💠 An unclaimed core stone!'); }
+    return;
+  }
+  if(node.t==='event'){ startEvent(T, node.ev||EVENT_KEYS[rnd(EVENT_KEYS.length)]); return; }
+  if(node.t==='boss'){ T.phase='deckrefresh'; T.deckRefresh={done:T.solo?{1:1}:{}}; lg(T,'Before facing the Overlord, choose whether to refresh your deck.'); flash(T,'👑 The Overlord’s lair!'); }
 }
-function setupFight(S){
-  const f=COOP_FIGHTS[S.fightIdx]; S.fight={kind:f.kind, n:S.fightIdx+1, title:f.title};
+function startEvent(T,key){
+  const D=EVENTS[key]; T.phase='event'; T.event={key, done:T.solo?{1:1}:{}, cards:{}};
+  if(D.cards) [0,1].forEach(i=>{ T.event.cards[i] = T.p[i].absent ? [] : shuffle(NEUTRAL_IDS.slice()).slice(0,D.cards); });
+  lg(T,`${D.icon} ${D.title}: ${D.text}`); flash(T,`${D.icon} ${D.title}!`);
+}
+function coopPickEvent(T,seat,choice){
+  const EV=T.event, P=T.p[seat]; if(!EV || EV.done[seat]) return;
+  const D=EVENTS[EV.key];
+  if(choice!=null && !P.absent){
+    if(D.cards){ const id=+choice; if(!(EV.cards[seat]||[]).includes(id)) return; P.deck.splice(rnd(P.deck.length+1),0,id); lg(T,`📜 {${seat}} adds ${CARDLIST[id].name} to their deck.`); }
+    else if(D.shop){
+      const o=D.shop.find(x=>x.k===choice); if(!o || (T.gold||0)<o.cost) return;
+      T.gold-=o.cost;
+      if(o.k==='heal'){ const b=P.hp; P.hp=Math.min(maxHp(P),P.hp+15); lg(T,`🧙 {${seat}} buys a healing draught (−${o.cost} gold) and heals ${P.hp-b}.`); }
+      else if(o.k==='res'){ resKeys(T,seat).forEach(k=>addRes(P,k,2)); lg(T,`🧙 {${seat}} buys an essence pouch (−${o.cost} gold): +2 of every resource.`); }
+      else { const id=NEUTRAL_IDS[rnd(NEUTRAL_IDS.length)]; P.deck.splice(rnd(P.deck.length+1),0,id); lg(T,`🧙 {${seat}} buys ${CARDLIST[id].name} (−${o.cost} gold) and adds it to their deck.`); }
+    }
+    else if(choice==='drink'){ resKeys(T,seat).forEach(k=>addRes(P,k,2)); lg(T,`⛲ {${seat}} drinks deeply: +2 of every resource.`); }
+    else if(choice==='flask'){ resKeys(T,seat).forEach(k=>addRes(P,k,1)); P.nextShield=(P.nextShield||0)+4; lg(T,`⛲ {${seat}} fills a flask: +1 of every resource and 4 shield next fight.`); }
+    else if(choice==='pray'){ const b=P.hp; P.hp=Math.min(maxHp(P),P.hp+12); lg(T,`💚 {${seat}} prays at the shrine and heals ${P.hp-b}.`); }
+    else if(choice==='vow'){ P.maxhp=maxHp(P)+5; P.hp+=5; lg(T,`💪 {${seat}} makes a vow: +5 max health.`); }
+    else if(choice==='gold'){ T.gold=(T.gold||0)+20; lg(T,`🪙 {${seat}} pockets 20 gold for the party.`); }
+    else if(choice==='gems'){ const el=heroEl(T,seat); addRes(P,el,3); lg(T,`💎 {${seat}} takes the gems: +3 ${EL_NAME[el]}.`); }
+    else return;
+  } else if(!P.absent) lg(T,`{${seat}} moves on.`);
+  EV.done[seat]=1;
+  if(EV.done[0] && EV.done[1]){ T.event=null; advancePath(T); }
+}
+function setupFight(S, spec){
+  if(!spec){ const f=COOP_FIGHTS[Math.max(0,Math.min(4,S.fightIdx))]; spec={kind:f.kind, tier:f.tier, n:f.n}; }
+  S.fight={kind:spec.kind, n:S.fightIdx+1, tier:spec.tier||1, title: spec.kind==='boss'?'Boss':spec.kind==='elite'?'Elite':spec.tier===3?'Minion pack':'Minions'};
   S.p[2]=makeEnemy();
-  if(f.kind==='minion'){ const pool=f.tier>=2?STRONG:WEAK; const keys=shuffle(pool.slice()).slice(0,f.n); keys.forEach(k=>addMinion(S,k,f.tier===3?1:0)); if(f.tier===3) addCoreStoneMinion(S); }
-  else if(f.kind==='elite'){ addMinion(S,ELITES[rnd(ELITES.length)],0); addMinion(S,WEAK[rnd(WEAK.length)],0); S.p[2].name='Elite'; }
+  if(spec.kind==='minion'){ const keys=spec.keys || shuffle((spec.tier>=2?STRONG:WEAK).slice()).slice(0,spec.n||2); keys.forEach(k=>addMinion(S,k,spec.tier===3?1:0)); if(spec.tier===3) addCoreStoneMinion(S); }
+  else if(spec.kind==='elite'){ const keys=spec.keys || [ELITES[rnd(ELITES.length)], WEAK[rnd(WEAK.length)]]; keys.forEach(k=>addMinion(S,k,0)); S.p[2].name='Elite'; }
   else { const E=S.p[2]; E.name=BOSS.name; E.boss=1; E.hp=E.maxhp=Math.round(BOSS.hp*(S.solo?0.6:1)); E.dice=Array.from({length:6},()=>({f:1+rnd(6),fz:0,fzE:0,fog:0})); E.deck=shuffle(BOSS_CARDS.map((c,i)=>i)); E.disc=[]; }
   // heroes: the very first encounter starts fresh; after that you keep your cores, resources, shield, hand, deck and discard
   const fresh = !S.freshDone; S.freshDone=true;
@@ -3642,7 +3917,7 @@ function setupFight(S){
   });
   S.phase='income'; S.round=1; S.q=[]; S.undos={};
   coopPlanIntents(S);
-  lg(S,`⚔ Fight ${S.fight.n} of 5: ${S.fight.kind==='boss'?BOSS.name+' (boss)':S.fight.kind==='elite'?'an elite and its minion':S.p[2].cores.map(c=>CARDLIST[c.id].name).join(', ')}.`);
+  lg(S,`⚔ Fight ${S.fight.n}: ${S.fight.kind==='boss'?BOSS.name+' (boss)':S.fight.kind==='elite'?'an elite and its minion':S.p[2].cores.map(c=>CARDLIST[c.id].name).join(', ')}.`);
 }
 function coopPlanIntents(S){
   const E=S.p[2];
@@ -3676,24 +3951,44 @@ function coreBubble(S,seat,n,el){
   return `<span class="hitbubble corehit ${me?'me':'ally'}" title="${n} damage to ${me?'your':'your ally’s'} biggest core stone"><b>${n}</b>${el?pip(el):''}<span class="hwho">→ ${me?'YOUR':'ALLY'} CORE</span></span>`;
 }
 function splat(n,el){ return `<span class="dmgsplat" title="${n} ${EL_NAME[el]||''} damage"><b>${n}</b>${el?pip(el):''}</span>`; }
+function whoTag(S,seat,mode){
+  if(mode==='self') return `<span class="iwho self">→ ITSELF</span>`;
+  if(mode==='allies') return `<span class="iwho self">→ ITS ALLIES</span>`;
+  if(mode==='both') return `<span class="iwho me">→ ${S.solo?'YOU':'BOTH'}</span>`;
+  const me = S.solo || seat===viewSeat();
+  return `<span class="iwho ${me?'me':'ally'}">→ ${me?'YOU':'ALLY'}${mode==='core'?' · CORE':''}</span>`;
+}
+function irow(cls,icon,label,n,el,who,extra){
+  return `<span class="irow ${cls}"><span class="iico">${icon}</span><span class="iname">${label}</span>${n!=null&&n!==''?`<b class="inum">${n}</b>`:''}${el?pip(el):''}${who||''}${extra||''}</span>`;
+}
 function intentText(S,c){
-  const [k,n]=intentOf(c), b=c.m.bonus||0, side=SIDE_HIT+b, sol=S.solo?-1:0, el=c.m.el;
+  const [k,n]=intentOf(c), b=c.m.bonus||0, sol=S.solo?-1:0, el=c.m.el, t=c.m.tgt;
   const dmg=x=>Math.max(1,x+sol);
-  if(k==='atk' && c.m.core && S.p[c.m.tgt] && S.p[c.m.tgt].cores.length) return `<span class="ilabel">💢 Smash a core</span>${coreBubble(S,c.m.tgt,dmg(n+b),el)}`;
-  if(k==='atk') return `<span class="ilabel">⚔ Attack</span>${hitBubble(S,c.m.tgt,dmg(n+b),el)}`;
-  if(k==='atkAll') return `<span class="ilabel">⚔ Sweep</span>${hitBubble(S,c.m.tgt,true,dmg(n+b),el)}`;
-  const fx={burn:`🔥 +${n} Burn`, freeze:`❄ Freeze ${n} die`, drain:`🌑 Drain ${n}`, fort:`🛡 Grows +${n} health`, healAll:`💚 Heals allies ${n}`, charge:`⏳ Charging`, mirror:`🪞 Mirrors your hit`, steal:`🕵 Steal a die &amp; resource`, guard:`🛡 Guards itself`}[k]||k;
-  return `<span class="ilabel">${fx}</span>${hitBubble(S,c.m.tgt,dmg(side),el)}`;
+  if(k==='atk' && c.m.core && S.p[t] && S.p[t].cores.length) return irow('dmg','💢','Smash a core',dmg(n+b),el,whoTag(S,t,'core'));
+  if(k==='atk') return irow('dmg','⚔','Attack',dmg(n+b),el,whoTag(S,t));
+  if(k==='atkAll') return irow('dmg','🌀','Sweep',dmg(n+b),el,whoTag(S,t,'both'));
+  const ai=MINIONS[c.m.key].ai, nx=ai[(c.m.step+1)%ai.length];
+  const row = k==='burn' ? irow('debuff','🔥','Burn',`+${n}`,null,whoTag(S,t))
+    : k==='freeze' ? irow('debuff','❄','Freeze',`${n} ${n===1?'die':'dice'}`,null,whoTag(S,t))
+    : k==='drain' ? irow('debuff','🌑','Drain',`${n} res.`,null,whoTag(S,t))
+    : k==='fort' ? irow('buff','💪','Grow',`+${n} ♥`,null,whoTag(S,t,'self'))
+    : k==='healAll' ? irow('heal','💚','Heal',`+${n} ♥`,null,whoTag(S,t,'allies'))
+    : k==='charge' ? irow('buff','⏳','Charging up',null,null,'', nx&&nx[0]==='atk'?`<span class="inext">next turn: hits ${dmg(nx[1]+b)}</span>`:'')
+    : k==='mirror' ? irow('dmg','🪞','Mirror your best hit',null,el,whoTag(S,t))
+    : k==='steal' ? irow('debuff','🕵','Steal 1 res. + freeze 1 die',null,null,whoTag(S,t))
+    : k==='guard' ? irow('buff','🛡',`Guard: immune ${n} turn${n>1?'s':''}`,null,null,whoTag(S,t,'self'))
+    : irow('buff','✨',esc(k),null,null,'');
+  return row + irow('dmg','⚔','Attack',dmg(SIDE_HIT+b),el,whoTag(S,t));
 }
 function bossDiceCounts(E){ const c={claw:0,wing:0,scale:0,breath:0,eclipse:0}; E.dice.forEach(d=>{ if(!d.fzE) c[BOSS_FACES[d.f]]++; }); return c; }
 function bossIntentText(S){
-  const E=S.p[2], c=bossDiceCounts(E), out=[], sol=S.solo?-1:0, d=x=>Math.max(1,x+sol);
-  if(c.claw>=3) out.push(`<span class="ilabel">👊 Molten Smash</span>${hitBubble(S,E.tgt,d(9),'F')}`); else if(c.claw) out.push(`<span class="ilabel">👊 Lava Fist</span>${hitBubble(S,E.tgt,d(2*c.claw),'F')}`);
-  if(c.wing) out.push(`<span class="ilabel">🌊 Tidal Wave</span>${hitBubble(S,E.tgt,true,d(c.wing),'W')}`);
-  if(c.scale) out.push(`<span class="ilabel">🧊 +${3*c.scale} shield</span>`);
-  if(c.breath>=2) out.push(`<span class="ilabel">⚡ Elemental Storm</span>${hitBubble(S,E.tgt,d(3*c.breath),'L')}`); else if(c.breath) out.push(`<span class="ilabel">⚡ Lightning Lash</span>${hitBubble(S,E.tgt,d(2),'L')}`);
-  if(c.eclipse>=2) out.push(`<span class="ilabel">🌑 ${S.solo?'You lose':'Both lose'} 2 resources</span>`); else if(c.eclipse) out.push(`<span class="ilabel">🌑 Heals 3</span>`);
-  if(!c.claw && !c.wing && !c.breath) out.push(`<span class="ilabel">👑 Overlord's Wrath</span>${hitBubble(S,E.tgt,d(4),'D')}`);
+  const E=S.p[2], c=bossDiceCounts(E), out=[], sol=S.solo?-1:0, d=x=>Math.max(1,x+sol), t=E.tgt;
+  if(c.claw>=3) out.push(irow('dmg','👊','Molten Smash',d(9),'F',whoTag(S,t))); else if(c.claw) out.push(irow('dmg','👊','Lava Fist',d(2*c.claw),'F',whoTag(S,t)));
+  if(c.wing) out.push(irow('dmg','🌊','Tidal Wave',d(c.wing),'W',whoTag(S,t,'both')));
+  if(c.scale) out.push(irow('buff','🧊','Ice Armor',`+${3*c.scale} 🛡`,null,whoTag(S,t,'self')));
+  if(c.breath>=2) out.push(irow('dmg','⚡','Elemental Storm',d(3*c.breath),'L',whoTag(S,t))); else if(c.breath) out.push(irow('dmg','⚡','Lightning Lash',d(2),'L',whoTag(S,t)));
+  if(c.eclipse>=2) out.push(irow('debuff','🌑','Void: lose resources',2,null,whoTag(S,t,'both'))); else if(c.eclipse) out.push(irow('heal','🌑','Void: heal',`+3 ♥`,null,whoTag(S,t,'self')));
+  if(!c.claw && !c.wing && !c.breath) out.push(irow('dmg','👑',"Overlord's Wrath",d(4),'D',whoTag(S,t)));
   return out;
 }
 function loseRes(S,seat,n){ const P=S.p[seat], got=[]; for(let i=0;i<n;i++){ const k=Object.keys(P.res).sort((a,b)=>P.res[b]-P.res[a])[0]; if(k && P.res[k]>0){ P.res[k]--; got.push(k); } } if(got.length) lg(S,`{${seat}} loses ${got.map(k=>EL_NAME[k]).join(', ')}.`); }
@@ -3785,8 +4080,8 @@ function coopStep(S,st){
     return;
   }
   if(st.k==='eend'){
-    S.round++;
-    [0,1].forEach(i=>{ const P=S.p[i]; if(P.absent) return; P.st.used=[]; P.st.energy=0; P.st.rime=0; P.st.tesla=0; P.st.bulwark=0; P.st.pierce=0; P.fogPend=[]; P.freeCard=null; P.ready=0; P.inc = P.down ? 'done' : 'roll'; });
+    S.round++; S.tn=(S.tn||1)+1; // timed effects (Guard, Stone Skin, Iron Will, Ash Cloud) expire round by round in PvE too
+    [0,1].forEach(i=>{ const P=S.p[i]; if(P.absent) return; P.st.used=[]; P.st.energy=0; P.st.rime=0; P.st.tesla=0; P.st.forged=0; P.st.bulwark=0; P.st.pierce=0; P.fogPend=[]; P.freeCard=null; P.ready=0; P.inc = P.down ? 'done' : 'roll'; });
     S.phase='income'; coopPlanIntents(S);
     lg(S,`— Round ${S.round}: heroes, roll your dice —`);
     return;
@@ -3805,10 +4100,11 @@ function coopCheck(S){
 function fightWon(S){
   S.q=[]; sfx(S,'deflect');
   { const E0=S.p[2]; if(E0.cores.some(c=>c.m && c.m.optional)){ S.coreEmpower=(S.coreEmpower||0)+1; lg(S,'💠 The core stone\'s unstable power surges into future enemies!'); flash(S,'💠 Enemies grow stronger!'); } }
+  { const g = S.fight.kind==='boss' ? 100 : S.fight.kind==='elite' ? 35+rnd(11) : 10+5*(S.fight.tier||1)+rnd(6); S.gold=(S.gold||0)+g; S.lastGold=g; lg(S,`🪙 The heroes collect ${g} gold (${S.gold} in the purse).`); }
   if(S.fight.kind==='boss'){ S.status='over'; S.winner=-1; S.coopWin=true; lg(S,`🏆 ${BOSS.name} is defeated! You win the run!`); flash(S,'🏆 Victory!'); return; }
   lg(S,`🏆 Fight ${S.fight.n} won!`); flash(S,'🏆 Fight won! Choose your reward.');
   [0,1].forEach(i=>{ const P=S.p[i]; if(P.down && !P.absent){ P.down=0; P.hp=4; lg(S,`{${i}} gets back up with 4 health.`); } });
-  if(S.fight.kind==='elite'){ [0,1].forEach(i=>{ const P=S.p[i]; if(P.absent) return; P.dice.push({f:1+rnd(6),fz:0,fzE:0,fog:0}); }); lg(S,'🎲 Elite bonus: each hero gains a 7th die!'); }
+  if(S.fight.kind==='elite'){ [0,1].forEach(i=>{ const P=S.p[i]; if(P.absent || P.dice.length>=8) return; P.dice.push({f:1+rnd(6),fz:0,fzE:0,fog:0}); }); lg(S,'🎲 Elite bonus: each hero gains an extra die (up to 8)!'); }
   const kind = S.fight.kind==='elite' ? 'relic' : 'card', opts={};
   [0,1].forEach(i=>{
     if(S.p[i].absent){ opts[i]=[]; return; }
@@ -3828,8 +4124,7 @@ function coopPickReward(T,seat,choice){
   R.done[seat]=1;
   if(R.done[0] && R.done[1]){
     T.reward=null;
-    if(T.fight.kind==='elite'){ T.phase='deckrefresh'; T.deckRefresh={done:T.solo?{1:1}:{}}; lg(T,'Choose whether to refresh your deck before the boss.'); }
-    else { advancePath(T); }
+    advancePath(T);
   }
 }
 function coopPickCorefind(T,seat,el){
@@ -3841,7 +4136,8 @@ function coopPickCorefind(T,seat,el){
 }
 function coopPickLeyline(T,seat,choice){
   const LY=T.leyline, P=T.p[seat]; if(!LY||LY.done[seat]) return;
-  if(!P.absent && choice==='power'){ P.dice.push({f:1+rnd(6),fz:0,fzE:0,fog:0}); lg(T,`⛩ {${seat}} gathers power at the ley line: an extra die!`); }
+  if(!P.absent && choice==='power' && P.dice.length<8){ P.dice.push({f:1+rnd(6),fz:0,fzE:0,fog:0}); lg(T,`⛩ {${seat}} gathers power at the ley line: an extra die!`); }
+  else if(!P.absent && choice==='power'){ P.hp=maxHp(P); lg(T,`⛩ {${seat}} already rolls 8 dice, so the ley line heals them fully instead.`); }
   else if(!P.absent && choice==='heal'){ P.hp=maxHp(P); lg(T,`⛩ {${seat}} is fully healed by the ley line!`); }
   LY.done[seat]=1;
   if(LY.done[0] && LY.done[1]){ T.leyline=null; T.leyResolved=true; advancePath(T); }
@@ -3851,7 +4147,7 @@ function coopPickDeckRefresh(T,seat,yes){
   if(yes){ if(P.disc.length){ P.deck=shuffle(P.deck.concat(P.disc)); P.disc=[]; lg(T,`{${seat}} refreshes their deck, shuffling discards back in.`); } else lg(T,`{${seat}} has no discards to refresh.`); }
   else lg(T,`{${seat}} keeps their deck as is.`);
   DR.done[seat]=1;
-  if(DR.done[0] && DR.done[1]){ T.deckRefresh=null; T.fightIdx++; setupFight(T); }
+  if(DR.done[0] && DR.done[1]){ T.deckRefresh=null; T.fightIdx++; setupFight(T,{kind:'boss'}); }
 }
 /* ---------- co-op actions ---------- */
 act.unready = ()=>guard(async()=>{ const seat=ACTOR(); if(!S.coop || !S.p[seat].ready || !['main1','combat','main2'].includes(S.phase)) return; const T=clone(S); T.p[seat].ready=0; lg(T,`{${seat}} isn't ready yet.`); await commitA(T,seat,null); });
@@ -3859,6 +4155,7 @@ act.pickReward = (choice)=>guard(async()=>{ const seat=ACTOR(); if(!S.reward || 
 act.pickDeckRefresh = (yes)=>guard(async()=>{ const seat=ACTOR(); if(!S.deckRefresh || S.deckRefresh.done[seat]) return; const T=clone(S); coopPickDeckRefresh(T,seat,yes); await commitA(T,seat,null); });
 act.pickCorefind = (el)=>guard(async()=>{ const seat=ACTOR(); if(!S.corefind || S.corefind.done[seat]) return; const T=clone(S); coopPickCorefind(T,seat,el); await commitA(T,seat,null); });
 act.pickLeyline = (choice)=>guard(async()=>{ const seat=ACTOR(); if(!S.leyline || S.leyline.done[seat]) return; const T=clone(S); coopPickLeyline(T,seat,choice); await commitA(T,seat,null); });
+act.pickEvent = (choice)=>guard(async()=>{ const seat=ACTOR(); if(!S.event || S.event.done[seat]) return; const T=clone(S); coopPickEvent(T,seat,choice); await commitA(T,seat,null); });
 act.pickPath = (idx)=>guard(async()=>{ const seat=ACTOR(); if(!S.pathChoice || S.pathChoice.done[seat]) return; const T=clone(S); coopPickPath(T,seat,idx); await commitA(T,seat,null); });
 act.ultimate = ()=>guard(async()=>{
   const seat=ACTOR(); if(!S.coop || S.solo || !S.fight || S.fight.ultUsed) return;
@@ -3919,7 +4216,7 @@ function coopEnemyHTML(S){
       ${(E.burn||0)>0?`<div class="burnbar"><span class="flame">🔥</span> Burn ${E.burn}</div>`:''}
       <div class="bossdice">${E.dice.map(d=>`<span class="bdie ${d.fzE?'fze die':''}" title="${BOSS_FACE_NAME[BOSS_FACES[d.f]]}">${BOSS_FACE_ICON[BOSS_FACES[d.f]]}</span>`).join('')}<span class="msub bdkey">👊 fist · 🌊 wave · 🧊 armor · ⚡ storm · 🌑 void</span></div>
       <div class="bossplan"><div class="bphead">👑 ${esc(BOSS.short)}'s plan for his next turn</div><div class="bpsub">When the heroes end their turn, he will do <b>all</b> of these, in order:</div>
-        <ol class="bplist">${bossIntentText(S).map(x=>`<li><div class="intent">${x}</div></li>`).join('')}${E.next!=null?`<li class="bpcard"><div class="intent"><span class="ilabel">🂠 Plays ${esc(BOSS_CARDS[E.next].n)}</span><span class="bpctext">${esc(BOSS_CARDS[E.next].t)}</span></div></li>`:''}</ol></div>
+        <ol class="bplist">${bossIntentText(S).map(x=>`<li><div class="intent">${x}</div></li>`).join('')}${E.next!=null?`<li class="bpcard"><div class="intent">${irow('card','🂠','Plays '+esc(BOSS_CARDS[E.next].n),null,null,'')}<span class="bpctext">${esc(BOSS_CARDS[E.next].t)}</span></div></li>`:''}</ol></div>
     </div>` : '';
   return `<div class="enemyzone">${boss}<div class="minions">${E.cores.map(minion).join('')}</div></div>`;
 }
@@ -3933,7 +4230,7 @@ function coopPrompt(S,v){
     const R=S.reward; if(R.done[v]) return `<div class="prompt thinking"><span class="spin"></span><span>Waiting for your partner to pick a reward…</span></div>`;
     const title = R.kind==='card' ? 'Choose a card to add to your deck' : 'Choose a powerful core (it doesn’t use a core slot)';
     const opts = R.kind==='card' ? R.opts[v].map(id=>miniCard(id, `data-act="pickreward" data-c="${id}"`)).join('') : R.opts[v].map(r=>`<button class="relicopt" data-act="pickreward" data-c="${esc(r)}"><span class="relicgem">💎</span><b>${esc(r)}</b><small>${esc(RELICS[r])}</small></button>`).join('');
-    return `<div class="rewardbox"><h3>🏆 ${title}</h3><div class="rewardopts ${R.kind}">${opts||'<span class="none">No options left.</span>'}</div><button class="btn ghost skipreward" data-act="pickreward" data-c="">Skip: heal 5 ♥ and start the next fight with 2 🛡</button></div>`;
+    return `<div class="rewardbox"><h3>🏆 ${title}${S.lastGold?` <span class="goldtag">🪙 +${S.lastGold} gold</span>`:''}</h3><div class="rewardopts ${R.kind}">${opts||'<span class="none">No options left.</span>'}</div><button class="btn ghost skipreward" data-act="pickreward" data-c="">Skip: heal 5 ♥ and start the next fight with 2 🛡</button></div>`;
   }
   if(S.phase==='deckrefresh'){
     const DR=S.deckRefresh; if(DR.done[v]) return `<div class="prompt thinking"><span class="spin"></span><span>Waiting for your partner to decide…</span></div>`;
@@ -3948,16 +4245,23 @@ function coopPrompt(S,v){
     const LY=S.leyline; if(LY.done[v]) return `<div class="prompt thinking"><span class="spin"></span><span>Waiting for your partner to decide…</span></div>`;
     return `<div class="rewardbox"><h3>⛩ A ley line</h3><p class="msub">Gather its power, or let it heal you fully.</p><div class="rewardopts"><button class="btn" data-act="leyline" data-c="power">🎲 Gather power: +1 die</button><button class="btn ghost" data-act="leyline" data-c="heal">💚 Heal completely</button></div></div>`;
   }
+  if(S.phase==='event'){
+    const EV=S.event, D=EVENTS[EV.key]; if(EV.done[v]) return `<div class="prompt thinking"><span class="spin"></span><span>Waiting for your partner to decide…</span></div>`;
+    const body = D.cards ? (EV.cards[v]||[]).map(id=>miniCard(id, `data-act="eventpick" data-c="${id}"`)).join('')
+      : D.shop ? D.shop.map(o=>`<button class="btn ${(S.gold||0)>=o.cost?'':'ghost'}" data-act="eventpick" data-c="${o.k}" ${(S.gold||0)<o.cost?'disabled':''}>${o.l} · 🪙 ${o.cost}</button>`).join('')
+      : D.opts.map(o=>`<button class="btn" data-act="eventpick" data-c="${o.k}">${o.l}</button>`).join('');
+    return `<div class="rewardbox eventbox"><h3>${D.icon} ${D.title}${D.shop?` <span class="goldtag">🪙 ${S.gold||0}</span>`:''}</h3><p class="msub">${D.text}</p><div class="rewardopts ${D.cards?'card':''}">${body}</div><button class="btn ghost skipreward" data-act="eventpick" data-c="">Leave</button></div>`;
+  }
   if(S.phase==='pathchoice'){
-    const PC=S.pathChoice;
-    const waiting = PC.done[v] ? `<p class="msub">Waiting for your partner to choose a path…</p>` : `<p class="msub">Click a path below. If you and your partner disagree, the vote is split and fate decides. Never more than 2 item encounters in a row.</p>`;
-    return `<div class="rewardbox"><h3>🗺 The path splits three ways</h3>${waiting}${pathMapHTML(S)}</div>`;
+    const PC=S.pathChoice, n=PC.opts.length;
+    const waiting = PC.done[v] ? `<p class="msub">Waiting for your partner to choose a path…</p>` : `<p class="msub">${n>1?'Click a glowing node to choose where the heroes go next.':'Click the glowing node to move on.'}${S.solo?'':' If you and your partner disagree, fate decides.'}</p>`;
+    return `<div class="rewardbox mapbox"><h3>🗺 ${n>1?'Choose your path':'Onward'} <span class="goldtag">🪙 ${S.gold||0}</span></h3>${waiting}${mapHTML(S,true)}</div>`;
   }
   if(S.phase==='enemy') return `<div class="prompt thinking"><span class="spin"></span><span>The enemies are acting…</span></div>`;
   if(P.down){ return `<div class="prompt">💀 You're knocked out. Your partner can revive you with 6 resources.</div>`; }
   if(S.phase==='income'){
-    if(P.inc==='roll') return `<div class="prompt you">Roll your dice and draw a card. ${phaseBtn('income','Roll &amp; Draw','roll')}</div>`;
-    if(P.inc==='adjust') return `<div class="prompt you">Choose your wild dice, then collect. <button class="btn" data-act="collect">Collect resources</button></div>`;
+    if(P.inc==='roll') return `<div class="prompt you">Roll your dice and draw a card. ${phaseBtn('income','Roll &amp; Draw','roll')}${forgeBtnHTML(S,v)}</div>`;
+    if(P.inc==='adjust') return `<div class="prompt you">Choose your wild dice, then collect. <button class="btn" data-act="collect">Collect resources</button>${forgeBtnHTML(S,v)}</div>`;
     return `<div class="prompt thinking"><span class="spin"></span><span>Waiting for your partner to collect…</span>${canUndo()?` <button class="btn ghost" data-act="undo">↶ Undo: ${esc(undoLabel())}</button>`:''}</div>`;
   }
   const O=S.p[1-v];
@@ -3971,74 +4275,73 @@ function coopPrompt(S,v){
   return `<div class="prompt you"><span>${hint}${O.ready?' <b>Your partner is ready.</b>':''}</span>${revive}${ult} ${phaseBtn(nk,nxt)}</div>`;
 }
 function pathBarHTML(S){
-  const icons={monster:'⚔',item:'💠'}, titles={monster:'Monsters',item:'Item'};
-  const slots=[];
-  for(let i=0;i<4;i++){
-    const e=S.pathLog[i];
-    slots.push(e ? `<span class="fstep done">${icons[e]} ${titles[e]}</span>` : `<span class="fstep">? Unknown</span>`);
-  }
-  slots.push(`<span class="fstep ${S.leyResolved?'done':S.pathLog.length>=4?'now':''}">⛩ Ley line</span>`);
-  slots.push(`<span class="fstep ${S.fightIdx>3?'done':S.fightIdx===3?'now':''}">⭐ Elite</span>`);
-  slots.push(`<span class="fstep ${S.fightIdx>=4?'now':''}">👑 Boss</span>`);
-  return slots.map((s,i)=> i===0?s:'<span class="sep">›</span>'+s).join('');
+  const M=S.map, f=M?M.cur.f:0, last=M?M.floors.length-1:MAP_FLOORS+1;
+  return `<span class="fstep now">🗺 Floor ${f} / ${last}</span><span class="fstep goldstep">🪙 ${S.gold||0}</span><button type="button" class="btn ghost sm" data-act="viewmap">🗺 Map</button>`;
 }
-function pnode(x,y,icon,label,state,attr){
-  return `<div class="pnode ${state}" style="left:${x}%;top:${y}%"${attr?` ${attr}`:''}><span class="picon">${icon}</span><span>${label}</span></div>`;
+const MAP_DEMON=`<svg viewBox="0 0 100 100" class="mdemon" aria-hidden="true"><path class="horn" d="M24 44 C12 26 16 10 30 4 C27 18 31 30 40 36 Z"/><path class="horn" d="M76 44 C88 26 84 10 70 4 C73 18 69 30 60 36 Z"/><path class="head" d="M32 34 C38 28 62 28 68 34 L76 56 C76 76 62 90 50 92 C38 90 24 76 24 56 Z"/><path class="eye" d="M34 52 L47 57 L38 63 Z"/><path class="eye" d="M66 52 L53 57 L62 63 Z"/><path class="eye" d="M38 74 L43 70 L46 76 L50 70 L54 76 L57 70 L62 74 L57 82 L43 82 Z"/></svg>`;
+const MAP_CRYSTAL=`<svg viewBox="0 0 100 100" class="mcrys" aria-hidden="true"><path d="M50 8 L30 38 L42 92 Z" fill="#7fd8ff"/><path d="M50 8 L70 38 L58 92 Z" fill="#2f8cf0"/><path d="M50 8 L42 92 L58 92 Z" fill="#c8f3ff"/><path d="M50 8 L70 38 L58 92 L42 92 L30 38 Z" fill="none" stroke="#0b2346" stroke-width="5" stroke-linejoin="round"/></svg>`;
+const MAP_X = f => 6 + f*(86/(MAP_FLOORS+1));
+function mapNodeIcon(nd, detail){
+  if(nd.t==='monster'||nd.t==='elite'){ const k=nd.fight&&nd.fight.keys&&nd.fight.keys[0], m=k&&MINIONS[k]; return detail && m && IMG[m.img] ? `<img src="${IMG[m.img]}" alt="">` : MAP_DEMON; }
+  if(nd.t==='event') return `<span class="mq">?</span>`;
+  if(nd.t==='crystal') return MAP_CRYSTAL;
+  if(nd.t==='boss') return `<img src="${IMG.boss}" alt="">`;
+  return '';
 }
-function pline(x1,y1,x2,y2,taken){ return `<line class="pline ${taken?'ptaken':''}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`; }
-function pathMapHTML(S){
-  const X=[12,26,40,54,68,82,96];
-  const Y3=[14,50,86];
-  const icons={monster:'⚔',item:'💠'}, titles={monster:'Monster',item:'Item'};
-  const doneCount=S.pathLog.length;
-  const nodes=[pnode(0,50,'🚪','Start','done')];
-  const lines=[];
-  let prev=[{x:0,y:50}];
-  for(let i=0;i<4;i++){
-    const x=X[i];
-    const resolved=i<doneCount;
-    if(resolved){
-      const taken=S.pathLog[i], state = (i===doneCount-1?'now':'done');
-      nodes.push(pnode(x,50,icons[taken],titles[taken],state));
-      prev.forEach(p=>lines.push(pline(p.x,p.y,x,50,true)));
-      prev=[{x,y:50}];
-    } else if(S.phase==='pathchoice' && i===doneCount){
-      const opts=S.pathChoice.opts;
-      opts.forEach((o,k)=>{
-        nodes.push(pnode(x,Y3[k],icons[o],titles[o],'choice',`data-act="pathvote" data-i="${k}"`));
+function mapNodeTitle(nd, detail){
+  if(nd.t==='monster'||nd.t==='elite') return (nd.t==='elite'?'Elite':'Monsters') + (detail && nd.fight ? ': '+nd.fight.keys.map(k=>MINIONS[k].name.replace(/^The /,'')).join(', ') : '');
+  if(nd.t==='event') return 'Unknown: a mysterious event';
+  if(nd.t==='crystal') return detail ? (nd.sub==='leyline'?'Crystal: a ley line (an extra die or a full heal)':'Crystal: an unclaimed core stone') : 'Crystal';
+  if(nd.t==='boss') return 'Boss: Malkorr, the Elemental Overlord';
+  return 'Start';
+}
+function mapHTML(S, interactive){
+  ensureMap(S);
+  const M=S.map, cf=M.cur.f, last=M.floors.length-1, PC = interactive && S.phase==='pathchoice' ? S.pathChoice : null;
+  const vis = f => f===last || f<=cf+2, det = f => f===last || f<=cf+1;
+  const onTrail=(f,i)=>M.trail.some(p=>p.f===f && p.i===i);
+  const edges=[], nodes=[];
+  M.floors.forEach((fl,f)=>{
+    if(!vis(f)) return;
+    const x=MAP_X(f);
+    fl.forEach((nd,i)=>{
+      nd.next.forEach(j=>{
+        const f2=f+1; if(f2!==last && !vis(f2)) return;
+        const x2=MAP_X(f2), y2=M.floors[f2][j].y, xm=(x+x2)/2;
+        const cls = (onTrail(f,i) && onTrail(f2,j)) ? 'taken' : (f===cf && i===M.cur.i) ? 'avail' : f2>cf+1 ? 'dim' : f<cf ? 'past' : '';
+        edges.push(`<path class="medge ${cls}" d="M${x} ${nd.y} C${xm} ${nd.y} ${xm} ${y2} ${x2} ${y2}"/>`);
       });
-      prev.forEach(p=> Y3.forEach(y=>lines.push(pline(p.x,p.y,x,y,false))) );
-      prev=Y3.map(y=>({x,y}));
-    } else {
-      nodes.push(pnode(x,50,'❔','?','future'));
-      prev.forEach(p=>lines.push(pline(p.x,p.y,x,50,false)));
-      prev=[{x,y:50}];
-    }
-  }
-  {
-    const x=X[4], state = S.leyResolved?'done': doneCount>=4?'now':'future';
-    nodes.push(pnode(x,50,'⛩','Ley Line',state));
-    prev.forEach(p=>lines.push(pline(p.x,p.y,x,50,doneCount>=4)));
-    prev=[{x,y:50}];
-  }
-  {
-    const x=X[5], state = S.fightIdx>3?'done':S.fightIdx===3?'now':'future';
-    nodes.push(pnode(x,50,'⭐','Elite',state));
-    prev.forEach(p=>lines.push(pline(p.x,p.y,x,50,S.fightIdx>=3)));
-    prev=[{x,y:50}];
-  }
-  {
-    const x=X[6], state = S.fightIdx>=4?'now':'future';
-    nodes.push(pnode(x,50,'👑','Boss',state));
-    prev.forEach(p=>lines.push(pline(p.x,p.y,x,50,S.fightIdx>=4)));
-  }
-  return `<div class="pathmap"><svg class="pathsvg" viewBox="0 0 100 100" preserveAspectRatio="none">${lines.join('')}</svg><div class="pathnodes">${nodes.join('')}</div></div>`;
+      const ci = PC && f===cf+1 ? PC.opts.indexOf(i) : -1, d=det(f);
+      const st = (f===cf && i===M.cur.i) ? 'cur' : onTrail(f,i) ? 'done' : ci>=0 ? 'choice' : (f>cf+1 && f!==last) ? 'dim' : f<=cf ? 'past' : '';
+      const votes = PC && ci>=0 ? [0,1].filter(s=>!S.p[s].absent && PC.done[s] && PC.pick[s]===ci).map(s=>`<span class="mvote">${S.solo?'✓':'P'+(s+1)}</span>`).join('') : '';
+      const attr = ci>=0 && !PC.done[viewSeat()] ? ` data-act="pathvote" data-i="${ci}" role="button" tabindex="0"` : '';
+      const label = nd.t==='boss' ? '<span class="mlabel">BOSS<br>MALKORR</span>' : nd.t==='start' ? '<span class="mlabel">START</span>' : '';
+      nodes.push(`<div class="mnode t-${nd.t} ${st}" style="left:${x}%;top:${nd.y}%" title="${esc(mapNodeTitle(nd,d))}"${attr}><span class="mbadge">${mapNodeIcon(nd,d)}</span>${votes}${label}</div>`);
+    });
+  });
+  const fogFrom = cf+3 <= last-1 ? MAP_X(cf+2)+5 : null;
+  const legend = `<div class="mlegend"><span><i class="lg t-monster">${MAP_DEMON}</i>Monsters</span><span><i class="lg t-elite">${MAP_DEMON}</i>Elite</span><span><i class="lg t-event"><span class="mq">?</span></i>Unknown event</span><span><i class="lg t-crystal">${MAP_CRYSTAL}</i>Crystal: core stone or ley line</span><span><i class="lg t-boss"><img src="${IMG.boss}" alt=""></i>Boss</span></div>`;
+  return `<div class="mapscroll"><div class="mapwrap">
+      <span class="mrune tl">ᛞᚢᚾᚷᛖᚩᚾ ᛟᚠ ᚦᛖ ᛞᛖᛈᚦᛋ</span><span class="mrune tr">ᛖᛚᛖᛗᛖᚾᛏᚨᛚ</span><span class="mrune br">ᛗᚨᛚᚴᛟᚱᚱ</span>
+      <svg class="medges" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${edges.join('')}</svg>
+      ${fogFrom!=null?`<div class="mfog" style="left:${fogFrom}%"></div>`:''}
+      <div class="mnodes">${nodes.join('')}</div>
+    </div></div>${legend}`;
+}
+function showMapModal(){
+  if(!S || !S.coop) return;
+  const m=openModal(`<div class="mapmodal"><h3>🗺 The Elemental Depths <span class="goldtag">🪙 ${S.gold||0} gold</span></h3><p class="msub">The map reveals itself as you go deeper. Hover a node to see what waits there.</p>${mapHTML(S,false)}</div><div class="mfoot"><button type="button" class="btn" data-x>Close</button></div>`);
+  m.onclick=e=>{ if(e.target.closest('[data-x]')) hideModal(); };
+  setTimeout(mapAutoScroll,0);
+}
+function mapAutoScroll(){
+  document.querySelectorAll('.mapscroll').forEach(sc=>{ const c=sc.querySelector('.mnode.cur'); if(c && sc.scrollWidth>sc.clientWidth) sc.scrollLeft=Math.max(0, c.offsetLeft - sc.clientWidth*0.3); });
 }
 function coopHTML(v){
   const P=S.p[v], o=1-v, O=S.p[o];
   const handHTML = (S.mode==='local' || mySeat===v) ? P.hand.map((id,hi)=>{ const why=cardBlockReason(S,v,hi); const ok=!why&&canAct(v); return miniCard(id, `data-act="play" data-i="${hi}" data-seat="${v}"`, ok?null:why, P.freeCard===id); }).join('') : '';
   const relics = p=> (p.relics||[]).length ? `<div class="relics">${p.relics.map(r=>`<span class="relicchip" title="${esc(RELICS[r])}">💎 ${esc(r)}</span>`).join('')}</div>` : '';
-  const phaseName = S.phase==='enemy'?'Enemy turn':S.phase==='reward'?'Rewards':S.phase==='deckrefresh'?'Deck refresh':S.phase==='corefind'?'Core stone':S.phase==='leyline'?'Ley line':S.phase==='pathchoice'?'Choose a path':PHASE_NAME[S.phase];
+  const phaseName = S.phase==='event'?'Event':S.phase==='enemy'?'Enemy turn':S.phase==='reward'?'Rewards':S.phase==='deckrefresh'?'Deck refresh':S.phase==='corefind'?'Core stone':S.phase==='leyline'?'Ley line':S.phase==='pathchoice'?'Choose a path':PHASE_NAME[S.phase];
   return `
   <div class="gtop">
     <button class="btn ghost sm" data-act="lobby">← Lobby</button>
@@ -4076,7 +4379,7 @@ async function coopMenu(){
     {v:'solo',  html:'<span class="eb">🗡 Solo <small>(one player)</small></span>'},
     {v:'local', html:'<span class="eb">🤝 Co-op on this device <small>(two players share the screen)</small></span>'}];
   if(typeof db!=='undefined' && db && myId) opts.push({v:'online', html:'<span class="eb">🌐 Co-op online <small>(send a friend the code)</small></span>'});
-  const r=await pickOne('PvE dungeon', opts, {sub:'Fight 3 minion battles, an elite, and Malkorr, the Elemental Overlord. Solo enemies have less health.'}); if(!r) return;
+  const r=await pickOne('PvE dungeon', opts, {sub:'Cross a branching dungeon map of monsters, elites, mysterious events and crystals, then defeat Malkorr, the Elemental Overlord. Solo enemies have less health.'}); if(!r) return;
   if(r==='solo'){ seenRoll={}; lastTurnKey=undefined; lastFlashN=undefined; lastPendOther=false; lastSxN=undefined; lastPhase=undefined; S=makeCoop([pickedHero,pickedHero],[null,null],'local',null,true); mySeat=null; coopView=0; render(); return; }
   if(r==='local'){ const keys=Object.keys(HEROES).filter(k=>k!==pickedHero); const h2=await pickOne('Choose the second player’s hero', keys.map(k=>({v:k,label:HEROES[k].name}))); if(h2) startCoopLocal(h2); return; }
   if(r==='online') createOnline(true);
@@ -4255,7 +4558,8 @@ function showVictory(final){
   const conf=Array.from({length:28},(_,i)=>`<i style="--x:${Math.round(Math.random()*100)}%;--d:${(Math.random()*0.8).toFixed(2)}s;--c:${['#ffc400','#ff5a3d','#3da5ff','#47c25a','#8a4fff'][i%5]}"></i>`).join('');
   overlayFx(`<div class="confetti">${conf}</div><div class="vbox"><div class="vrays"></div>
      <div class="vtitle">${final?'THE OVERLORD FALLS!':'VICTORY!'}</div>
-     ${final?'<div class="vsub">You conquered the Elemental Depths 🏆</div>':`<div class="lvlup">⬆ LEVEL UP!</div><div class="vsub">${S.reward&&S.reward.kind==='relic'?'🎲 You gain a 7th die! Now claim a powerful core':'Choose a new card for your deck'}</div>`}
+     ${S.lastGold?`<div class="vgold">🪙 +${S.lastGold} gold</div>`:''}
+     ${final?'<div class="vsub">You conquered the Elemental Depths 🏆</div>':`<div class="lvlup">⬆ LEVEL UP!</div><div class="vsub">${S.reward&&S.reward.kind==='relic'?'🎲 You gain an extra die! Now claim a powerful core':'Choose a new card for your deck'}</div>`}
    </div>`, final?4200:2600, 'victory');
 }
 function showDelve(){
@@ -4270,8 +4574,27 @@ function showDelve(){
 }
 
 /* ---------- version badge + history ---------- */
-const GAME_VERSION='0.35';
+const GAME_VERSION='0.38';
 const VERSION_HISTORY=[
+  {v:'0.38', date:'October 2026', notes:[
+    'New PvE dungeon map: a parchment map of branching paths you cross from left to right, revealed a little at a time as you go deeper. Nodes show what waits there — monster lairs (with the actual minions you will fight), elite dens, crystals (an unclaimed core stone or a ley line), mysterious ? events, and Malkorr the Overlord at the far end. Never more than 2 non-fight stops in a row.',
+    'New random ? events: an Elemental Spring (resources), a Healing Shrine (heal or more max health), a Forgotten Library (add a powerful card any hero can use), a Hidden Cache (gold or gems) and a Wandering Merchant who sells healing, resources and cards for gold.',
+    'Added 8 powerful neutral spell-scroll cards any hero can use: Prism Bolt, Piercing Ray, Starfall, Overwhelm, Second Wind, Arcane Aegis, Elemental Insight and Wild Bloom.',
+    'Gold: every fight now pays out gold (more for elites, a big haul for the boss). Your purse is shown at the top of the screen, on the map and on the reward screen, and you can spend it at the merchant.',
+    'Enemy intent redesigned: the red bubbles are gone. Each enemy now shows clean white rows with an icon, what it will do (attack, sweep, heal, burn, freeze, drain, guard, charge…), the amount, its element, and who it targets.',
+    'A 🗺 Map button at the top lets you look at the dungeon map at any time.',
+    'Fixed: in the PvE dungeon, timed effects never wore off — once the Bulwark Golem used Guard it stayed immune for the rest of the fight (which could make a fight impossible to win), and Stone Skin, Iron Will and Ash Cloud never expired. They now last only as long as they say.'
+  ]},
+  {v:'0.37', date:'October 2026', notes:[
+    'Core cards: if you play one while already at your core limit, you now choose one of your existing cores to replace instead of being blocked.',
+    'Steel Hero: at the start of his turn he can spend 1 Steel to forge a False Core (now 3 health). His old Decoy Forge ability is now Core Implode — destroy one of your cores to deal damage equal to its remaining health.',
+    'Reworded Cinder Curse and Wither to say "drain" instead of "loses a resource".',
+    'Added a "Coming Soon" placeholder for a future Time Hero on the hero-select screen.'
+  ]},
+  {v:'0.36', date:'October 2026', notes:[
+    'Big Dark Hero rework: he now has a Shadow bar. Every time he drains a resource (Wither, Soul Leech, Shadow Bolt, Soul Siphon, Void Pact...), his Shadow bar fills by 1, with no limit to how high it can go — shown as a glowing animated bar on his panel.',
+    'Eclipse reworked: it no longer steals a card. It now costs 4 Darkness, 1 Nature, 1 Fire and 1 Water — and also requires 4 Shadow banked — and deals damage equal to your entire Shadow bar (uncapped), then empties it.'
+  ]},
   {v:'0.35', date:'October 2026', notes:[
     'Fixed: joining an open online game always failed with "Could not join: error" (a leftover bug, not from a recent change) — a broken reference when showing whose game it was. Online join now works correctly.'
   ]},
