@@ -1331,7 +1331,7 @@ const CARDS = {
   ['Hail Storm','Action',['I','I'],0,'Deal 1 damage for each frozen die you have (max 4), plus 1.',[['snow',76,56,76],['burst',150,32,52,'X']]],
   ['Deep Freeze','Action',['I','I','I'],0,'Freeze up to 3 of your dice. Draw a card.',[['die',48,72,44],['die',100,72,44],['die',152,72,44],['snow',100,28,44]]],
   ['Ice Wall','Instant',['E','I'],0,'Gain 3 shield. Gain 1 more if you have a frozen die.',[['shield',92,56,92],['snow',92,60,46],['burst',162,32,46,'3']]],
-  ['Glacier Core','Passive',['E','I'],4,'Each frozen die you have blocks 1 damage for free.',[['core',92,56,96],['snow',92,58,46],['shield',162,34,40]]],
+  ['Glacier Core','Passive',['E','I'],4,'When you defend, unfreeze any of your frozen dice: each one blocks 1 damage.',[['core',92,56,96],['snow',92,58,46],['shield',162,34,40]]],
   ['Rime Core','Passive',['I','I'],3,'At the start of your turn, freeze 1 of your dice for free.',[['core',92,56,96],['snow',92,58,46],['cycle',162,34,44]]],
   ['Cold Storage','Action','free',0,'Freeze up to 2 of your dice.',[['die',62,60,60],['die',120,60,60],['snow',166,28,40]]],
   ['Thaw','Instant',['F'],0,'Unfreeze all your dice, including ones the enemy froze. Gain 1 {F} for each.',[['snow',70,56,76],['slash',70,56,66],['fire',142,58,56]]],
@@ -1704,7 +1704,6 @@ function heroDamage(S,seat,n,from,src,el){
   let refl=0;
   if(n>0 && P.st.reflN>0){ const r=Math.min(n,P.st.reflN); P.st.reflN-=r; n-=r; refl+=r; }
   if(n>0 && P.st.reflHalf){ const r=Math.floor(n/2); n-=r; refl+=r; P.st.reflHalf=0; lg(S,`↩ {${seat}}'s reflecting shield bounces ${r} damage back!`); }
-  if(hasCore(P,'Glacier Core')){ const fz=P.dice.filter(d=>d.fz).length; if(fz){ const r=Math.min(n,fz); n-=r; lg(S,`🛡 Glacier Core blocks ${r}.`); flash(S,`🛡 Glacier Core blocked ${r} damage!`); } }
   if(n>0 && hasCore(P,'Earthen Bulwark') && !P.st.bulwark){ n--; P.st.bulwark=1; lg(S,`🛡 Earthen Bulwark blocks 1 damage (${src||'damage'}) for {${seat}}.`); flash(S,`🛡 Earthen Bulwark blocked 1 damage from ${src||'an attack'}!`); }
   const s=Math.min(P.shield,n); P.shield-=s; n-=s;
   if(s) lg(S,`{${seat}}'s shield absorbs ${s}.`);
@@ -1791,6 +1790,7 @@ function defendable(S,seat,pk){
   if(totalRes(P)>0) return true;
   if(P.hand.some(i=>DEFEND_OK.has(CARDLIST[i].name))) return true;
   if(hasCore(P,'Water Stone')) return true;
+  if(hasCore(P,'Glacier Core') && P.dice.some(d=>d.fz)) return true;
   return false;
 }
 function runOp(S,st){
@@ -2520,6 +2520,7 @@ function applyDefend(T,seat,r){
         if(c.name==='Mirror Veil'){ TP.st.reflHalf=1; lg(T,`{${seat}} will reflect half of this hit back.`); }
         staticFieldPing(T,seat);
       }
+      if(r.thaw && hasCore(TP,'Glacier Core')){ let n=0; TP.dice.forEach(d=>{ if(n<r.thaw && d.fz){ d.fz=0; n++; } }); if(n){ blocked+=n; lg(T,`❄ {${seat}}'s Glacier Core: ${n} ${n===1?'die thaws':'dice thaw'} to block ${n}.`); } }
       npk.blocked=blocked; npk.done=1;
       if(r.redirect){ const ci=TP.cores.findIndex(c=>CARDLIST[c.id].name==='Water Stone'); if(ci>=0){ const core=TP.cores[ci]; const incoming=npk.unb+Math.max(0,npk.blk-blocked); const overflow=Math.max(0, incoming-Math.max(0,core.hp)); lg(T,`Water Stone takes the hit.`); damageCore(T,seat,ci,incoming,npk.src,npk.from,npk.el); npk.blk=0; npk.unb=overflow; if(overflow) lg(T,`${overflow} damage overflows past Water Stone to {${seat}}.`); } }
   const through = npk.unb + Math.max(0,npk.blk-(npk.blocked||0));
@@ -2537,7 +2538,7 @@ function defendDialog(seat, pk){
   return new Promise(res=>{
     modalResolve=res;
     const P=S.p[seat];
-    let blocks=[], card=null;
+    let blocks=[], card=null, thaw=0; const fzN=hasCore(P,'Glacier Core') ? P.dice.filter(d=>d.fz).length : 0;
     const cards=P.hand.map((id,hi)=>({id,hi,c:CARDLIST[id]})).filter(x=>DEFEND_OK.has(x.c.name) && canPay(P,x.c.cost));
     const hasWS=hasCore(P,'Water Stone');
     const wsCore=hasWS?P.cores.find(c=>CARDLIST[c.id].name==='Water Stone'):null;
@@ -2545,11 +2546,12 @@ function defendDialog(seat, pk){
       const left={...P.res}; blocks.forEach(k=>left[k]--);
       let bv=blocks.reduce((a,k)=>a+(beats(k,pk.el)?2:1),0);
       if(card!=null && CARDLIST[P.hand[card]].name==='Defensive Shield') bv+=4;
+      bv+=thaw;
       const prevented = card!=null && CARDLIST[P.hand[card]].name==='Shadow Step';
       const incoming = pk.unb + Math.max(0, pk.blk - bv);
       const wsOverflow = wsCore ? Math.max(0, incoming - Math.max(0,wsCore.hp)) : 0;
       const raw = wsCore||prevented ? 0 : incoming;
-      const glac = hasCore(P,'Glacier Core') ? P.dice.filter(d=>d.fz).length : 0;
+      const glac = 0;
       const bulw = hasCore(P,'Earthen Bulwark') && !P.st.bulwark ? 1 : 0;
       const afterCores = Math.max(0, (wsCore?wsOverflow:raw) - glac - bulw);
       const through = Math.max(0, afterCores - P.shield);
@@ -2565,6 +2567,7 @@ function defendDialog(seat, pk){
         <div class="mopts">${Object.keys(P.res).map(k=>`<button type="button" class="mopt" data-res="${k}" ${left[k]<=0||blocks.length>=2?'disabled':''}>${elBtn(k,` · ${P.res[k]}${beats(k,pk.el)?' · blocks 2':''}`)}</button>`).join('')}</div>
         ${blocks.length?`<div class="blocking"><span class="mlbl">Blocking with</span>${blocks.map(k=>`<span class="rchip">${pip(k)}${beats(k,pk.el)?'<b>2</b>':'<b>1</b>'}</span>`).join('')}<button type="button" class="clearbtn" data-clr>✕ Clear</button></div>`:''}
         ${cards.length?`<p class="mlbl">Or play a defense card:</p><div class="mopts">${cards.map(x=>`<button type="button" class="mopt ${card===x.hi?'sel':''}" data-card="${x.hi}"><span class="eb">${esc(x.c.name)} <span class="mcost">${x.c.cost.map(pip).join('')}</span></span></button>`).join('')}</div>`:''}
+        ${fzN?`<p class="mlbl">❄ Glacier Core: unfreeze dice to block 1 damage each (${fzN} frozen):</p><div class="mopts"><button type="button" class="mopt" data-thaw="-1" ${thaw<=0?'disabled':''}><span class="eb">− 1</span></button><span class="rchip">❄ unfreeze <b>${thaw}</b> → block ${thaw}</span><button type="button" class="mopt" data-thaw="1" ${thaw>=fzN?'disabled':''}><span class="eb">+ 1</span></button></div>`:''}
         ${coreNotes.length?`<div class="coredef"><span class="mlbl">Automatic defense</span>${coreNotes.map(t=>`<span class="cdchip">${esc(t)}</span>`).join('')}</div>`:''}
         <p class="mres">You will take <b>${through}</b> damage${(wsCore?wsOverflow:raw)!==through?` (${wsCore?wsOverflow:raw} before automatic defense)`:''}.</p>
         <div class="mfoot"><button type="button" class="btn" data-ok>Confirm</button></div>`);
@@ -2572,8 +2575,9 @@ function defendDialog(seat, pk){
         const b=e.target.closest('button,input'); if(!b) return;
         if(b.dataset.res){ blocks.push(b.dataset.res); draw(); }
         else if(b.hasAttribute('data-clr')){ blocks=[]; draw(); }
+        else if(b.dataset.thaw){ thaw=Math.max(0,Math.min(fzN,thaw+(+b.dataset.thaw))); draw(); }
         else if(b.dataset.card!=null){ const hi=+b.dataset.card; card = card===hi?null:hi; draw(); }
-        else if(b.hasAttribute('data-ok')){ finish(res,{blocks,card,redirect:!!wsCore}); }
+        else if(b.hasAttribute('data-ok')){ finish(res,{blocks,card,redirect:!!wsCore,thaw}); }
       };
     };
     draw();
@@ -6112,6 +6116,7 @@ VERSION_HISTORY.unshift({v:'0.41-beta', date:'October 2026', notes:[
   'Volcanic Lord: Pyroclast and Magma Fist (now 2 damage) put a burn token on an enemy ability. Each time that ability is used, its owner takes 2 damage. In versus, 1 Water quenches it. Each ability holds one token.',
   'Time Hero tuning: Delayed Blast 5, Time Bomb 7, Temporal Collapse gives +3 damage to anything it sets off, and Stasis Field is replaced by Erosion (deal 3, enemy loses 2 resources).',
   'Time Hero: his abilities now run on timers (switch on, tick down each time you enter combat, go off at 0), with Accelerate, Borrowed Time and Temporal Collapse bending them. Several of his cards now tick, fire or scale with his timers.',
+  'Glacier Core: no longer blocks for free. When you defend, choose how many frozen dice to unfreeze; each blocks 1 damage.',
   'Tooltips: hover over shop wares, items, mystery-room choices, rewards, map nodes and buttons to see exactly what they do.',
   'Shops: buy as many things as your gold allows, then press Done shopping. Each item is one of a kind: once one hero buys it, it’s sold out for the other.',
   'Ice Queen: Glacial Armor gives 2 shield (+1 if you unfreeze a die), Frozen Fortress gives 2 shield +1 for each die you unfreeze, and Meltwater heals 2 and freezes 1 die.',
