@@ -5421,9 +5421,10 @@ damageCore = function(S,seat,idx,n,src,by,el){
   const core=S.p[seat] && S.p[seat].cores[idx];
   if(S.coop && seat===2 && core && core.m){
     const m=MINIONS[core.m.key];
-    if(m && m.only && src!=='Burn' && src!=='Reflected curse' && !m.only.includes(el)){
-      lg(S,`🔰 ${m.name} is immune: only ${m.only.map(k=>EL_NAME[k]).join(' or ')} (or Burn) can hurt it.`);
-      flash(S,`🔰 Immune! Use ${m.only.map(k=>EL_NAME[k]).join(' or ')}.`); return;
+    const only=core.m.only||(m&&m.only);
+    if(only && src!=='Burn' && src!=='Reflected curse' && !only.includes(el)){
+      lg(S,`🔰 ${m.name} is immune: only ${only.map(k=>EL_NAME[k]).join(' or ')} (or Burn) can hurt it.`);
+      flash(S,`🔰 Immune! Use ${only.map(k=>EL_NAME[k]).join(' or ')}.`); return;
     }
   }
   return _damageCore0(S,seat,idx,n,src,by,el);
@@ -5469,7 +5470,7 @@ function mitBadges(S,c){
   if(!c.m) return '';
   const m=MINIONS[c.m.key]||{}, out=[];
   if(c.prot>=S.tn) out.push(`<span class="mitchip guard">🛡 GUARDED: immune to damage this turn</span>`);
-  if(m.only) out.push(`<span class="mitchip ward">🔰 Only hurt by ${m.only.map(pip).join('')} ${m.only.map(k=>EL_NAME[k]).join(' / ')} or Burn</span>`);
+  const only=c.m.only||m.only; if(only) out.push(`<span class="mitchip ward">🔰 Only hurt by ${only.map(pip).join('')} ${only.map(k=>EL_NAME[k]).join(' / ')} or Burn</span>`);
   if(m.seg) out.push(`<span class="mitchip seg">🐍 ${esc(m.seg)} · kill a head and the others grow stronger${c.m.rage?` (enraged ×${c.m.rage})`:''}</span>`);
   return out.length ? `<div class="mits">${out.join('')}</div>` : '';
 }
@@ -6235,6 +6236,23 @@ function dbgOpen(){
 }
 dbgButton();
 
+/* ---------- element-immune monsters must stay beatable ---------- */
+// At the start of each fight, check every hero can deal at least one allowed element with an ABILITY
+// (cards may never be drawn). If not, the monster also becomes vulnerable to that hero's main attack element.
+const DMG_OPS=new Set(['dmg','hit','dmgX','dmgTimers','coreAll','tempest','implodeCore','shadowblast','thawBurst','dmgBurn','scrap']);
+function heroDamageEls(S,i){ const els=new Set(); let burn=false; abilsOf(S,i).forEach(a=>{ if(a.fx.some(o=>DMG_OPS.has(o[0]))) els.add(a.el); if(a.fx.some(o=>o[0]==='burn'||o[0]==='burnIf')) burn=true; }); return {els, burn}; }
+function ensureBeatable(S){
+  const E=S.p[2]; if(!S.coop || !E) return;
+  E.cores.forEach(c=>{ const m=c.m&&MINIONS[c.m.key]; if(!m || !m.only) return; const only=(c.m.only||m.only).slice();
+    [0,1].forEach(i=>{ const P=S.p[i]; if(!P || P.absent) return; const {els,burn}=heroDamageEls(S,i);
+      if(burn || only.some(k=>els.has(k))) return;
+      const add=els.has('F')?'F':[...els][0]; if(!add || only.includes(add)) return;
+      only.push(add); lg(S,`🔰 ${m.name} can also be hurt by ${EL_NAME[add]}, so {${i}} has a way to fight it.`); });
+    if(only.length!==(c.m.only||m.only).length) c.m.only=only; });
+}
+const _setupFight3 = setupFight;
+setupFight = function(S,spec){ _setupFight3(S,spec); ensureBeatable(S); };
+
 /* ---------- version ---------- */
 VERSION_HISTORY.unshift({v:'0.41', date:'October 2026', notes:[
   'After a normal fight you can take a card OR 1 of every resource.',
@@ -6259,6 +6277,7 @@ VERSION_HISTORY.unshift({v:'0.41', date:'October 2026', notes:[
   'Volcanic Lord: Pyroclast and Magma Fist (now 2 damage) put a burn token on an enemy ability. Each time that ability is used, its owner takes 2 damage. In versus, 1 Water quenches it. Each ability holds one token.',
   'Time Hero tuning: Delayed Blast 5, Time Bomb 7, Temporal Collapse gives +3 damage to anything it sets off, and Stasis Field is replaced by Erosion (deal 3, enemy loses 2 resources).',
   'Time Hero: his abilities now run on timers (switch on, tick down each time you enter combat, go off at 0), with Accelerate, Borrowed Time and Temporal Collapse bending them. Several of his cards now tick, fire or scale with his timers.',
+  'Element-immune monsters can always be beaten: if a hero has no ability of an element that can hurt one, that monster also becomes vulnerable to the hero’s main attack element for the fight.',
   'Debug mode for testing: type 5684 to unlock a 🐞 panel that edits resources, health, shield, gold, dice, hand, cores, items and abilities, and jumps to any fight, boss or mystery room.',
   'Corrupted Steel Hero boss: forges a corrupted core stone at the start of the fight and each turn (up to 3: Anvil, Bastion, Furnace). The cores attack, shield the boss or burn you, each makes the boss hit +1 harder, and they power his core abilities. You can target and destroy them.',
   'Glacier Core: no longer blocks for free. When you defend, choose how many frozen dice to unfreeze; each blocks 1 damage.',
