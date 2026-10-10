@@ -1606,7 +1606,10 @@ function draw(S,seat,n){
   rolledFlag=true;
   const P=S.p[seat]; let got=[];
   for(let k=0;k<n;k++){
-    if(!P.deck.length){ if(!P.disc.length) break; P.deck=shuffle(P.disc); P.disc=[]; lg(S,`{${seat}} reshuffles their discard pile.`); }
+    if(!P.deck.length){
+      // Dungeon: used cards stay gone until the pre-boss deck refresh. Versus: reshuffle as usual.
+      if(S.coop){ if(!P.deckOut){ P.deckOut=1; lg(S,`🂠 {${seat}}'s deck is empty: no more draws until a deck refresh.`); } break; }
+      if(!P.disc.length) break; P.deck=shuffle(P.disc); P.disc=[]; lg(S,`{${seat}} reshuffles their discard pile.`); }
     const c=P.deck.shift(); P.hand.push(c); got.push(c);
   }
   return got;
@@ -4218,7 +4221,7 @@ function coopPickLeyline(T,seat,choice){
 }
 function coopPickDeckRefresh(T,seat,yes){
   const DR=T.deckRefresh, P=T.p[seat]; if(!DR || DR.done[seat]) return;
-  if(yes){ if(P.disc.length){ P.deck=shuffle(P.deck.concat(P.disc)); P.disc=[]; lg(T,`{${seat}} refreshes their deck, shuffling discards back in.`); } else lg(T,`{${seat}} has no discards to refresh.`); }
+  if(yes){ if(P.disc.length){ P.deck=shuffle(P.deck.concat(P.disc)); P.disc=[]; P.deckOut=0; lg(T,`{${seat}} refreshes their deck, shuffling discards back in.`); } else lg(T,`{${seat}} has no discards to refresh.`); }
   else lg(T,`{${seat}} keeps their deck as is.`);
   DR.done[seat]=1;
   if(DR.done[0] && DR.done[1]){ const bs=DR.boss||{kind:'malkorr'}; T.deckRefresh=null; T.fightIdx++; setupFight(T,{kind:'boss', boss:bs.kind, hero:bs.hero}); }
@@ -5649,6 +5652,7 @@ VERSION_HISTORY.unshift({v:'0.41-beta', date:'October 2026', notes:[
   'The dungeon is darker behind the menus, and boss fights take place in an arena.',
   'Monsters are easier to see: less fog around them, with the name plates on the art kept out of view.',
   'Fixed: the Steel Hero’s Forge a False Core button did nothing.',
+  'Dungeon decks no longer secretly reshuffle your discard pile when they run out: used cards stay gone until you refresh before a boss.',
   'Elites no longer grant an extra die. Extra dice are now rare: the ley line, or the new Wishing Well mystery room.',
   'Enemy attacks aimed at a core stone now fly into that core (which shakes and flashes red) instead of the hero, and damaged core stones show cracks spreading from their corners.',
   'New enemy art: Act 2 monsters and the monsters that used to share a picture now have their own art, plus 11 new monsters (Obsidian Titan, Starlight Wyvern, Thunderhoof Kirin, Gale-Wing Griffin, Tidal Angler, Magma-Crust Behemoth, Overgrowth Spider, Iron-Bark Warden elite, Bloom Vanguard, Ice-Forged Paladin, Frost-Bound Weaver).'
