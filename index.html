@@ -1072,6 +1072,34 @@ body.arena .enemyzone{ background:radial-gradient(ellipse at 50% 85%, rgba(255,1
 .minion.segment.struck2 .mart img{ animation:hflinch .5s ease; }
 @keyframes hflinch{ 0%{ transform:none; filter:none; } 20%{ transform:translateY(8px) scale(.9) rotate(-6deg); filter:brightness(1.8) saturate(.4); } 45%{ transform:translateY(-3px) scale(1.03) rotate(4deg); } 70%{ transform:rotate(-2deg); } 100%{ transform:none; filter:none; } }
 .ultreq{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.minion.creature .mart img{ transform-origin:50% 90%; animation:lvbreathe 2.6s ease-in-out infinite, lvsway 5.2s ease-in-out infinite; }
+.minion.creature:nth-child(2n) .mart img{ animation-duration:3.1s, 6s; animation-delay:-.8s, -2s; }
+.minion.creature:nth-child(3n) .mart img{ animation-duration:2.3s, 4.6s; animation-delay:-1.5s, -3s; }
+@keyframes lvbreathe{ 0%,100%{ scale:1 1; } 50%{ scale:1.025 1.045; } }
+@keyframes lvsway{ 0%,100%{ rotate:-1.2deg; translate:-2px 0; } 50%{ rotate:1.2deg; translate:2px 0; } }
+.minion.creature.el-L .mart img{ animation:lvbreathe 2.6s ease-in-out infinite, lvsway 5.2s ease-in-out infinite, lvflick 3.4s steps(1) infinite; }
+@keyframes lvflick{ 0%,100%{ filter:drop-shadow(0 0 6px rgba(0,0,0,.5)) brightness(1.08); } 47%{ filter:drop-shadow(0 0 14px #7ee4ff) brightness(1.5); } 49%{ filter:drop-shadow(0 0 6px rgba(0,0,0,.5)) brightness(1.08); } 51%{ filter:drop-shadow(0 0 14px #7ee4ff) brightness(1.4); } 53%{ filter:drop-shadow(0 0 6px rgba(0,0,0,.5)) brightness(1.08); } }
+.lvfx{ position:absolute; inset:0; pointer-events:none; overflow:hidden; border-radius:40%; z-index:1; }
+.lvfx i{ position:absolute; bottom:-10px; left:var(--x); width:6px; height:6px; border-radius:50%; opacity:0; animation:lvrise var(--d) linear infinite; animation-delay:var(--w); }
+@keyframes lvrise{ 0%{ transform:translateY(0) scale(1); opacity:0; } 15%{ opacity:1; } 100%{ transform:translateY(-150px) translateX(12px) scale(.3); opacity:0; } }
+@keyframes lvfall{ 0%{ transform:translateY(-170px) rotate(0); opacity:0; } 15%{ opacity:1; } 100%{ transform:translateY(0) translateX(-14px) rotate(180deg); opacity:0; } }
+@keyframes lvzap{ 0%,100%{ opacity:0; transform:translateY(-40px); } 8%{ opacity:1; } 12%{ opacity:0; } 50%{ transform:translateY(-90px) rotate(30deg); } 54%{ opacity:1; } 58%{ opacity:0; } }
+@keyframes lvtwinkle{ 0%,100%{ opacity:0; transform:translateY(-60px) scale(.4); } 50%{ opacity:1; transform:translateY(-70px) scale(1.2); } }
+@keyframes lvwisp{ 0%{ transform:translateY(0) scale(.6); opacity:0; } 20%{ opacity:.7; } 100%{ transform:translateY(-120px) translateX(-18px) scale(2.2); opacity:0; } }
+.lvfx.F i{ background:#ffd42a; box-shadow:0 0 8px 3px #ff6a3d; }
+.lvfx.V i{ background:#ff8a3d; box-shadow:0 0 8px 3px #ff3b1f; }
+.lvfx.V i:nth-child(3n){ background:rgba(60,50,50,.6); box-shadow:none; width:14px; height:14px; animation-name:lvwisp; }
+.lvfx.L i{ background:#fffbcc; box-shadow:0 0 8px 3px #7ee4ff; width:3px; height:10px; border-radius:2px; animation-name:lvzap; }
+.lvfx.W i{ background:transparent; border:2px solid rgba(190,235,255,.9); width:8px; height:8px; }
+.lvfx.I i{ bottom:auto; top:auto; background:#fff; box-shadow:0 0 6px 2px #bdf3ff; width:5px; height:5px; animation-name:lvfall; bottom:0; }
+.lvfx.E i{ background:#7ddc6a; width:7px; height:4px; border-radius:60% 0; box-shadow:0 0 4px #2f8f3a; animation-name:lvfall; }
+.lvfx.D i{ background:rgba(138,79,255,.55); box-shadow:0 0 10px 4px rgba(90,40,160,.5); width:10px; height:10px; animation-name:lvwisp; }
+.lvfx.S i{ background:#fff3c4; box-shadow:0 0 6px 2px #ffc400; width:3px; height:3px; animation-name:lvzap; }
+.lvfx.A i{ background:#fff; box-shadow:0 0 8px 3px #ffe066; width:4px; height:4px; animation-name:lvtwinkle; }
+.lvfx.T i{ background:#c9a2ff; box-shadow:0 0 8px 3px #9b6bff; width:4px; height:4px; animation-name:lvtwinkle; }
+.bossbanner{ animation:lvbossbreathe 4s ease-in-out infinite; }
+@keyframes lvbossbreathe{ 0%,100%{ background-size:100% auto; filter:none; } 50%{ background-size:104% auto; filter:brightness(1.08) saturate(1.1); } }
+@media (prefers-reduced-motion: reduce){ .minion.creature .mart img,.bossbanner{ animation:none !important; } .lvfx{ display:none; } }
 .enemyzone .minion.creature .mname{ position:relative; z-index:2; }
 .mits{ display:flex; flex-direction:column; gap:3px; margin-top:4px; }
 .mitchip{ display:inline-block; font-size:.72rem; font-weight:700; line-height:1.2; padding:2px 6px; border-radius:8px; border:2px solid #1a1030; background:#fff; color:#1a1030; }
@@ -5947,6 +5975,15 @@ document.addEventListener('click', e=>{ const b=e.target.closest('[data-act="ult
 const _coopStep2 = coopStep; coopStep = function(S,st){ if(st.k==='eend') S.ultReq=null; return _coopStep2(S,st); };
 const _setupFight2 = setupFight; setupFight = function(S,spec){ S.ultReq=null; return _setupFight2(S,spec); };
 
+/* ---------- living monster art: breathing, sway and element particles ---------- */
+function lvParticles(el){ return `<div class="lvfx ${el}">${Array.from({length:12},(_,i)=>`<i style="--x:${8+(i*37)%84}%;--d:${1.8+(i%4)*.5}s;--w:${-(i*0.37).toFixed(2)}s"></i>`).join('')}</div>`; }
+const _coopEnemyHTML1 = coopEnemyHTML;
+coopEnemyHTML = function(S){
+  const E=S.p[2], parts=_coopEnemyHTML1(S).split('<div class="minion creature');
+  return parts.map((h,i)=>{ if(!i) return h; const m=h.match(/data-uid="(\d+)"/), c=m&&E.cores.find(x=>x.m&&x.m.uid===+m[1]), el=c?c.m.el:'A';
+    return ` el-${el}`+h.replace('<div class="mglow"></div>', `<div class="mglow"></div>${lvParticles(el)}`); }).join('<div class="minion creature');
+};
+
 /* ---------- version ---------- */
 VERSION_HISTORY.unshift({v:'0.41', date:'October 2026', notes:[
   'After a normal fight you can take a card OR 1 of every resource.',
@@ -5972,6 +6009,7 @@ VERSION_HISTORY.unshift({v:'0.41', date:'October 2026', notes:[
   'Time Hero tuning: Delayed Blast 5, Time Bomb 7, Temporal Collapse gives +3 damage to anything it sets off, and Stasis Field is replaced by Erosion (deal 3, enemy loses 2 resources).',
   'Time Hero: his abilities now run on timers (switch on, tick down each time you enter combat, go off at 0), with Accelerate, Borrowed Time and Temporal Collapse bending them. Several of his cards now tick, fire or scale with his timers.',
   'Combo ultimates now need both heroes to agree: proposing one sends a prompt to your partner, who can agree or decline.',
+  'Monsters look alive: their art breathes and sways, with element particles (embers, sparks, frost, bubbles, leaves, shadow wisps…), and the boss banner pulses.',
   'The Ruin Hydra’s heads sway side to side and flinch when hit.',
   'Elites no longer grant an extra die. Extra dice are now rare: the ley line, or the new Wishing Well mystery room.',
   'Enemy attacks aimed at a core stone now fly into that core (which shakes and flashes red) instead of the hero, and damaged core stones show cracks spreading from their corners.',
