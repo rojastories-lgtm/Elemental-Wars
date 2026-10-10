@@ -6,6 +6,12 @@
 
 ---
 
+## 0. Beta build
+`beta.html` is **v0.41-beta**: `index.html` (v0.40) plus the big notepad list. That list covers the Time Hero, items, new events, Act 2 monsters, curses, element-immune monsters, the segmented Ruin Hydra, the Electro passive, 15+15 decks, card rebalances, PvE backgrounds and fixes.
+- All new code lives in one block near the end of the main `<script>`, marked `v0.41 BETA ADDITIONS`. It mostly wraps existing functions instead of rewriting them.
+- A small CSS block sits at the end of `<style>`, marked `v0.41 beta`.
+- Once it's approved, copy `beta.html` over `index.html`.
+
 ## 1. Core Game Overview
 A browser card + dice battler in **one self-contained file** (`index.html`), hosted on GitHub Pages (`.nojekyll` makes Pages serve it as is).
 
