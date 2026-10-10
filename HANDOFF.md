@@ -1,4 +1,4 @@
-# Elemental Wars — Session Handoff (v0.38)
+# Elemental Wars — Session Handoff (v0.40)
 
 > Paste this into a new Claude Code session on the repo `rojastories-lgtm/Elemental-Wars`.
 > The full code is NOT pasted here on purpose: `index.html` is ~3 MB (mostly embedded base64 art + an MP3).
@@ -21,7 +21,21 @@ A browser card + dice battler in **one self-contained file** (`index.html`), hos
 
 ## 2. Current Working State
 
-### Complete and shipped (per the in-game changelog, through v0.38)
+### Added in v0.39–v0.40
+- **Two acts.** Act 1 ends with a **Corrupted Hero**: one of the heroes nobody picked, using its real abilities and resources.
+  - It rolls 6 dice solo, 8 in co-op. Each turn it plays a corruption card, and corrupted dice are skipped on your next roll.
+  - HP is 75 in co-op and 45 solo. It uses at most 3 abilities a turn (2 solo).
+  - These are tuning guesses; balance is unverified.
+- Beating it ends Act 1: heal half your missing health, pick a core, and get a new map. Act 2 has tougher monsters and Malkorr.
+- **Music:** two embedded MP3s, each about 2 MB.
+  - "Lanterns in the Maw" plays on the map, events and crystal screens.
+  - "Stone Vault Pulse" plays in PvE battles.
+  - They replace the old dungeon track.
+- Map text is now readable in dark mode.
+- Fixes: Cinder Curse no longer soft-locks waiting for the enemy; hitting an enemy that holds resources no longer waits for a block.
+- The file is now ~7 MB, and the line numbers in the code map below have shifted. Grep for names instead.
+
+### Complete and shipped (per the in-game changelog, through v0.40)
 - All 5 heroes, versus modes, and the AI opponent (versus only).
 - Online play through Firebase with "your move" alerts.
 - The full PvE dungeon:
@@ -101,7 +115,8 @@ Tip: use `grep -n` with `cut -c1-150`. Never `cat` the whole file, because it wo
 
 ## 7. Next Steps / Immediate Goals
 _No explicit to-do list was recorded in the previous session. These are inferred from the code — edit before pasting:_
-1. Build the **Time Hero** (element `T` / hourglass already exists in `EL`; placeholder data in `TIME_ABIL`).
+1. Playtest and balance the Corrupted Hero (HP, ability cap) and Act 2 difficulty.
+2. Build the **Time Hero** (element `T` / hourglass already exists in `EL`; placeholder data in `TIME_ABIL`).
 2. Playtest the v0.38 map, events, merchant and gold balance.
 3. Reduce conflict toasts in online co-op.
 4. Possibly extend the AI to the PvE dungeon, or make the versus bot smarter.
