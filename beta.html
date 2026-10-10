@@ -1100,6 +1100,16 @@ body.arena .enemyzone{ background:radial-gradient(ellipse at 50% 85%, rgba(255,1
 .bossbanner{ animation:lvbossbreathe 4s ease-in-out infinite; }
 @keyframes lvbossbreathe{ 0%,100%{ background-size:100% auto; filter:none; } 50%{ background-size:104% auto; filter:brightness(1.08) saturate(1.1); } }
 @media (prefers-reduced-motion: reduce){ .minion.creature .mart img,.bossbanner{ animation:none !important; } .lvfx{ display:none; } }
+#dbgbtn{ position:fixed; left:12px; bottom:12px; z-index:9998; width:46px; height:46px; border-radius:50%; border:3px solid #1a1030; background:#7dff6a; font-size:22px; box-shadow:0 3px 0 #1a1030; cursor:pointer; }
+#dbgpanel{ position:fixed; left:12px; bottom:66px; z-index:9999; width:min(560px,calc(100vw - 24px)); max-height:calc(100vh - 90px); overflow:auto; background:#fff; color:#1a1030; border:3px solid #1a1030; border-radius:14px; box-shadow:0 6px 0 #1a1030; padding:10px 12px; font-size:.85rem; }
+#dbgpanel .dbghead{ display:flex; justify-content:space-between; align-items:center; font-family:var(--display); font-size:1.3rem; letter-spacing:.04em; }
+#dbgpanel .dbgsec{ font-family:var(--display); letter-spacing:.04em; margin:8px 0 2px; color:#7a4cff; }
+#dbgpanel .dbgrow{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:4px 0; }
+#dbgpanel .dbgcol{ display:flex; flex-direction:column; gap:4px; }
+#dbgpanel button{ font:inherit; font-weight:700; border:2px solid #1a1030; border-radius:8px; background:#ffe066; padding:2px 8px; cursor:pointer; }
+#dbgpanel button.on{ background:#7a4cff; color:#fff; } #dbgpanel select,#dbgpanel input{ font:inherit; border:2px solid #1a1030; border-radius:6px; max-width:100%; }
+#dbgpanel .dbgres{ display:inline-flex; align-items:center; gap:3px; } #dbgpanel .dbgres b{ min-width:18px; text-align:center; }
+#dbgpanel .dbgnote{ color:#5a4f7a; font-size:.75rem; margin:8px 0 0; }
 .enemyzone .minion.creature .mname{ position:relative; z-index:2; }
 .mits{ display:flex; flex-direction:column; gap:3px; margin-top:4px; }
 .mitchip{ display:inline-block; font-size:.72rem; font-weight:700; line-height:1.2; padding:2px 6px; border-radius:8px; border:2px solid #1a1030; background:#fff; color:#1a1030; }
@@ -6136,6 +6146,95 @@ intentText = function(S,c){ const [k,n]=intentOf(c); if(k==='shieldBoss') return
 const _mitBadges2 = mitBadges;
 mitBadges = function(S,c){ const h=_mitBadges2(S,c), m=c.m&&MINIONS[c.m.key]; if(!m || !m.ccore) return h; const chip='<span class="mitchip ward">☠ Corrupted core: the boss hits +1 harder while it stands</span>'; return h ? h.replace('<div class="mits">','<div class="mits">'+chip) : `<div class="mits">${chip}</div>`; };
 
+/* =====================================================================
+   DEBUG MODE: type 5684 anywhere to unlock (remembered on this device).
+   A 🐞 button opens a panel to edit the game state for testing.
+   ===================================================================== */
+let dbgOn=false, dbgBuf='', dbgSeat=0;
+try{ dbgOn = localStorage.getItem('ewDebug')==='1'; }catch(e){}
+document.addEventListener('keydown', e=>{
+  if(e.key && e.key.length===1){ dbgBuf=(dbgBuf+e.key).slice(-4);
+    if(dbgBuf==='5684'){ dbgBuf=''; dbgOn=!dbgOn; try{ localStorage.setItem('ewDebug',dbgOn?'1':'0'); }catch(err){} dbgButton(); toast(dbgOn?'🐞 Debug mode unlocked. Tap the 🐞 button.':'🐞 Debug mode off.'); if(!dbgOn) dbgClose(); } }
+});
+function dbgButton(){
+  let b=document.getElementById('dbgbtn');
+  if(!dbgOn){ if(b) b.remove(); return; }
+  if(!b){ b=document.createElement('button'); b.id='dbgbtn'; b.type='button'; b.textContent='🐞'; b.title='Debug mode: edit the game for testing'; b.onclick=dbgOpen; document.body.appendChild(b); }
+}
+function dbgClose(){ const p=document.getElementById('dbgpanel'); if(p) p.remove(); }
+// apply a change to a copy of the state and save it like a normal move
+function dbgDo(fn, msg){ if(!S){ toast('Start a game first.'); return; } const T=clone(S); fn(T); if(msg) lg(T,'🐞 Debug: '+msg); T.undo=null; T.undos={}; advance(T); commit(T); dbgOpen(); }
+const dbgOpt = (v,l,sel) => `<option value="${esc(v)}" ${sel?'selected':''}>${esc(l)}</option>`;
+function dbgOpen(){
+  dbgClose(); if(!dbgOn) return;
+  const p=document.createElement('div'); p.id='dbgpanel';
+  if(!S){ p.innerHTML=`<div class="dbghead">🐞 Debug<button data-x>✕</button></div><p>Start a game (versus or dungeon) to edit it.</p>`; document.body.appendChild(p); p.querySelector('[data-x]').onclick=dbgClose; return; }
+  const seats=[0,1].filter(i=>S.p[i] && !S.p[i].absent); if(!seats.includes(dbgSeat)) dbgSeat=seats[0];
+  const P=S.p[dbgSeat], keys=Object.keys(P.res);
+  const cards=CARDLIST.map((c,i)=>[i,c]).filter(([i,c])=>!c.token).sort((a,b)=>a[1].name.localeCompare(b[1].name));
+  const cores=cards.filter(([i,c])=>c.hp>0);
+  const mons=Object.keys(MINIONS).filter(k=>!MINIONS[k].segs);
+  p.innerHTML=`<div class="dbghead">🐞 Debug mode <button data-x title="Close">✕</button></div>
+  <div class="dbgrow"><b>Hero</b>${seats.map(i=>`<button class="${i===dbgSeat?'on':''}" data-seat="${i}">${esc(seatLabel(i))}</button>`).join('')}</div>
+  <div class="dbgsec">Resources</div>
+  <div class="dbgrow">${keys.map(k=>`<span class="dbgres">${pip(k)}<button data-res="${k}" data-n="-1">−</button><b>${P.res[k]}</b><button data-res="${k}" data-n="1">+</button></span>`).join('')}<button data-act2="maxres">Max all</button></div>
+  <div class="dbgrow"><span>♥ <input type="number" id="dbghp" value="${P.hp}" style="width:56px"> / <input type="number" id="dbgmax" value="${maxHp(P)}" style="width:56px"></span><span>🛡 <input type="number" id="dbgsh" value="${P.shield||0}" style="width:50px"></span>${S.coop?`<span>🪙 <input type="number" id="dbggold" value="${S.gold||0}" style="width:60px"></span>`:''}<button data-act2="setstats">Set</button><button data-act2="heal">Full heal</button></div>
+  <div class="dbgsec">Dice (${P.dice.length})</div>
+  <div class="dbgrow"><button data-act2="dice-">− die</button><button data-act2="dice+">+ die</button><button data-act2="wild">Make all wild</button><button data-act2="unfreeze">Unfreeze all</button><button data-act2="reroll">Reroll</button></div>
+  <div class="dbgsec">Cards &amp; cores</div>
+  <div class="dbgrow"><select id="dbgcard">${cards.map(([i,c])=>dbgOpt(i,`${c.name} (${c.grp})`)).join('')}</select><button data-act2="addcard">Add to hand</button></div>
+  <div class="dbgrow"><select id="dbgcore">${cores.map(([i,c])=>dbgOpt(i,c.name)).join('')}</select><button data-act2="addcore">Place core</button><button data-act2="clearcores">Remove cores</button></div>
+  <div class="dbgrow"><button data-act2="draw">Draw 1</button><button data-act2="refill">Discard → deck</button><button data-act2="clearhand">Empty hand</button><button data-act2="refresh">Refresh abilities</button>${S.heroes[dbgSeat]==='electro'?'<button data-act2="charge">Charge</button>':''}${S.heroes[dbgSeat]==='dark'?'<button data-act2="shadow">+5 Shadow</button>':''}</div>
+  ${S.coop?`<div class="dbgsec">Items</div>
+  <div class="dbgrow"><select id="dbgitem">${Object.keys(ITEMS).map(k=>dbgOpt(k,ITEMS[k].name)).join('')}</select><button data-act2="additem">Give item</button><button data-act2="clearitems">Clear items</button></div>
+  <div class="dbgsec">Dungeon</div>
+  <div class="dbgrow"><span>Act <select id="dbgact">${dbgOpt(1,'1',S.act!==2)}${dbgOpt(2,'2',S.act===2)}</select></span><span>Floor <input type="number" id="dbgfloor" min="0" max="${MAP_FLOORS}" value="${S.map&&S.map.cur?S.map.cur.f:0}" style="width:44px"></span></div>
+  <div class="dbgrow"><select id="dbgmon" multiple size="5">${mons.map(k=>dbgOpt(k,MINIONS[k].name.replace(/^The /,'')+(MINIONS[k].elite?' (elite)':''))).join('')}</select><div class="dbgcol"><button data-act2="fight">Fight selected</button><button data-act2="hydra">Fight Ruin Hydra</button><button data-act2="malkorr">Fight Malkorr</button>
+    <span><select id="dbgcorrupt">${Object.keys(HEROES).map(h=>dbgOpt(h,HEROES[h].name)).join('')}</select><button data-act2="corrupt">Fight corrupted</button></span></div></div>
+  <div class="dbgrow"><select id="dbgevent">${Object.keys(EVENTS).map(k=>dbgOpt(k,EVENTS[k].icon+' '+EVENTS[k].title)).join('')}</select><button data-act2="event">Visit</button><button data-act2="leyline">Ley line</button><button data-act2="corefind">Core stone</button><button data-act2="map">Back to map</button></div>
+  <div class="dbgrow"><button data-act2="winfight">Win this fight</button><button data-act2="killall">Kill all enemies</button><button data-act2="enemy1">Enemies to 1 hp</button></div>`:`<div class="dbgsec">Versus</div><div class="dbgrow"><button data-act2="win">Win the game</button><button data-act2="foe1">Rival to 1 hp</button></div>`}
+  <p class="dbgnote">Changes are saved like a normal move. Undo is cleared. Type 5684 again to turn debug mode off.</p>`;
+  document.body.appendChild(p);
+  const val=id=>(p.querySelector('#'+id)||{}).value;
+  p.onclick=e=>{
+    const b=e.target.closest('button'); if(!b) return; const s=dbgSeat;
+    if(b.hasAttribute('data-x')) return dbgClose();
+    if(b.dataset.seat!=null){ dbgSeat=+b.dataset.seat; return dbgOpen(); }
+    if(b.dataset.res) return dbgDo(T=>{ const TP=T.p[s]; TP.res[b.dataset.res]=Math.max(0,(TP.res[b.dataset.res]||0)+(+b.dataset.n)); });
+    const a=b.dataset.act2, newDie=()=>({f:1+rnd(6),fz:0,fzE:0,fog:0});
+    const fightSetup=(T,spec,label)=>{ T.event=null; T.reward=null; T.pathChoice=null; T.leyline=null; T.corefind=null; T.deckRefresh=null; T.fightIdx=(T.fightIdx||0)+1; setupFight(T,spec); lg(T,'🐞 Debug: jump to '+label); };
+    const setAct=T=>{ const act=+val('dbgact')||1, f=Math.max(0,Math.min(MAP_FLOORS,+val('dbgfloor')||0)); if(act!==T.act || !T.map){ T.act=act; T.map=genMap(act, act===1?T.corruptHero:null); } T.map.cur={f, i:0}; };
+    const acts={
+      maxres:T=>{ Object.keys(T.p[s].res).forEach(k=>T.p[s].res[k]=T.p[s].doubler?2*MAXRES:MAXRES); },
+      setstats:T=>{ const TP=T.p[s]; TP.maxhp=Math.max(1,+val('dbgmax')||maxHp(TP)); TP.hp=+val('dbghp'); TP.shield=Math.max(0,+val('dbgsh')||0); if(T.coop && val('dbggold')!=null) T.gold=Math.max(0,+val('dbggold')||0); if(TP.hp>0) TP.down=0; },
+      heal:T=>{ const TP=T.p[s]; TP.hp=maxHp(TP); TP.down=0; TP.burn=0; },
+      'dice+':T=>{ if(T.p[s].dice.length<12) T.p[s].dice.push(newDie()); }, 'dice-':T=>{ if(T.p[s].dice.length>1) T.p[s].dice.pop(); },
+      wild:T=>{ T.p[s].dice.forEach(d=>{ d.f=5; }); }, unfreeze:T=>{ T.p[s].dice.forEach(d=>{ d.fz=0; d.fzE=0; d.cor=0; d.fog=0; }); },
+      reroll:T=>{ T.p[s].dice.forEach(d=>{ d.f=rollF(d); }); },
+      addcard:T=>{ T.p[s].hand.push(+val('dbgcard')); }, draw:T=>{ T.p[s].deckOut=0; draw(T,s,1); },
+      refill:T=>{ const TP=T.p[s]; TP.deck=shuffle(TP.deck.concat(TP.disc)); TP.disc=[]; TP.deckOut=0; }, clearhand:T=>{ const TP=T.p[s]; TP.disc=TP.disc.concat(TP.hand); TP.hand=[]; },
+      addcore:T=>{ const id=+val('dbgcore'), c=CARDLIST[id]; T.p[s].cores.push({id, hp:c.hp, max:c.hp, prot:0}); }, clearcores:T=>{ T.p[s].cores=[]; },
+      refresh:T=>{ T.p[s].st.used=[]; T.p[s].timers={}; }, charge:T=>{ T.p[s].charged=1; }, shadow:T=>{ T.p[s].shadow=(T.p[s].shadow||0)+5; },
+      additem:T=>{ giveItem(T,s,val('dbgitem')); }, clearitems:T=>{ T.p[s].items=[]; },
+      fight:T=>{ const ks=[...p.querySelector('#dbgmon').selectedOptions].map(o=>o.value); if(!ks.length){ toast('Select one or more monsters (Ctrl/Shift-click for several).'); return; } setAct(T); fightSetup(T,{kind:ks.some(k=>MINIONS[k].elite)?'elite':'minion', tier:2, keys:ks, bonus:T.act===2?1:0}, ks.join(', ')); },
+      hydra:T=>{ setAct(T); fightSetup(T,{kind:'elite', keys:['hydra'], bonus:T.act===2?1:0},'the Ruin Hydra'); },
+      malkorr:T=>{ setAct(T); fightSetup(T,{kind:'boss', boss:'malkorr'},'Malkorr'); },
+      corrupt:T=>{ setAct(T); fightSetup(T,{kind:'boss', boss:'corrupt', hero:val('dbgcorrupt')},'the corrupted '+val('dbgcorrupt')); },
+      event:T=>{ setAct(T); T.fight=null; T.p[2]=makeEnemy(); T.q=[]; startEvent(T,val('dbgevent')); },
+      leyline:T=>{ setAct(T); T.q=[]; T.phase='leyline'; T.leyline={done:T.solo?{1:1}:{}}; },
+      corefind:T=>{ setAct(T); T.q=[]; T.phase='corefind'; T.corefind={done:T.solo?{1:1}:{}}; },
+      map:T=>{ setAct(T); T.q=[]; T.event=null; T.reward=null; advancePath(T); },
+      winfight:T=>{ T.q=[]; const E=T.p[2]; if(E.boss) E.hp=0; E.cores=E.cores.filter(c=>!c.m); fightWon(T); },
+      killall:T=>{ const E=T.p[2]; E.cores=E.cores.filter(c=>!c.m); if(E.boss) E.hp=0; coopCheck(T); },
+      enemy1:T=>{ const E=T.p[2]; E.cores.forEach(c=>{ c.hp=1; }); if(E.boss) E.hp=1; E.shield=0; },
+      win:T=>{ T.p[1-s].hp=0; checkWin(T); }, foe1:T=>{ T.p[1-s].hp=1; T.p[1-s].shield=0; }
+    };
+    if(acts[a]) dbgDo(acts[a], b.textContent.trim()+' ('+seatLabel(s)+')');
+  };
+  p.querySelector('[data-x]').onclick=dbgClose;
+}
+dbgButton();
+
 /* ---------- version ---------- */
 VERSION_HISTORY.unshift({v:'0.41-beta', date:'October 2026', notes:[
   'BETA build: try it out and report back before it replaces the main game.',
@@ -6161,6 +6260,7 @@ VERSION_HISTORY.unshift({v:'0.41-beta', date:'October 2026', notes:[
   'Volcanic Lord: Pyroclast and Magma Fist (now 2 damage) put a burn token on an enemy ability. Each time that ability is used, its owner takes 2 damage. In versus, 1 Water quenches it. Each ability holds one token.',
   'Time Hero tuning: Delayed Blast 5, Time Bomb 7, Temporal Collapse gives +3 damage to anything it sets off, and Stasis Field is replaced by Erosion (deal 3, enemy loses 2 resources).',
   'Time Hero: his abilities now run on timers (switch on, tick down each time you enter combat, go off at 0), with Accelerate, Borrowed Time and Temporal Collapse bending them. Several of his cards now tick, fire or scale with his timers.',
+  'Debug mode for testing: type 5684 to unlock a 🐞 panel that edits resources, health, shield, gold, dice, hand, cores, items and abilities, and jumps to any fight, boss or mystery room.',
   'Corrupted Steel Hero boss: forges a corrupted core stone at the start of the fight and each turn (up to 3: Anvil, Bastion, Furnace). The cores attack, shield the boss or burn you, each makes the boss hit +1 harder, and they power his core abilities. You can target and destroy them.',
   'Glacier Core: no longer blocks for free. When you defend, choose how many frozen dice to unfreeze; each blocks 1 damage.',
   'Tooltips: hover over shop wares, items, mystery-room choices, rewards, map nodes and buttons to see exactly what they do.',
