@@ -3265,7 +3265,7 @@ function howtoHTML(){
     <li><b>The boss</b> rolls its own dice (👊 lava fist, 🌊 tidal wave, 🧊 ice armor, ⚡ storm, 🌑 void) and plays a card each turn, all shown ahead of time. It targets whoever hit it hardest last round.</li>
     <li><b>Solo:</b> one hero goes in alone. Every enemy has 40% less health, and their attacks deal 1 less damage.</li>
     <li><b>Between fights</b> you keep your health, core stones, resources, shield, hand, deck and discard pile.</li>
-    <li><b>Beating the elite</b> gives each hero a 7th die.</li>
+    <li><b>Extra dice</b> are rare: a ley line or a lucky mystery room can grant one (up to 8).</li>
     <li><b>Enemies sometimes smash a core stone</b> instead of hitting a hero (their bubble says “→ YOUR CORE”).</li>
     <li><b>Anything that damages core stones</b> hits every enemy, the boss included.</li>
     <li><b>Both heroes act at the same time,</b> including rolling. Tap <b>↩ Not ready yet</b> or <b>Undo</b> if you pressed Ready too soon.</li>
@@ -4178,7 +4178,6 @@ function fightWon(S){
     [0,1].forEach(i=>{ const P=S.p[i]; if(P.absent) return; P.dice.forEach(d=>{ d.cor=0; }); const h=Math.ceil((maxHp(P)-P.hp)/2); if(h>0){ P.hp+=h; lg(S,`💚 {${i}} catches their breath and heals ${h}.`); } });
     S.act=2; S.map=genMap(2); lg(S,'🗺 A new path opens into the Overlord’s depths: Act 2 begins.');
   }
-  if(S.fight.kind==='elite'){ [0,1].forEach(i=>{ const P=S.p[i]; if(P.absent || P.dice.length>=8) return; P.dice.push({f:1+rnd(6),fz:0,fzE:0,fog:0}); }); lg(S,'🎲 Elite bonus: each hero gains an extra die (up to 8)!'); }
   const kind = (S.fight.kind==='elite' || S.fight.boss==='corrupt') ? 'relic' : 'card', opts={};
   [0,1].forEach(i=>{
     if(S.p[i].absent){ opts[i]=[]; return; }
@@ -4743,7 +4742,7 @@ function showVictory(final){
   overlayFx(`<div class="confetti">${conf}</div><div class="vbox"><div class="vrays"></div>
      <div class="vtitle">${final?'THE OVERLORD FALLS!':'VICTORY!'}</div>
      ${S.lastGold?`<div class="vgold">🪙 +${S.lastGold} gold</div>`:''}
-     ${final?'<div class="vsub">You conquered the Elemental Depths 🏆</div>':`<div class="lvlup">⬆ LEVEL UP!</div><div class="vsub">${S.reward&&S.reward.kind==='relic'?'🎲 You gain an extra die! Now claim a powerful core':'Choose a new card for your deck'}</div>`}
+     ${final?'<div class="vsub">You conquered the Elemental Depths 🏆</div>':`<div class="lvlup">⬆ LEVEL UP!</div><div class="vsub">${S.reward&&S.reward.kind==='relic'?'Now claim a powerful core':'Choose a new card for your deck'}</div>`}
    </div>`, final?4200:2600, 'victory');
 }
 function showDelve(){
@@ -5492,7 +5491,8 @@ Object.assign(EVENTS, {
   blood:    {icon:'🩸', title:'Blood Altar', text:'Give up one of your dice forever to make one of your attacks permanently stronger.', dyn:'blood'},
   diceforge:{icon:'⚒', title:'The Dice Forge', text:'A dwarf smith re-cuts dice, for a price.', shop:[{k:'dice:plus', l:'💎 Gild a die: it gives +1 extra resource every roll', cost:60},{k:'dice:wild', l:'★ Wild-cut a die: 2 more of its faces become wild', cost:45},{k:'dice:build', l:'⚒ Build a die: choose all 6 faces (up to 2 wild)', cost:50}]}
 });
-EVENT_KEYS.push('gambler','tribute','cursed','echo','mirror','blood','diceforge');
+EVENTS.wishwell={icon:'🌠', title:'Wishing Well', text:'A rare well of starlight. Toss in a coin, and fate may hand you something special.', opts:[{k:'wishdie', l:'🎲 Make a wish: gain an extra die (up to 8)'},{k:'wishgold', l:'🪙 Fish out the coins: +25 gold'}]};
+EVENT_KEYS.push('gambler','tribute','cursed','echo','mirror','blood','diceforge','wishwell');
 const ECHO_OK=new Set(['dmg','heal','shield','burn','drain','coreAll','reflectHalf','gain']); // attacks that work for any hero
 function dynOpts(T,seat,kind){
   const P=T.p[seat], hk=T.heroes[seat];
@@ -5528,6 +5528,8 @@ function newEventChoice(T,seat,choice){
   if(choice==='tribute'||choice==='tribute2'){ const n=choice==='tribute'?3:2; if(totalRes(P)<n) return 'bad'; loseRes(T,seat,n); if(n===3) P.nextMight=1; else P.nextShield=(P.nextShield||0)+8; lg(T,`🗿 {${seat}} makes an offering.`); return 'ok'; }
   if(choice==='chestres'){ resKeys(T,seat).forEach(k=>addRes(P,k,3)); P.nextBurn=(P.nextBurn||0)+4; lg(T,`🧰 {${seat}} takes the essence (+3 of every resource) — but the curse will burn next fight.`); return 'ok'; }
   if(choice==='chestitem'){ const keys=Object.keys(ITEMS); giveItem(T,seat,keys[rnd(keys.length)]); P.maxhp=maxHp(P)-4; P.hp=Math.min(P.hp,P.maxhp); lg(T,`🧰 The chest's curse saps {${seat}}: −4 max health.`); return 'ok'; }
+  if(choice==='wishdie'){ if(P.dice.length>=8) return 'bad'; P.dice.push({f:1+rnd(6),fz:0,fzE:0,fog:0}); lg(T,`🌠 {${seat}}'s wish comes true: an extra die!`); flash(T,'🎲 An extra die!'); return 'ok'; }
+  if(choice==='wishgold'){ T.gold=(T.gold||0)+25; lg(T,`🪙 {${seat}} fishes 25 gold out of the well.`); return 'ok'; }
   if(choice==='doubler'){ P.doubler=1; lg(T,`🪞 {${seat}} accepts the Mirror of Excess.`); return 'ok'; }
   if(choice.startsWith('learn:')){ const [,h,ai]=choice.split(':'); if(!ABIL[h]||!ABIL[h][+ai]) return 'bad'; P.learned=(P.learned||[]).concat([[h,+ai]]); lg(T,`👻 {${seat}} learns ${ABIL[h][+ai].n} from the echo of the ${HEROES[h].name}.`); return 'ok'; }
   if(choice.startsWith('blood:')){ const nm=choice.slice(6); if(P.dice.length<=4 || !abilsOf(T,seat).some(a=>a.n===nm)) return 'bad'; P.dice.pop(); P.abilBonus=Object.assign({},P.abilBonus||{}); P.abilBonus[nm]=(P.abilBonus[nm]||0)+3; lg(T,`🩸 {${seat}} gives up a die: ${nm} deals +3 damage forever.`); return 'ok'; }
@@ -5647,6 +5649,7 @@ VERSION_HISTORY.unshift({v:'0.41-beta', date:'October 2026', notes:[
   'The dungeon is darker behind the menus, and boss fights take place in an arena.',
   'Monsters are easier to see: less fog around them, with the name plates on the art kept out of view.',
   'Fixed: the Steel Hero’s Forge a False Core button did nothing.',
+  'Elites no longer grant an extra die. Extra dice are now rare: the ley line, or the new Wishing Well mystery room.',
   'Enemy attacks aimed at a core stone now fly into that core (which shakes and flashes red) instead of the hero, and damaged core stones show cracks spreading from their corners.',
   'New enemy art: Act 2 monsters and the monsters that used to share a picture now have their own art, plus 11 new monsters (Obsidian Titan, Starlight Wyvern, Thunderhoof Kirin, Gale-Wing Griffin, Tidal Angler, Magma-Crust Behemoth, Overgrowth Spider, Iron-Bark Warden elite, Bloom Vanguard, Ice-Forged Paladin, Frost-Bound Weaver).'
 ]});
