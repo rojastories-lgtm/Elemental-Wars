@@ -1046,6 +1046,16 @@ body.arena .enemyzone{ background:radial-gradient(ellipse at 50% 85%, rgba(255,1
   mask-image:radial-gradient(ellipse 64% 60% at 50% 42%, #000 72%, transparent 100%);
   filter:drop-shadow(0 0 6px rgba(0,0,0,.5)) saturate(1.1) brightness(1.08); }
 /* visible mitigation */
+.core{ position:relative; }
+.core .cracks{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; fill:none; stroke:#1a1030; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; opacity:.75; }
+.core.crack2 .cracks{ stroke-width:2.8; opacity:.85; }
+.core.crack3 .cracks{ stroke-width:3.4; opacity:.95; }
+.core.crack3{ background:linear-gradient(#fff,#ffe9e9); }
+.core > :not(.cracks):not(.impact){ position:relative; }
+.core.corehit{ animation:corehit .8s ease; }
+@keyframes corehit{ 0%{ transform:translateX(0); box-shadow:0 0 0 3px #ff3b3b, 0 0 22px #ff3b3b; } 20%{ transform:translateX(-5px) rotate(-2deg); } 40%{ transform:translateX(5px) rotate(2deg); } 60%{ transform:translateX(-3px); } 100%{ transform:none; } }
+.core .impact{ font-size:1.3rem; }
+.strike.tocore{ filter:drop-shadow(0 0 10px #ff3b3b); }
 .enemyzone .minion.creature .mname{ position:relative; z-index:2; }
 .mits{ display:flex; flex-direction:column; gap:3px; margin-top:4px; }
 .mitchip{ display:inline-block; font-size:.72rem; font-weight:700; line-height:1.2; padding:2px 6px; border-radius:8px; border:2px solid #1a1030; background:#fff; color:#1a1030; }
@@ -1721,7 +1731,7 @@ function runPacket(S,pk){
   const t=pk.tgt||{seat:1-pk.from, core:-1};
   if(t.core<0 && !pk.pc && hasCore(A,'Piercing Core') && !A.st.pierce){ pk.pc=1; A.st.pierce=1; if(pk.unb<1 && pk.blk>0){ pk.blk--; pk.unb++; lg(S,`Piercing Core makes 1 damage unblockable.`); } }
   if(S.coop && t.uid!=null && t.seat===2){ const i=S.p[2].cores.findIndex(c=>c.m && c.m.uid===t.uid); t.core = i>=0 ? i : (S.p[2].cores.length ? 0 : -1); }
-  if(t.core>=0){ if(S.coop && pk.from===2 && t.seat<2){ S.hitN=(S.hitN||0)+1; S.hits=(S.hits||[]).concat([{n:S.hitN, uid:pk.uid||(pk.from===2&&S.p[2].boss?'boss':null), tgt:t.seat, dmg:tot, el:pk.el, src:pk.src, core:1}]).slice(-8); }
+  if(t.core>=0){ if(S.coop && pk.from===2 && t.seat<2){ S.hitN=(S.hitN||0)+1; S.hits=(S.hits||[]).concat([{n:S.hitN, uid:pk.uid||(pk.from===2&&S.p[2].boss?'boss':null), tgt:t.seat, dmg:tot, el:pk.el, src:pk.src, core:1, ci:t.core}]).slice(-8); }
     damageCore(S,t.seat,t.core,tot,pk.src,pk.from,pk.el); return; }
   if(pk.blk>0 && !pk.done && !(S.coop && t.seat===2) && defendable(S,t.seat,pk)){
     S.q.unshift({k:'defend', actor:t.seat, pk}); return;
@@ -2533,7 +2543,7 @@ function coreHTML(S,seat,ci,mine){
     if(card.name==='Rime Core' && !S.p[seat].st.rime && S.phase==='income' && STEP(S,seat)==='adjust') btn=`<button class="mini" data-act="rime">Freeze a die</button>`;
     if(card.name==='Tesla Coil'){ if(S.p[seat].st.tesla) btn=`<span class="mini" style="opacity:.6">⚡ Used this turn</span>`; else if((S.p[seat].res.L||0)>0 && S.phase!=='income') btn=`<button class="mini" data-act="tesla">Zap (1 ${pip('L')})</button>`; }
   }
-  return `<div class="core ${c.prot>=S.tn?'guarded':''}"><b>${esc(card.name)}</b><span class="chp">♥ ${c.hp}${c.prot>=S.tn?' <span class="mitchip">🛡 PROTECTED: immune this turn</span>':''}</span><span class="ctx">${richText(card.text)}</span>${btn}</div>`;
+  return `<div class="core ${c.prot>=S.tn?'guarded':''} ${coreCrackClass(c)}" data-ci="${ci}">${coreCracks(c)}<b>${esc(card.name)}</b><span class="chp">♥ ${c.hp}${c.prot>=S.tn?' <span class="mitchip">🛡 PROTECTED: immune this turn</span>':''}</span><span class="ctx">${richText(card.text)}</span>${btn}</div>`;
 }
 function miniCard(id, attrs='', reason=null, free=false){
   const c=CARDLIST[id], th=THEME[c.grp]||THEME[c.th]||THEME.gen, cost=c.cost==='free'?['free']:c.cost;
@@ -4570,18 +4580,19 @@ function animateHits(){
 }
 function playHit(h){
   if(h.hero) return playHeroHit(h);
-  const tgt=document.querySelector(`.ppanel[data-seat="${h.tgt}"] .pbanner`); if(!tgt) return;
+  const coreEl = h.core ? (document.querySelector(`.ppanel[data-seat="${h.tgt}"] .core[data-ci="${h.ci}"]`) || document.querySelector(`.ppanel[data-seat="${h.tgt}"] .pcores`)) : null;
+  const tgt = coreEl || document.querySelector(`.ppanel[data-seat="${h.tgt}"] .pbanner`); if(!tgt) return;
   const src = h.uid==='boss' ? document.querySelector('.bossbanner') : (document.querySelector(`.minion[data-uid="${h.uid}"]`) || document.querySelector('.enemyzone'));
   const icon = h.uid==='boss' ? '👊' : '⚔';
   const land=()=>{
-    tgt.classList.remove('struck'); void tgt.offsetWidth; tgt.classList.add('struck');
+    tgt.classList.remove('struck','corehit'); void tgt.offsetWidth; tgt.classList.add(coreEl?'corehit':'struck'); if(coreEl) setTimeout(()=>tgt.classList.remove('corehit'),900);
     const boom=document.createElement('div'); boom.className='impact'+(h.dmg>0?'':' blocked'); boom.textContent = h.dmg>0 ? (h.core?`💢 core −${h.dmg}`:`💥 −${h.dmg}`) : '🛡 Blocked!';
     tgt.appendChild(boom); setTimeout(()=>boom.remove(),1200);
   };
   if(!src || window.matchMedia('(prefers-reduced-motion: reduce)').matches){ land(); return; }
   src.classList.remove('lunge'); void src.offsetWidth; src.classList.add('lunge'); setTimeout(()=>src.classList.remove('lunge'),600);
   const a=src.getBoundingClientRect(), b=tgt.getBoundingClientRect();
-  const p=document.createElement('div'); p.className='strike'; p.style.setProperty('--sc', COL[h.el]||'#ff5a3d'); p.textContent=icon;
+  const p=document.createElement('div'); p.className='strike'+(coreEl?' tocore':''); p.style.setProperty('--sc', COL[h.el]||'#ff5a3d'); p.textContent=coreEl?'💎':icon;
   const ax=a.left+a.width/2-26, ay=a.top+a.height/2-26;
   p.style.left=ax+'px'; p.style.top=ay+'px'; document.body.appendChild(p);
   requestAnimationFrame(()=>requestAnimationFrame(()=>{ p.style.transform=`translate(${b.left+b.width/2-26-ax}px, ${b.top+b.height/2-26-ay}px) scale(1.5) rotate(25deg)`; }));
@@ -5603,6 +5614,22 @@ WEAK.push('starlight','kirin','griffin','spider'); STRONG.push('obsidian','angle
 ACT2_ALL.push('bloom','paladin','weaver'); ACT2_MIX.push('bloom','paladin','weaver','behemoth','obsidian');
 elitePick = function(S){ if(actOf(S)>=2){ const r=rnd(3); return r===0?['hydra']:r===1?['warlord', ACT2_MIX[rnd(ACT2_MIX.length)]]:['ironbark', ACT2_MIX[rnd(ACT2_MIX.length)]]; } return rnd(3)===0?['hydra']:[ELITES[rnd(ELITES.length)], WEAK[rnd(WEAK.length)]]; };
 
+/* ---------- core stone damage: cracks spread from the corners as health drops ---------- */
+function coreDmgLevel(c){ const mx=c.max||c.hp||1, f=1-Math.max(0,c.hp)/mx; return f<=0?0:f<0.34?1:f<0.67?2:3; }
+function coreCrackClass(c){ const l=coreDmgLevel(c); return l?'cracked crack'+l:''; }
+function coreCracks(c){
+  const l=coreDmgLevel(c); if(!l) return '';
+  // one crack per corner, more corners and longer branches the more damaged it is
+  const corners=[
+    'M0 0 L14 9 L10 18 L22 26 M14 9 L26 6',
+    'M100 0 L86 10 L91 20 L78 28 M86 10 L74 4',
+    'M0 100 L13 88 L8 78 L21 70 M13 88 L26 94',
+    'M100 100 L87 90 L92 79 L79 71 M87 90 L75 96'
+  ].slice(0, l===1?2:4);
+  const extra = l===3 ? '<path d="M22 26 L36 40 L32 52 M78 28 L64 42 L68 55 M21 70 L38 60 M79 71 L62 62"/>' : '';
+  return `<svg class="cracks" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${corners.map(d=>`<path d="${d}"/>`).join('')}${extra}</svg>`;
+}
+
 /* ---------- version ---------- */
 VERSION_HISTORY.unshift({v:'0.41-beta', date:'October 2026', notes:[
   'BETA build: try it out and report back before it replaces the main game.',
@@ -5620,6 +5647,7 @@ VERSION_HISTORY.unshift({v:'0.41-beta', date:'October 2026', notes:[
   'The dungeon is darker behind the menus, and boss fights take place in an arena.',
   'Monsters are easier to see: less fog around them, with the name plates on the art kept out of view.',
   'Fixed: the Steel Hero’s Forge a False Core button did nothing.',
+  'Enemy attacks aimed at a core stone now fly into that core (which shakes and flashes red) instead of the hero, and damaged core stones show cracks spreading from their corners.',
   'New enemy art: Act 2 monsters and the monsters that used to share a picture now have their own art, plus 11 new monsters (Obsidian Titan, Starlight Wyvern, Thunderhoof Kirin, Gale-Wing Griffin, Tidal Angler, Magma-Crust Behemoth, Overgrowth Spider, Iron-Bark Warden elite, Bloom Vanguard, Ice-Forged Paladin, Frost-Bound Weaver).'
 ]});
 
