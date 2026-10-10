@@ -5701,13 +5701,13 @@ function placeMinionToken(S,c){
 /* ---------- Time Hero: abilities run on timers ---------- */
 ABIL.time = [
   {n:'Sand Shield',       cost:['E','E'],         el:'E', timer:1, fx:[['shield',4]], t:'Gain 4 shield.'},
-  {n:'Delayed Blast',     cost:['F','F'],         el:'F', timer:2, fx:[['dmg',7]], t:'Deal 7 damage.'},
+  {n:'Delayed Blast',     cost:['F','F'],         el:'F', timer:2, fx:[['dmg',5]], t:'Deal 5 damage.'},
   {n:'Rewind',            cost:['W','W'],         el:'W', timer:1, fx:[['heal',4],['gainChoice',1]], t:'Heal 4 and get back 1 spent resource.'},
   {n:'Accelerate',        cost:['T'],             el:'T', fx:[['accel']], t:'Tick one running timer down by 1. When that ability goes off, it deals +2.'},
-  {n:'Time Bomb',         cost:['T','T','F'],     el:'T', timer:3, fx:[['dmg',11]], t:'Deal 11 damage.'},
-  {n:'Stasis Field',      cost:['T','W','W'],     el:'T', timer:2, fx:[['freezeEnemy',2],['shield',3]], t:'Freeze 2 enemy dice and gain 3 shield.'},
+  {n:'Time Bomb',         cost:['T','T','F'],     el:'T', timer:3, fx:[['dmg',7]], t:'Deal 7 damage.'},
+  {n:'Erosion',           cost:['T','W','W'],     el:'T', timer:2, fx:[['dmg',3],['lose',2]], t:'Time wears the enemy down: deal 3 damage and they lose 2 resources.'},
   {n:'Borrowed Time',     cost:['T','E','E'],     el:'E', fx:[['borrow']], t:'Add 1 to a running timer. When that ability goes off, it deals +4.'},
-  {n:'Temporal Collapse', cost:['T','T','T','T'], el:'T', sig:1, fx:[['collapse']], t:'Every running timer ticks down by 1. Any ability whose timer hits 0 this way goes off twice.'}
+  {n:'Temporal Collapse', cost:['T','T','T','T'], el:'T', sig:1, fx:[['collapse']], t:'Every running timer ticks down by 1. Any ability that goes off this way deals +3 damage.'}
 ];
 const TIME_OPS=new Set(['accel','borrow','collapse','tick','tickAll','fireAll','dmgTimers']);
 ['accel','borrow','collapse'].forEach(k=>HB_STRIP.add(k)); // the corrupted Time Hero boss skips timer tricks
@@ -5803,7 +5803,7 @@ function applyTimeAbil(T,seat,ai,ctx){
   if(kind==='timer'){ P.timers[ai]={left:a.timer, bonus:0, ctx}; lg(T,`⏳ {${seat}} starts ${a.n}: it goes off in ${a.timer} combat${a.timer>1?'s':''}.`); }
   else if(kind==='accel'){ const t=ctx.timer; if(P.timers[t]){ P.timers[t]=Object.assign({},P.timers[t],{bonus:P.timers[t].bonus+2}); lg(T,`⏩ {${seat}} accelerates ${ABIL.time[t].n} (+2).`); tickTimer(T,seat,t,1,false); } }
   else if(kind==='borrow'){ const t=ctx.timer; if(P.timers[t]){ P.timers[t]=Object.assign({},P.timers[t],{left:P.timers[t].left+1, bonus:P.timers[t].bonus+4}); lg(T,`⏪ {${seat}} borrows time: ${ABIL.time[t].n} waits 1 more combat but deals +4.`); } }
-  else if(kind==='collapse'){ lg(T,`🌀 {${seat}} collapses time!`); tickAllTimers(T,seat,true); }
+  else if(kind==='collapse'){ lg(T,`🌀 {${seat}} collapses time!`); runningTimers(P).forEach(t=>{ if(P.timers[t].left<=1) P.timers[t]=Object.assign({},P.timers[t],{bonus:P.timers[t].bonus+3}); }); tickAllTimers(T,seat,false); }
   advance(T);
 }
 const _abilBlock0 = abilBlockReason;
@@ -5924,6 +5924,7 @@ VERSION_HISTORY.unshift({v:'0.41-beta', date:'October 2026', notes:[
   'Hero art: in-game banners and portraits now use the new Electro, Ice Queen, Dark Hero and Volcanic Lord art.',
   'Electro Hero: Fire Blast, Static Shock, Fire Sync and Lightning Strike each trade 1 blockable damage for 1 unblockable; Fire Sync now deals lightning damage. Grounding Wave (1 Lightning, 2 Nature) deals 1 unblockable damage, charges him right away and refreshes another ability for this turn. A glowing ⚡+1 token on his card shows when he is charged.',
   'Volcanic Lord: Pyroclast and Magma Fist (now 2 damage) put a burn token on an enemy ability. Each time that ability is used, its owner takes 2 damage. In versus, 1 Water quenches it. Each ability holds one token.',
+  'Time Hero tuning: Delayed Blast 5, Time Bomb 7, Temporal Collapse gives +3 damage to anything it sets off, and Stasis Field is replaced by Erosion (deal 3, enemy loses 2 resources).',
   'Time Hero: his abilities now run on timers (switch on, tick down each time you enter combat, go off at 0), with Accelerate, Borrowed Time and Temporal Collapse bending them. Several of his cards now tick, fire or scale with his timers.',
   'Elites no longer grant an extra die. Extra dice are now rare: the ley line, or the new Wishing Well mystery room.',
   'Enemy attacks aimed at a core stone now fly into that core (which shakes and flashes red) instead of the hero, and damaged core stones show cracks spreading from their corners.',
