@@ -5984,6 +5984,28 @@ coopEnemyHTML = function(S){
     return ` el-${el}`+h.replace('<div class="mglow"></div>', `<div class="mglow"></div>${lvParticles(el)}`); }).join('<div class="minion creature');
 };
 
+/* ---------- Ice Queen: less free armor; thaw your own dice for shield ---------- */
+(function(){
+  const A=ABIL.ice, f=n=>A.find(a=>a.n===n);
+  Object.assign(f('Glacial Armor'),  {fx:[['shield',2],['thawShield',1]], t:'Gain 2 shield. You may unfreeze 1 of your dice to gain 1 more.'});
+  Object.assign(f('Frozen Fortress'),{fx:[['shield',2],['thawShield',99]], t:'Gain 2 shield. Unfreeze any number of your dice: +1 shield for each.'});
+  Object.assign(f('Meltwater'),      {fx:[['heal',2],['freezeOwn',1]], t:'Heal 2. Freeze 1 of your dice.'});
+})();
+const _runOp2 = runOp;
+runOp = function(S,st){
+  if(st.op[0]==='thawShield'){ const P=S.p[st.seat], idx=(st.ctx.thaw||[]).filter(i=>P.dice[i] && P.dice[i].fz).slice(0,st.op[1]);
+    if(idx.length){ idx.forEach(i=>{ P.dice[i].fz=0; }); P.shield+=idx.length; lg(S,`❄ {${st.seat}} unfreezes ${idx.length} ${idx.length===1?'die':'dice'} for +${idx.length} shield.`); } return; }
+  return _runOp2(S,st);
+};
+const _gather1 = gather;
+gather = async function(seat, fx, opts){
+  const ctx=await _gather1(seat, fx, opts); if(!ctx) return ctx;
+  const o=fx.find(x=>x[0]==='thawShield'), P=S.p[seat];
+  if(o){ const n=P.dice.filter(d=>d.fz).length;
+    if(n){ const r=await pickDice(`Unfreeze up to ${Math.min(o[1],n)} of your dice: +1 shield each`, seat, d=>d.fz, 0, Math.min(o[1],n), 'Pick none to keep them frozen.'); if(r) ctx.thaw=r; } }
+  return ctx;
+};
+
 /* ---------- version ---------- */
 VERSION_HISTORY.unshift({v:'0.41', date:'October 2026', notes:[
   'After a normal fight you can take a card OR 1 of every resource.',
@@ -6008,6 +6030,7 @@ VERSION_HISTORY.unshift({v:'0.41', date:'October 2026', notes:[
   'Volcanic Lord: Pyroclast and Magma Fist (now 2 damage) put a burn token on an enemy ability. Each time that ability is used, its owner takes 2 damage. In versus, 1 Water quenches it. Each ability holds one token.',
   'Time Hero tuning: Delayed Blast 5, Time Bomb 7, Temporal Collapse gives +3 damage to anything it sets off, and Stasis Field is replaced by Erosion (deal 3, enemy loses 2 resources).',
   'Time Hero: his abilities now run on timers (switch on, tick down each time you enter combat, go off at 0), with Accelerate, Borrowed Time and Temporal Collapse bending them. Several of his cards now tick, fire or scale with his timers.',
+  'Ice Queen: Glacial Armor gives 2 shield (+1 if you unfreeze a die), Frozen Fortress gives 2 shield +1 for each die you unfreeze, and Meltwater heals 2 and freezes 1 die.',
   'Combo ultimates now need both heroes to agree: proposing one sends a prompt to your partner, who can agree or decline.',
   'Monsters look alive: their art breathes and sways, with element particles (embers, sparks, frost, bubbles, leaves, shadow wisps…), and the boss banner pulses.',
   'The Ruin Hydra’s heads sway side to side and flinch when hit.',
