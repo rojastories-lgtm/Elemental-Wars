@@ -1069,6 +1069,9 @@ body.arena .enemyzone{ background:radial-gradient(ellipse at 50% 85%, rgba(255,1
 .chargetok svg{ position:absolute; inset:10%; width:80%; height:80%; fill:#1a1030; opacity:.85; }
 .chargetok b{ position:relative; font-family:var(--display); font-size:1.35rem; color:#fff; text-shadow:2px 2px 0 #1a1030,-1px -1px 0 #1a1030,1px -1px 0 #1a1030,-1px 1px 0 #1a1030; margin-top:14px; margin-left:18px; }
 @keyframes chargepulse{ 50%{ box-shadow:0 0 0 3px #fff, 0 0 28px #ffd42a, 0 0 50px #7ee4ff; transform:translateY(-50%) scale(1.06); } }
+.minion.segment.struck2 .mart img{ animation:hflinch .5s ease; }
+@keyframes hflinch{ 0%{ transform:none; filter:none; } 20%{ transform:translateY(8px) scale(.9) rotate(-6deg); filter:brightness(1.8) saturate(.4); } 45%{ transform:translateY(-3px) scale(1.03) rotate(4deg); } 70%{ transform:rotate(-2deg); } 100%{ transform:none; filter:none; } }
+.ultreq{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
 .enemyzone .minion.creature .mname{ position:relative; z-index:2; }
 .mits{ display:flex; flex-direction:column; gap:3px; margin-top:4px; }
 .mitchip{ display:inline-block; font-size:.72rem; font-weight:700; line-height:1.2; padding:2px 6px; border-radius:8px; border:2px solid #1a1030; background:#fff; color:#1a1030; }
@@ -5182,7 +5185,7 @@ function creatureArt(kind, c1, c2){
     <circle cx="150" cy="150" r="46" fill="#05020a" stroke="${c2}" stroke-width="5"/><circle cx="134" cy="142" r="11" fill="url(#e)"/><circle cx="166" cy="142" r="11" fill="url(#e)"/>
     <path d="M124 170 L132 180 L140 170 L148 182 L156 170 L164 180 L176 170" stroke="${c2}" stroke-width="4" fill="none" stroke-linejoin="round"/>
     ${Array.from({length:10},(_,i)=>`<circle cx="${40+((i*67)%220)}" cy="${30+((i*41)%240)}" r="${3+(i%3)*2}" fill="${c2}" opacity=".7"/>`).join('')}`;
-  else body=`${[[-70,0],[0,-20],[70,0]].map(([dx,dy],i)=>`<path d="M${150+dx*0.4} 300 C${150+dx*0.5} 220 ${150+dx*1.2} ${180+dy} ${150+dx} ${110+dy}" stroke="#1a0f24" stroke-width="34" fill="none" stroke-linecap="round"/><path d="M${150+dx*0.4} 300 C${150+dx*0.5} 220 ${150+dx*1.2} ${180+dy} ${150+dx} ${110+dy}" stroke="${[c1,c2,'#7dff6a'][i]}" stroke-width="6" fill="none" stroke-dasharray="6 10"/><ellipse cx="${150+dx}" cy="${96+dy}" rx="30" ry="22" fill="#1a0f24" stroke="${[c1,c2,'#7dff6a'][i]}" stroke-width="4"/><circle cx="${140+dx}" cy="${90+dy}" r="6" fill="url(#e)"/><circle cx="${160+dx}" cy="${90+dy}" r="6" fill="url(#e)"/>`).join('')}`;
+  else body=`<style>.hd{transform-box:view-box;transform-origin:150px 300px;animation:sw 2.8s ease-in-out infinite alternate}.hd1{animation-duration:2.2s;animation-delay:-.7s}.hd2{animation-duration:3.1s;animation-delay:-1.6s}@keyframes sw{from{transform:rotate(-8deg)}to{transform:rotate(8deg)}}</style>${[[-70,0],[0,-20],[70,0]].map(([dx,dy],i)=>`<g class="hd hd${i}"><path d="M${150+dx*0.4} 300 C${150+dx*0.5} 220 ${150+dx*1.2} ${180+dy} ${150+dx} ${110+dy}" stroke="#1a0f24" stroke-width="34" fill="none" stroke-linecap="round"/><path d="M${150+dx*0.4} 300 C${150+dx*0.5} 220 ${150+dx*1.2} ${180+dy} ${150+dx} ${110+dy}" stroke="${[c1,c2,'#7dff6a'][i]}" stroke-width="6" fill="none" stroke-dasharray="6 10"/><ellipse cx="${150+dx}" cy="${96+dy}" rx="30" ry="22" fill="#1a0f24" stroke="${[c1,c2,'#7dff6a'][i]}" stroke-width="4"/><circle cx="${140+dx}" cy="${90+dy}" r="6" fill="url(#e)"/><circle cx="${160+dx}" cy="${90+dy}" r="6" fill="url(#e)"/></g>`).join('')}`;
   return svgUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300">${bg}${body}</svg>`);
 }
 
@@ -5901,6 +5904,49 @@ heroNotes = function(hk){
   set('Eternity','Action',['T','T','T'],'Heal 6. Every running timer ticks down by 1.',[['heal',6],['tickAll']]);
 })();
 
+/* ---------- combo ultimate: the partner has to agree ---------- */
+act.ultimate = ()=>guard(async()=>{
+  const seat=ACTOR(); if(!S.coop || S.solo || !S.fight || S.fight.ultUsed || S.ultReq) return;
+  if(!['main1','combat','main2'].includes(S.phase) || pendingInput(S)) return;
+  const other=1-seat, P=S.p[seat], O=S.p[other]; if(!P || !O || P.down || O.down || O.absent) return;
+  const el1=heroEl(S,seat), el2=heroEl(S,other);
+  if((P.res[el1]||0)<2 || (O.res[el2]||0)<2){ toast(`The combo ultimate needs BOTH heroes to spend 2 of their own element. You have ${P.res[el1]||0} ${EL_NAME[el1]}, your ally has ${O.res[el2]||0} ${EL_NAME[el2]}.`); return; }
+  const v0=S.ver, combo=PAIR_COMBOS[pairKey(S.heroes[seat],S.heroes[other])] || {name:'Elemental Fusion', fx:[['dmg',10],['burn',3]]};
+  const ok=await pickOne(`✨ Propose the combo: ${esc(combo.name)}`, [{v:'go', html:`<span class="eb">📣 Ask my partner to unleash it</span>`}],
+    {sub:`Your partner has to agree. If they do, you spend ${pip(el1)}${pip(el1)} and they spend ${pip(el2)}${pip(el2)}.<br>Effect: ${comboText(combo.fx)}.`});
+  if(ok!=='go' || boardChanged(v0)) return;
+  const tgt=await coopPickTarget(seat); if(!tgt || boardChanged(v0)) return;
+  const T=clone(S); T.ultReq={from:seat, tgt}; lg(T,`📣 {${seat}} wants to unleash ${combo.name}, and is waiting for {${other}} to agree.`); flash(T,`📣 Combo ultimate proposed!`);
+  await commitA(T,seat,null);
+});
+act.ultAnswer = (yes)=>guard(async()=>{
+  const seat=ACTOR(), R=S.ultReq; if(!R) return;
+  const T=clone(S);
+  if(R.from===seat){ T.ultReq=null; lg(T,`{${seat}} calls off the combo.`); await commitA(T,seat,null); return; }
+  if(!yes){ T.ultReq=null; lg(T,`✋ {${seat}} declines the combo ultimate.`); flash(T,'✋ Combo declined'); await commitA(T,seat,null); return; }
+  const from=R.from, el1=heroEl(T,from), el2=heroEl(T,seat);
+  if((T.p[from].res[el1]||0)<2 || (T.p[seat].res[el2]||0)<2 || T.fight.ultUsed){ T.ultReq=null; toast('Not enough resources for the combo any more.'); await commitA(T,seat,null); return; }
+  T.ultReq=null; T.p[from].res[el1]-=2; T.p[seat].res[el2]-=2;
+  const combo=PAIR_COMBOS[pairKey(T.heroes[from],T.heroes[seat])] || {name:'Elemental Fusion', fx:[['dmg',10],['burn',3]]};
+  lg(T,`✨ {${from}} and {${seat}} unleash ${combo.name}!`); flash(T,`✨ ${combo.name}!`); sfx(T,'instant');
+  T.q.unshift(...expand(T,from,combo.fx,{tgt:R.tgt, burnTgt:R.tgt.core},el1,combo.name)); T.fight.ultUsed=1; advance(T);
+  await commitA(T,seat,'ultimate');
+});
+const _coopPrompt0 = coopPrompt;
+coopPrompt = function(S,v){
+  const R=S.ultReq;
+  if(R && S.status==='playing' && ['main1','combat','main2'].includes(S.phase) && !pendingInput(S)){
+    const combo=PAIR_COMBOS[pairKey(S.heroes[0],S.heroes[1])] || {name:'Elemental Fusion', fx:[['dmg',10],['burn',3]]}, el=heroEl(S,v);
+    if(R.from===v) return `<div class="prompt thinking ultreq"><span class="spin"></span><span>📣 Waiting for your partner to agree to <b>${esc(combo.name)}</b>…</span><button class="btn ghost" data-act="ultno">Call it off</button></div>`;
+    return `<div class="prompt you ultreq"><span>📣 Your partner wants to unleash <b>${esc(combo.name)}</b> (${comboText(combo.fx)}). You'd spend ${pip(el)}${pip(el)}.</span><button class="btn" data-act="ultyes">✨ Agree</button><button class="btn ghost" data-act="ultno">✋ Decline</button></div>`;
+  }
+  return _coopPrompt0(S,v);
+};
+document.addEventListener('click', e=>{ const b=e.target.closest('[data-act="ultyes"],[data-act="ultno"]'); if(!b || b.closest('#modal')) return; act.ultAnswer(b.dataset.act==='ultyes'); });
+// a proposal never outlives the turn or the fight
+const _coopStep2 = coopStep; coopStep = function(S,st){ if(st.k==='eend') S.ultReq=null; return _coopStep2(S,st); };
+const _setupFight2 = setupFight; setupFight = function(S,spec){ S.ultReq=null; return _setupFight2(S,spec); };
+
 /* ---------- version ---------- */
 VERSION_HISTORY.unshift({v:'0.41', date:'October 2026', notes:[
   'After a normal fight you can take a card OR 1 of every resource.',
@@ -5925,6 +5971,8 @@ VERSION_HISTORY.unshift({v:'0.41', date:'October 2026', notes:[
   'Volcanic Lord: Pyroclast and Magma Fist (now 2 damage) put a burn token on an enemy ability. Each time that ability is used, its owner takes 2 damage. In versus, 1 Water quenches it. Each ability holds one token.',
   'Time Hero tuning: Delayed Blast 5, Time Bomb 7, Temporal Collapse gives +3 damage to anything it sets off, and Stasis Field is replaced by Erosion (deal 3, enemy loses 2 resources).',
   'Time Hero: his abilities now run on timers (switch on, tick down each time you enter combat, go off at 0), with Accelerate, Borrowed Time and Temporal Collapse bending them. Several of his cards now tick, fire or scale with his timers.',
+  'Combo ultimates now need both heroes to agree: proposing one sends a prompt to your partner, who can agree or decline.',
+  'The Ruin Hydra’s heads sway side to side and flinch when hit.',
   'Elites no longer grant an extra die. Extra dice are now rare: the ley line, or the new Wishing Well mystery room.',
   'Enemy attacks aimed at a core stone now fly into that core (which shakes and flashes red) instead of the hero, and damaged core stones show cracks spreading from their corners.',
   'New enemy art: Act 2 monsters and the monsters that used to share a picture now have their own art, plus 11 new monsters (Obsidian Titan, Starlight Wyvern, Thunderhoof Kirin, Gale-Wing Griffin, Tidal Angler, Magma-Crust Behemoth, Overgrowth Spider, Iron-Bark Warden elite, Bloom Vanguard, Ice-Forged Paladin, Frost-Bound Weaver).'
