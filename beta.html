@@ -6006,6 +6006,87 @@ gather = async function(seat, fx, opts){
   return ctx;
 };
 
+/* ---------- shop: buy as much as you can afford; each item is one of a kind ---------- */
+const _coopPickEvent1 = coopPickEvent;
+coopPickEvent = function(T,seat,choice){
+  const EV=T.event; if(!EV || EV.done[seat]) return;
+  const D=EVENTS[EV.key], P=T.p[seat];
+  if(D.shop && choice!=null && !P.absent){
+    const o=D.shop.find(x=>x.k===choice || (x.k==='dice:build' && String(choice).startsWith('dice:build'))); if(!o || (T.gold||0)<o.cost) return;
+    EV.sold=EV.sold||[];
+    if(choice.startsWith('item:')){ if(EV.sold.includes(choice)) return; T.gold-=o.cost; giveItem(T,seat,choice.slice(5)); EV.sold.push(choice); lg(T,`🧙 {${seat}} buys the ${ITEMS[choice.slice(5)].name} (−${o.cost} gold).`); return; }
+    if(choice.startsWith('dice:')){ const r=newEventChoice(T,seat,choice); return; }
+    T.gold-=o.cost;
+    if(o.k==='heal'){ const b=P.hp; P.hp=Math.min(maxHp(P),P.hp+15); lg(T,`🧙 {${seat}} buys a healing draught (−${o.cost} gold) and heals ${P.hp-b}.`); }
+    else if(o.k==='res'){ resKeys(T,seat).forEach(k=>addRes(P,k,2)); lg(T,`🧙 {${seat}} buys an essence pouch (−${o.cost} gold): +2 of every resource.`); }
+    else if(o.k==='card'){ const id=NEUTRAL_IDS[rnd(NEUTRAL_IDS.length)]; P.deck.splice(rnd(P.deck.length+1),0,id); lg(T,`🧙 {${seat}} buys ${CARDLIST[id].name} (−${o.cost} gold) and adds it to their deck.`); }
+    return; // keep shopping; "Done shopping" ends it
+  }
+  return _coopPickEvent1(T,seat,choice);
+};
+const _coopPrompt1 = coopPrompt;
+coopPrompt = function(S,v){
+  let h=_coopPrompt1(S,v); const EV=S.event;
+  if(S.phase==='event' && EV && EVENTS[EV.key].shop && !EV.done[v]){
+    (EV.sold||[]).forEach(k=>{ h=h.replace(new RegExp(`(<button[^>]*data-c="${k}")([^>]*)>([\\s\\S]*?)</button>`), (m,a,b,inner)=>`${a}${b} disabled data-sold="1">${inner.replace(/ · 🪙 \d+/,'')} · SOLD</button>`); });
+    h=h.replace('data-act="eventpick" data-c="">Leave</button>','data-act="eventpick" data-c="">✔ Done shopping</button>');
+  }
+  return h;
+};
+
+/* ---------- tooltips: explain buttons, shop wares, mystery rooms and rewards ---------- */
+const TIPS = {
+  roll:'Roll your dice and draw a card for this turn.', collect:'Collect 1 resource from each die. Wild dice give whatever you picked for them.',
+  next:'Move on to the next phase.', undo:'Take back your last action. Not possible after rolling dice or drawing cards.',
+  sell:'Discard a card from your hand to gain the resources in its cost, minus the first icon (max 3).',
+  ultimate:'Propose a combo ultimate. Your partner has to agree; then you each spend 2 of your own element. Once per fight.',
+  ultyes:'Agree: you both pay and the combo goes off.', ultno:'Say no (or call it off). Nothing is spent.',
+  revive:'Spend 6 resources to bring your knocked-out partner back with 4 health.', viewmap:'Look at the dungeon map: where you have been and what lies ahead.',
+  music:'Turn the music on or off.', sound:'Turn sound effects on or off.', guide:'See every hero’s abilities and deck.', rules:'Open the How to play guide.',
+  lobby:'Leave this game and go back to the lobby.', melt:'Spend 1 Fire to melt this frozen die so it rolls again.', cool:'Spend 1 Water to remove 2 Burn.',
+  forge:'Spend 1 Steel to forge a False Core: a decoy core with 3 health.', energy:'Energy Core: change 1 of your resources into any other element (once per turn).',
+  rime:'Rime Core: freeze 1 of your dice for free (keeps its face for next roll).', tesla:'Tesla Coil: pay 1 Lightning to deal 2 damage (counts as an instant).',
+  cleanse:'Pay 1 of the element shown to remove the curse and hit its caster for double the curse damage.',
+  quench:'Pay 1 Water to remove the burn token from this ability.', assign:'Choose what this wild die counts as.',
+  unready:'Take back your Ready and keep playing this phase.', coopview:'Switch which hero you are controlling.', answer:'Open the decision you need to make.',
+  fogClear:'Pay 1 resource to clear the fog and collect this resource.', concede:'Give up this game.'
+};
+const EVENT_TIPS = {
+  drink:'Gain 2 Fire, 2 Water, 2 Nature and 2 of your hero’s element.', flask:'Gain 1 of every resource now, and start the next fight with 4 shield.',
+  pray:'Heal 12 health.', vow:'Raise your maximum health by 5 for the rest of the run (and heal 5).',
+  gold:'Add 20 gold to the party’s purse.', gems:'Gain 3 of your hero’s element.',
+  bet:'A random card leaves your deck for good. You win 10–60 gold.',
+  tribute:'Lose 3 resources (your largest piles). In the next fight, every attack you make deals +1 damage.',
+  tribute2:'Lose 2 resources (your largest piles). Start the next fight with 8 shield.',
+  chestres:'Gain 3 of every resource, but you start the next fight with 4 Burn.', chestitem:'Get a random item, but your maximum health drops by 4 for the rest of the run.',
+  doubler:'For the rest of the run you can hold up to 20 of each resource, but all damage you take is doubled.',
+  wishdie:'Gain an extra die for the rest of the run (max 8).', wishgold:'Add 25 gold to the party’s purse.',
+  heal:'Heal 15 health right away.', res:'Gain 2 of every resource right away.', card:'Add a random neutral spell-scroll card (any hero can use it) to your deck.',
+  'dice:plus':'One of your dice is gilded: it gives 1 extra resource every roll.', 'dice:wild':'Two more faces of one of your dice become wild.',
+  'dice:build':'Choose all 6 faces of one of your dice yourself (up to 2 wild).', '':'Leave without taking anything.'
+};
+function tipFor(b){
+  const a=b.dataset.act, c=b.dataset.c;
+  if(a==='eventpick' && c!=null){
+    if(c.startsWith('item:') && ITEMS[c.slice(5)]){ const it=ITEMS[c.slice(5)]; return `${it.name}: ${it.t}${b.dataset.sold?' (already bought)':''}`; }
+    if(c.startsWith('learn:')){ const [,h,i]=c.split(':'); const ab=ABIL[h]&&ABIL[h][+i]; return ab?`Learn ${ab.n} for the rest of the run: ${ab.t} It becomes one of your abilities.`:''; }
+    if(c.startsWith('blood:')) return `Lose 1 die for good. ${c.slice(6)} deals +3 damage for the rest of the run.`;
+    if(/^\d+$/.test(c) && CARDLIST[+c]) return `Add ${CARDLIST[+c].name} to your deck: ${CARDLIST[+c].text}`;
+    if(S && S.event && EVENTS[S.event.key].shop && c==='') return 'Finish shopping and move on.';
+    return EVENT_TIPS[c]||'';
+  }
+  if(a==='pickreward'){ if(c==='res') return 'Instead of a card, gain 1 Fire, 1 Water, 1 Nature and 1 of your hero’s element.'; if(c==='') return 'Skip the reward: heal 5 now and start the next fight with 2 shield.'; if(RELICS[c]) return `${c}: ${RELICS[c]} It doesn’t take a core slot.`; return ''; }
+  if(a==='deckrefresh') return c==='1'?'Shuffle every discarded card back into your deck before the boss.':'Keep your deck as it is (discarded cards stay out).';
+  if(a==='leyline') return c==='power'?'Gain an extra die for the rest of the run (max 8).':'Heal back to full health.';
+  if(a==='corefind') return b.dataset.el?`Put one of your dice in the core stone. After 2 more fights it bonds: you get the die back and gain 1 ${EL_NAME[b.dataset.el]} every turn for the rest of the run.`:'Leave the core stone alone.';
+  return TIPS[a]||'';
+}
+function applyTips(root){ (root||document).querySelectorAll('[data-act]:not([title])').forEach(b=>{ const t=tipFor(b); if(t) b.setAttribute('title',t); }); }
+new MutationObserver(()=>applyTips()).observe(document.body,{childList:true,subtree:true});
+// mystery rooms on the map say what they might hold
+const _mapNodeTitle0 = mapNodeTitle;
+mapNodeTitle = function(nd,detail){ if(nd.t==='event') return 'Mystery room (?): one random event, such as a healing shrine, a merchant, a gambler, a cursed chest, a dice forge or a wishing well. Some help you; some ask for something in return.'; if(nd.t==='elite') return _mapNodeTitle0(nd,detail)+'. A tough fight. Winning gives a powerful core.'; return _mapNodeTitle0(nd,detail); };
+
 /* ---------- version ---------- */
 VERSION_HISTORY.unshift({v:'0.41-beta', date:'October 2026', notes:[
   'BETA build: try it out and report back before it replaces the main game.',
@@ -6031,6 +6112,8 @@ VERSION_HISTORY.unshift({v:'0.41-beta', date:'October 2026', notes:[
   'Volcanic Lord: Pyroclast and Magma Fist (now 2 damage) put a burn token on an enemy ability. Each time that ability is used, its owner takes 2 damage. In versus, 1 Water quenches it. Each ability holds one token.',
   'Time Hero tuning: Delayed Blast 5, Time Bomb 7, Temporal Collapse gives +3 damage to anything it sets off, and Stasis Field is replaced by Erosion (deal 3, enemy loses 2 resources).',
   'Time Hero: his abilities now run on timers (switch on, tick down each time you enter combat, go off at 0), with Accelerate, Borrowed Time and Temporal Collapse bending them. Several of his cards now tick, fire or scale with his timers.',
+  'Tooltips: hover over shop wares, items, mystery-room choices, rewards, map nodes and buttons to see exactly what they do.',
+  'Shops: buy as many things as your gold allows, then press Done shopping. Each item is one of a kind: once one hero buys it, it’s sold out for the other.',
   'Ice Queen: Glacial Armor gives 2 shield (+1 if you unfreeze a die), Frozen Fortress gives 2 shield +1 for each die you unfreeze, and Meltwater heals 2 and freezes 1 die.',
   'Combo ultimates now need both heroes to agree: proposing one sends a prompt to your partner, who can agree or decline.',
   'Monsters look alive: their art breathes and sways, with element particles (embers, sparks, frost, bubbles, leaves, shadow wisps…), and the boss banner pulses.',
