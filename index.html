@@ -6091,6 +6091,51 @@ new MutationObserver(()=>applyTips()).observe(document.body,{childList:true,subt
 const _mapNodeTitle0 = mapNodeTitle;
 mapNodeTitle = function(nd,detail){ if(nd.t==='event') return 'Mystery room (?): one random event, such as a healing shrine, a merchant, a gambler, a cursed chest, a dice forge or a wishing well. Some help you; some ask for something in return.'; if(nd.t==='elite') return _mapNodeTitle0(nd,detail)+'. A tough fight. Winning gives a powerful core.'; return _mapNodeTitle0(nd,detail); };
 
+/* ---------- Corrupted Steel Hero forges corrupted core stones ---------- */
+function ccoreArt(c1,c2){ return svgUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300"><defs><radialGradient id="b" cx="50%" cy="50%" r="60%"><stop offset="0" stop-color="${c2}" stop-opacity=".55"/><stop offset="1" stop-color="#05020a"/></radialGradient><radialGradient id="g"><stop offset="0" stop-color="#fff"/><stop offset=".35" stop-color="${c2}"/><stop offset="1" stop-color="${c2}" stop-opacity="0"/></radialGradient>
+  <style>.pulse{animation:p 1.6s ease-in-out infinite alternate;transform-origin:150px 150px}@keyframes p{from{opacity:.55;transform:scale(.9)}to{opacity:1;transform:scale(1.08)}}</style></defs>
+  <rect width="300" height="300" fill="url(#b)"/><circle class="pulse" cx="150" cy="150" r="70" fill="url(#g)"/>
+  <path d="M150 50 L240 100 L240 200 L150 250 L60 200 L60 100 Z" fill="#1f1a26" stroke="${c1}" stroke-width="6"/><path d="M150 50 L150 150 M150 150 L240 100 M150 150 L60 100 M150 150 L150 250" stroke="#4a4258" stroke-width="4"/>
+  <path d="M110 90 L135 130 L120 160 L150 190 M190 110 L170 150 L195 185 M95 170 L120 200" stroke="${c2}" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <circle cx="150" cy="150" r="16" fill="${c2}"/></svg>`); }
+Object.assign(IMG,{ m_ccAnvil:ccoreArt('#9aa7b8','#ff3b3b'), m_ccBastion:ccoreArt('#9aa7b8','#7ee4ff'), m_ccFurnace:ccoreArt('#9aa7b8','#ff8a1f') });
+Object.assign(MINIONS,{
+  ccAnvil:  {name:'Corrupted Anvil Core',   el:'S', hp:12, img:'m_ccAnvil',   art:'steel', ccore:1, ai:[['atk',4],['atkAll',2]]},
+  ccBastion:{name:'Corrupted Bastion Core', el:'S', hp:14, img:'m_ccBastion', art:'steel', ccore:1, ai:[['shieldBoss',5],['atk',3]]},
+  ccFurnace:{name:'Corrupted Furnace Core', el:'F', hp:10, img:'m_ccFurnace', art:'fire',  ccore:1, ai:[['burn',2],['atk',4]]}
+});
+Object.entries(MINIONS).forEach(([k,m])=>{ if(CI[m.name]==null){ CARDLIST.push({name:m.name, type:'Minion', cost:'free', hp:m.hp, text:'', art:[['core',100,56,90],[m.art,100,58,46]], grp:'enemy', token:true, minion:k}); CI[m.name]=CARDLIST.length-1; } });
+AI_LABEL.shieldBoss='Shield the boss';
+const CCORE_ORDER=['ccAnvil','ccBastion','ccFurnace'];
+const ccoreCount = S => S.p[2].cores.filter(c=>c.m && MINIONS[c.m.key] && MINIONS[c.m.key].ccore).length;
+function forgeCorruptCore(S){
+  const E=S.p[2]; if(E.heroBoss!=='steel' || ccoreCount(S)>=3) return;
+  E.ccN=(E.ccN||0); const key=CCORE_ORDER[E.ccN%CCORE_ORDER.length]; E.ccN++;
+  addMinion(S,key,0); const c=E.cores[E.cores.length-1], a=aliveHeroes(S); c.m.tgt=a.length?a[rnd(a.length)]:0;
+  lg(S,`⚙ {2} forges a ${MINIONS[key].name}! While it stands, every boss attack hits +1 harder.`); flash(S,`⚙ ${MINIONS[key].name} forged!`); sfx(S,'glass','S');
+}
+const _setupCorruptBoss0 = setupCorruptBoss;
+setupCorruptBoss = function(S,key){ _setupCorruptBoss0(S,key); if(key==='steel'){ S.p[2].ccN=0; forgeCorruptCore(S); } };
+const _heroBossTurn0 = heroBossTurn;
+heroBossTurn = function(S){ forgeCorruptCore(S); return _heroBossTurn0(S); };
+// every standing corrupted core makes the boss's own attacks hit harder
+const _runPacket1 = runPacket;
+runPacket = function(S,pk){
+  if(S.coop && pk.from===2 && pk.uid==='boss' && !pk.ccb && S.p[2].heroBoss==='steel'){ const n=ccoreCount(S); pk.ccb=1; if(n){ if(pk.blk>0) pk.blk+=n; else pk.unb+=n; lg(S,`⚙ ${n} corrupted core${n>1?'s':''} empower${n>1?'':'s'} the blow: +${n}.`); } }
+  return _runPacket1(S,pk);
+};
+const _coopStep3 = coopStep;
+coopStep = function(S,st){
+  if(st.k==='eact'){ const E=S.p[2], c=E.cores.find(x=>x.m && x.m.uid===st.uid);
+    if(c && intentOf(c)[0]==='shieldBoss'){ const n=intentOf(c)[1]; E.shield=(E.shield||0)+n; lg(S,`🛡 ${CARDLIST[c.id].name} shields the boss: +${n} shield.`); c.m.step++;
+      const a=aliveHeroes(S); if(a.length) S.q.unshift(enemyPacket(S,SIDE_HIT+(c.m.bonus||0),c.m.el,CARDLIST[c.id].name,a.includes(c.m.tgt)?c.m.tgt:a[0],false,c.m.uid)); return; } }
+  return _coopStep3(S,st);
+};
+const _intentText2 = intentText;
+intentText = function(S,c){ const [k,n]=intentOf(c); if(k==='shieldBoss') return irow('buff','🛡','Shield the boss',`+${n}`,null,'')+irow('dmg','⚔','Attack',Math.max(1,SIDE_HIT+(c.m.bonus||0)+(S.solo?-1:0)),c.m.el,whoTag(S,c.m.tgt)); return _intentText2(S,c); };
+const _mitBadges2 = mitBadges;
+mitBadges = function(S,c){ const h=_mitBadges2(S,c), m=c.m&&MINIONS[c.m.key]; if(!m || !m.ccore) return h; const chip='<span class="mitchip ward">☠ Corrupted core: the boss hits +1 harder while it stands</span>'; return h ? h.replace('<div class="mits">','<div class="mits">'+chip) : `<div class="mits">${chip}</div>`; };
+
 /* ---------- version ---------- */
 VERSION_HISTORY.unshift({v:'0.41', date:'October 2026', notes:[
   'After a normal fight you can take a card OR 1 of every resource.',
@@ -6115,6 +6160,7 @@ VERSION_HISTORY.unshift({v:'0.41', date:'October 2026', notes:[
   'Volcanic Lord: Pyroclast and Magma Fist (now 2 damage) put a burn token on an enemy ability. Each time that ability is used, its owner takes 2 damage. In versus, 1 Water quenches it. Each ability holds one token.',
   'Time Hero tuning: Delayed Blast 5, Time Bomb 7, Temporal Collapse gives +3 damage to anything it sets off, and Stasis Field is replaced by Erosion (deal 3, enemy loses 2 resources).',
   'Time Hero: his abilities now run on timers (switch on, tick down each time you enter combat, go off at 0), with Accelerate, Borrowed Time and Temporal Collapse bending them. Several of his cards now tick, fire or scale with his timers.',
+  'Corrupted Steel Hero boss: forges a corrupted core stone at the start of the fight and each turn (up to 3: Anvil, Bastion, Furnace). The cores attack, shield the boss or burn you, each makes the boss hit +1 harder, and they power his core abilities. You can target and destroy them.',
   'Glacier Core: no longer blocks for free. When you defend, choose how many frozen dice to unfreeze; each blocks 1 damage.',
   'Tooltips: hover over shop wares, items, mystery-room choices, rewards, map nodes and buttons to see exactly what they do.',
   'Shops: buy as many things as your gold allows, then press Done shopping. Each item is one of a kind: once one hero buys it, it’s sold out for the other.',
