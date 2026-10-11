@@ -1112,6 +1112,7 @@ body.arena .enemyzone{ background:radial-gradient(ellipse at 50% 85%, rgba(255,1
 #dbgpanel .dbgnote{ color:#5a4f7a; font-size:.75rem; margin:8px 0 0; }
 .minion.creature.animart .mart img{ animation:none; object-position:50% 40%; }
 #bugbtn{ position:fixed; right:10px; bottom:calc(44px + env(safe-area-inset-bottom,0px)); z-index:60; font:inherit; font-weight:800; font-size:.75rem; padding:3px 9px; border:2px solid #1a1030; border-radius:999px; background:#ffd8c9; color:#1a1030; cursor:pointer; box-shadow:0 2px 0 #1a1030; }
+.moddie .dmod.up{ top:-6px; left:-6px; right:auto; background:#ffe066; }
 .enemyzone .minion.creature .mname{ position:relative; z-index:2; }
 .mits{ display:flex; flex-direction:column; gap:3px; margin-top:4px; }
 .mitchip{ display:inline-block; font-size:.72rem; font-weight:700; line-height:1.2; padding:2px 6px; border-radius:8px; border:2px solid #1a1030; background:#fff; color:#1a1030; }
@@ -6295,6 +6296,161 @@ async function bugReport(){
 }
 (function(){ const b=document.createElement('button'); b.type='button'; b.id='bugbtn'; b.textContent='🐛 Bug'; b.title='Report a bug: opens a pre-filled GitHub issue with the current game state'; b.onclick=bugReport; document.body.appendChild(b); })();
 
+/* =====================================================================
+   Time Hero rebalance: weaker abilities; his cards now feed his timers
+   ===================================================================== */
+(function(){
+  const f=n=>ABIL.time.find(a=>a.n===n);
+  Object.assign(f('Sand Shield'),  {fx:[['shield',3]], t:'Gain 3 shield.'});
+  Object.assign(f('Delayed Blast'),{fx:[['dmg',4]], t:'Deal 4 damage.'});
+  Object.assign(f('Rewind'),       {fx:[['heal',3],['gainChoice',1]], t:'Heal 3 and get back 1 spent resource.'});
+  Object.assign(f('Accelerate'),   {t:'Tick one running timer down by 1. When that ability goes off, it deals +1.'});
+  Object.assign(f('Time Bomb'),    {fx:[['dmg',6]], t:'Deal 6 damage.'});
+  Object.assign(f('Erosion'),      {fx:[['dmg',2],['lose',2]], t:'Time wears the enemy down: deal 2 damage and they lose 2 resources.'});
+  Object.assign(f('Borrowed Time'),{t:'Add 1 to a running timer. When that ability goes off, it deals +3.'});
+  Object.assign(f('Temporal Collapse'),{t:'Every running timer ticks down by 1. Any ability that goes off this way deals +2 damage.'});
+})();
+// Time is weak to every element (and no longer beats Darkness)
+for(let i=BEATS.length-1;i>=0;i--) if(BEATS[i][0]==='T') BEATS.splice(i,1);
+['F','W','E','L','I','D','S','V'].forEach(k=>{ if(!BEATS.some(([a,b])=>a===k&&b==='T')) BEATS.push([k,'T']); });
+
+const timerHasDmg = ai => (ABIL.time[ai]||{fx:[]}).fx.some(o=>o[0]==='dmg');
+// fire a timer, adding any stored extra damage / shield / heal
+fireTimer = function(S,seat,ai,times){
+  const P=S.p[seat], tm=timersOf(P)[ai], a=ABIL.time[ai]; if(!tm || !a) return;
+  delete P.timers[ai];
+  for(let k=0;k<(times||1);k++){
+    const steps=expand(S,seat,a.fx,clone(tm.ctx||{}),a.el,a.n), pk=steps.find(x=>x.k==='packet');
+    const dmg=(tm.bonus||0)+(tm.bdmg||0);
+    if(dmg){ if(pk) pk.blk+=dmg; else steps.push({k:'op',seat,op:['shield',dmg],ctx:{},el:a.el,src:a.n}); }
+    if(tm.bshield) steps.push({k:'op',seat,op:['shield',tm.bshield],ctx:{},el:a.el,src:a.n});
+    if(tm.bheal) steps.push({k:'op',seat,op:['heal',tm.bheal],ctx:{},el:a.el,src:a.n});
+    S.q.push(...steps);
+  }
+  const extra=[(tm.bonus||0)+(tm.bdmg||0)?`+${(tm.bonus||0)+(tm.bdmg||0)} damage`:'', tm.bshield?`+${tm.bshield} shield`:'', tm.bheal?`+${tm.bheal} heal`:''].filter(Boolean).join(', ');
+  lg(S,`⏳ {${seat}}'s ${a.n} goes off${times>1?' twice':''}${extra?` (${extra})`:''}!`); flash(S,`⏳ ${a.n} goes off!`); sfx(S,'instant');
+};
+// Accelerate +1 (was +2), Borrowed Time +3 (was +4), Collapse +2 (was +3)
+applyTimeAbil = (function(orig){ return function(T,seat,ai,ctx){
+  const kind=timeAbilKind(T,seat,ai), P=T.p[seat];
+  if(kind==='accel' || kind==='borrow' || kind==='collapse'){
+    const a=ABIL.time[ai]; pay(P,a.cost); P.st.used=[...(P.st.used||[]),ai]; P.timers=Object.assign({},P.timers||{});
+    if(kind==='accel'){ const t=ctx.timer; if(P.timers[t]){ P.timers[t]=Object.assign({},P.timers[t],{bonus:(P.timers[t].bonus||0)+1}); lg(T,`⏩ {${seat}} accelerates ${ABIL.time[t].n} (+1).`); tickTimer(T,seat,t,1,false); } }
+    else if(kind==='borrow'){ const t=ctx.timer; if(P.timers[t]){ P.timers[t]=Object.assign({},P.timers[t],{left:P.timers[t].left+1, bonus:(P.timers[t].bonus||0)+3}); lg(T,`⏪ {${seat}} borrows time: ${ABIL.time[t].n} waits 1 more combat but deals +3.`); } }
+    else { lg(T,`🌀 {${seat}} collapses time!`); runningTimers(P).forEach(t=>{ if(P.timers[t].left<=1) P.timers[t]=Object.assign({},P.timers[t],{bonus:(P.timers[t].bonus||0)+2}); }); tickAllTimers(T,seat,false); }
+    advance(T); return;
+  }
+  return orig(T,seat,ai,ctx);
+}; })(applyTimeAbil);
+
+// Time cards add to a running timer: ['timeAdd', what, amount, delay, all?]
+const _runOp3 = runOp;
+runOp = function(S,st){
+  const {seat,op,ctx}=st, P=S.p[seat];
+  if(op[0]==='timeAdd'){
+    const [_,what,n,delay,all]=op, key={dmg:'bdmg',shield:'bshield',heal:'bheal'}[what];
+    let list=runningTimers(P); if(what==='dmg') list=list.filter(timerHasDmg);
+    if(!all){ const pick=ctx.timer!=null && list.includes(ctx.timer) ? ctx.timer : (list.length ? list.reduce((b,t)=>P.timers[t].left<P.timers[b].left?t:b) : null); list = pick==null ? [] : [pick]; }
+    if(!list.length){ lg(S,`{${seat}} has no running timer to empower.`); return; }
+    P.timers=Object.assign({},P.timers);
+    list.forEach(t=>{ const tm=Object.assign({},P.timers[t]); tm[key]=(tm[key]||0)+n; if(delay) tm.left+=delay; P.timers[t]=tm;
+      lg(S,`⏳ {${seat}} empowers ${ABIL.time[t].n}: +${n} ${what==='dmg'?'damage':what}${delay?`, but it waits ${delay} more combat`:''}.`); });
+    return;
+  }
+  return _runOp3(S,st);
+};
+(function(){
+  const set=(n,type,cost,text,fx)=>{ const c=CARDLIST[CI[n]]; Object.assign(c,{type,cost,text}); CFX[n]=fx; };
+  set('Time Bolt','Instant',['T'],'Add +2 damage to one of your running damage timers.',[['timeAdd','dmg',2,0]]);
+  set('Chrono Strike','Action',['T','T'],'Add +4 damage to a running damage timer. It waits 1 more combat.',[['timeAdd','dmg',4,1]]);
+  set('Echo Strike','Action',['T','T','F'],'Add +5 damage to a running damage timer. It waits 1 more combat.',[['timeAdd','dmg',5,1]]);
+  set('Age to Dust','Action',['T','T','F'],'Add +3 damage to a running damage timer and tick it down by 1.',[['timeAdd','dmg',3,0],['tick',1]]);
+  set('Temporal Rift','Action',['T','T','T','T'],'Every running timer goes off right now.',[['fireAll']]);
+  set('Rewind Wounds','Action',['T','W'],'A running timer waits 1 more combat, but also heals you 3 when it goes off.',[['timeAdd','heal',3,1]]);
+  set('Hourglass Shield','Instant',['T','E'],'A running timer waits 1 more combat, but also gives you 3 shield when it goes off.',[['timeAdd','shield',3,1]]);
+  set('Sands of Fate','Action',['T','E','E'],'Add +2 damage and +2 shield to a running damage timer.',[['timeAdd','dmg',2,0],['timeAdd','shield',2,0]]);
+  set('Time Warp','Action',['T','T'],'Add +3 damage to a running damage timer and tick it down by 1.',[['timeAdd','dmg',3,0],['tick',1]]);
+  set('Pendulum','Instant',['T','T'],'Add +2 damage to every running damage timer.',[['timeAdd','dmg',2,0,1]]);
+  set('Chrono Storm','Action',['T','T','E'],'Add +1 damage to every running damage timer and tick them all down by 1.',[['timeAdd','dmg',1,0,1],['tickAll']]);
+})();
+// cards that feed timers need a running timer (damage cards need one that deals damage)
+const _cardBlock1 = cardBlockReason;
+cardBlockReason = function(S,seat,hi){
+  const r=_cardBlock1(S,seat,hi); if(r) return r;
+  const fx=CFX[CARDLIST[S.p[seat].hand[hi]].name]||[], P=S.p[seat];
+  if(fx.some(o=>o[0]==='timeAdd' && o[1]==='dmg') && !runningTimers(P).some(timerHasDmg)) return 'Needs a running damage timer';
+  if(fx.some(o=>o[0]==='timeAdd') && !runningTimers(P).length) return 'Needs a running timer';
+  return null;
+};
+// choose which timer a card feeds
+const _gather2 = gather;
+gather = async function(seat, fx, opts){
+  const ctx=await _gather2(seat, fx, opts); if(!ctx) return ctx;
+  const o=fx.find(x=>x[0]==='timeAdd' && !x[4]); if(!o) return ctx;
+  const P=S.p[seat]; let list=runningTimers(P); if(o[1]==='dmg') list=list.filter(timerHasDmg);
+  if(list.length>1){ const r=await pickOne('Which timer do you empower?', list.map(t=>({v:'t'+t, html:`<span class="tgt">⏳ ${esc(ABIL.time[t].n)}<small>${P.timers[t].left} left</small></span>`}))); if(!r) return null; ctx.timer=+r.slice(1); }
+  else if(list.length) ctx.timer=list[0];
+  return ctx;
+};
+
+/* =====================================================================
+   Dungeon wins & permanent dice upgrades (saved on this device)
+   ===================================================================== */
+function legacyGet(){ try{ return Object.assign({wins:0, ups:[], claimed:[]}, JSON.parse(localStorage.getItem('ewLegacy')||'{}')); }catch(e){ return {wins:0, ups:[], claimed:[]}; } }
+function legacySet(L){ try{ localStorage.setItem('ewLegacy', JSON.stringify(L)); }catch(e){} }
+const FACE_NAME={1:'Fire',2:'Water',3:'Nature',4:'Hero element',5:'Wild',6:'Wild'};
+function legacyText(L){ return L.ups.length ? L.ups.map(u=>`die ${u.die+1}: face ${u.face} (${FACE_NAME[u.face]}) +1`).join(' · ') : 'none yet'; }
+// apply upgrades to every hero this device controls at the start of a run
+function applyLegacy(S){
+  const L=legacyGet(); if(!L.ups.length) return;
+  const seats = S.mode==='online' ? [mySeat!=null?mySeat:0] : [0,1];
+  seats.forEach(i=>{ const P=S.p[i]; if(!P || P.absent) return;
+    L.ups.forEach(u=>{ const d=P.dice[u.die % P.dice.length]; if(!d) return; d.fp=Object.assign({},d.fp||{}); d.fp[u.face]=(d.fp[u.face]||0)+1; });
+    lg(S,`🏅 {${i}}'s permanent upgrades: ${legacyText(L)}.`); });
+}
+const _makeCoop0 = makeCoop;
+makeCoop = function(heroes, players, mode, code, solo){ const S0=_makeCoop0(heroes, players, mode, code, solo); applyLegacy(S0); return S0; };
+// upgraded faces give +1 resource when collected
+const _doCollect1 = doCollect;
+doCollect = function(S,seatArg){
+  const seat=seatArg!=null?seatArg:S.turn, P=S.p[seat], bonus=[];
+  if(P) P.dice.forEach((d,i)=>{ if(d.fp && d.fp[d.f] && !d.cor && !d.fog){ let k=dieEl(S,seat,i); if(k==='A') k=heroEl(S,seat); bonus.push([k,d.fp[d.f]]); } });
+  _doCollect1(S,seatArg);
+  bonus.forEach(([k,n])=>addRes(P,k,n)); if(bonus.length) lg(S,`🏅 {${seat}}'s upgraded dice give +${bonus.reduce((a,b)=>a+b[1],0)} extra.`);
+};
+const _dieHTML1 = dieHTML;
+dieHTML = function(S,seat,i){ const h=_dieHTML1(S,seat,i), d=S.p[seat] && S.p[seat].dice[i]; if(!d || !d.fp) return h; const f=Object.keys(d.fp).map(k=>`${k}(+${d.fp[k]})`).join(', '); return `<span class="moddie" title="Permanent upgrade: face ${esc(f)} gives +1">${h}<i class="dmod up">🏅</i></span>`; };
+// after beating Malkorr: claim a new upgrade (once per run, per device)
+const _coopPrompt2 = coopPrompt;
+coopPrompt = function(S,v){
+  if(S.status==='over' && S.coopWin){
+    const L=legacyGet(), id=String(S.createdAt||'')+'|'+(S.code||'');
+    if(!L.claimed.includes(id)){ const die=L.ups.length;
+      return `<div class="rewardbox"><h3>🏆 Victory! Choose a permanent upgrade</h3><p class="msub">Dungeon wins on this device: <b>${L.wins+1}</b>. Pick one face of <b>die ${die+1}</b> to give +1 resource whenever it lands, in every future dungeon run.</p>
+        <div class="rewardopts">${[1,2,3,4,5,6].map(f=>`<button class="btn" data-act="legacy" data-f="${f}" title="Die ${die+1}, face ${f}: gives 1 extra ${FACE_NAME[f]} resource every time it lands">⚀ Face ${f} · ${FACE_NAME[f]}</button>`).join('')}</div></div>`; }
+    return _coopPrompt2(S,v).replace('</div>',` <span class="msub">🏅 Wins: ${L.wins} · Upgrades: ${esc(legacyText(L))}</span></div>`);
+  }
+  return _coopPrompt2(S,v);
+};
+document.addEventListener('click', e=>{ const b=e.target.closest('[data-act="legacy"]'); if(!b || !S) return;
+  const L=legacyGet(), id=String(S.createdAt||'')+'|'+(S.code||''); if(L.claimed.includes(id)) return;
+  L.ups.push({die:L.ups.length, face:+b.dataset.f}); L.wins++; L.claimed.push(id); L.claimed=L.claimed.slice(-50); legacySet(L);
+  toast(`🏅 Permanent upgrade saved: die ${L.ups.length}, face ${b.dataset.f} +1.`); render(); });
+// dungeon menu: show wins and upgrades, and allow a reset (with confirmation)
+coopMenu = async function(){
+  const L=legacyGet();
+  const opts=[
+    {v:'solo',  html:'<span class="eb">🗡 Solo <small>(one player)</small></span>'},
+    {v:'local', html:'<span class="eb">🤝 Co-op on this device <small>(two players share the screen)</small></span>'}];
+  if(typeof db!=='undefined' && db && myId) opts.push({v:'online', html:'<span class="eb">🌐 Co-op online <small>(send a friend the code)</small></span>'});
+  if(L.ups.length || L.wins) opts.push({v:'reset', html:'<span class="eb">♻ Reset my permanent upgrades <small>(back to 0)</small></span>'});
+  const r=await pickOne('PvE dungeon', opts, {sub:`Two acts of branching dungeon maps. Act 1 ends with a corrupted hero; Act 2 with Malkorr, the Elemental Overlord. Solo enemies have less health.<br>🏅 <b>Your dungeon wins: ${L.wins}</b> · Permanent upgrades: ${esc(legacyText(L))}`}); if(!r) return;
+  if(r==='reset'){ const ok=await pickOne('Reset your permanent upgrades?', [{v:'yes', html:'<span class="eb">♻ Yes, reset to 0</span>'}], {sub:`Are you sure? This removes all ${L.ups.length} dice upgrades and sets your dungeon wins back to 0. It can’t be undone.`}); if(ok==='yes'){ legacySet({wins:0, ups:[], claimed:L.claimed}); toast('Permanent upgrades reset.'); } return; }
+  if(r==='solo'){ seenRoll={}; lastTurnKey=undefined; lastFlashN=undefined; lastPendOther=false; lastSxN=undefined; lastPhase=undefined; S=makeCoop([pickedHero,pickedHero],[null,null],'local',null,true); mySeat=null; coopView=0; render(); return; }
+  if(r==='local'){ const keys=Object.keys(HEROES).filter(k=>k!==pickedHero); const h2=await pickOne('Choose the second player’s hero', keys.map(k=>({v:k,label:HEROES[k].name}))); if(h2) startCoopLocal(h2); return; }
+  if(r==='online') createOnline(true);
+};
+
 /* ---------- version ---------- */
 VERSION_HISTORY.unshift({v:'0.41-beta', date:'October 2026', notes:[
   'BETA build: try it out and report back before it replaces the main game.',
@@ -6321,6 +6477,8 @@ VERSION_HISTORY.unshift({v:'0.41-beta', date:'October 2026', notes:[
   'Time Hero tuning: Delayed Blast 5, Time Bomb 7, Temporal Collapse gives +3 damage to anything it sets off, and Stasis Field is replaced by Erosion (deal 3, enemy loses 2 resources).',
   'Time Hero: his abilities now run on timers (switch on, tick down each time you enter combat, go off at 0), with Accelerate, Borrowed Time and Temporal Collapse bending them. Several of his cards now tick, fire or scale with his timers.',
   'The Sand Titan, Ember Stalker, Tempest Skylord and Abyssal Devourer are fully animated, using the artist’s idle animations.',
+  'Dungeon wins are tracked on your device. Each win lets you permanently upgrade one face of your next die (+1 resource whenever it lands) for every future run. You can reset them from the dungeon menu.',
+  'Time Hero rebalance: his abilities deal 1 less damage, shield and heal (Accelerate +1, Borrowed Time +3, Collapse +2). His damage, heal and shield cards now empower a running timer instead of acting directly (some make it wait longer). Time is now weak to every element.',
   'A 🐛 Bug button (bottom right) opens a pre-filled GitHub issue with your description and the current game state.',
   'Unclaimed core stones no longer appear right before the final boss, where they could never bond.',
   'Element-immune monsters can always be beaten: if a hero has no ability of an element that can hurt one, that monster also becomes vulnerable to the hero’s main attack element for the fight.',
