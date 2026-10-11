@@ -1,129 +1,195 @@
-# Elemental Wars — Session Handoff (v0.40)
+# Elemental Wars: Handoff (v0.41, October 2026)
 
-> Paste this into a new Claude Code session on the repo `rojastories-lgtm/Elemental-Wars`.
-> The full code is NOT pasted here on purpose: `index.html` is ~3 MB (mostly embedded base64 art + an MP3).
-> The new session should read the code directly from the repo, using the line map below to jump around.
+> **For the next Claude session.** This replaces the earlier v0.40 handoff.
+> Read this first, then work from `index.html`.
+> The file is about 17 MB because of embedded art, animations and music, so grep for names instead of opening it whole.
 
 ---
 
-## 0. Beta build
-`beta.html` is **v0.41-beta**: `index.html` (v0.40) plus the big notepad list. That list covers the Time Hero, items, new events, Act 2 monsters, curses, element-immune monsters, the segmented Ruin Hydra, the Electro passive, 15+15 decks, card rebalances, PvE backgrounds and fixes.
-- All new code lives in one block near the end of the main `<script>`, marked `v0.41 BETA ADDITIONS`. It mostly wraps existing functions instead of rewriting them.
-- A small CSS block sits at the end of `<style>`, marked `v0.41 beta`.
-- Once it's approved, copy `beta.html` over `index.html`.
+## 1. What to give the new chat
 
-## 1. Core Game Overview
-A browser card + dice battler in **one self-contained file** (`index.html`), hosted on GitHub Pages (`.nojekyll` makes Pages serve it as is).
-
-- **Heroes (5):** Electro Hero (L, Lightning), Ice Queen (I), Dark Hero (D), Steel Hero (S, 4 core slots instead of 3), Volcanic Lord (V). Each has 8 abilities and its own card group. A **Time Hero** shows up only as a "coming soon" placeholder.
-- **Turn loop:** `income` (roll dice → turn faces into resources) → `main1` (play cards/abilities) → `combat` → `main2` → end turn.
-  - Die faces: 1 = Fire, 2 = Water, 3 = Nature, 4 = Hero element, 5–6 = Any (wild).
-  - Limits: 30 HP to start, 4-card starting hand, at most 10 of each resource.
-- **Systems:** element wheel (`BEATS`), core stones (damage, heal, destroy), Burn (max 8, can be cooled with Water), frozen dice, drains, shields/reflect, defend/respond windows, negate cards, Dark Hero's Shadow bar, Steel Hero's forge (False Core).
-- **Modes:**
-  - **Versus:** pass & play, vs AI, or online.
-  - **PvE dungeon** (solo or co-op, local or online): a branching map across 7 floors with minion lairs, elites, core-stone crystals, ley lines and `?` events (spring, shrine, library, cache, merchant). It ends at the boss **Malkorr** (100 HP), who uses his own dice faces.
-  - **Rewards:** card drafts, relics (an extra die), gold, and pair-combo ultimates.
-
-## 2. Current Working State
-
-### Added in v0.39–v0.40
-- **Two acts.** Act 1 ends with a **Corrupted Hero**: one of the heroes nobody picked, using its real abilities and resources.
-  - It rolls 6 dice solo, 8 in co-op. Each turn it plays a corruption card, and corrupted dice are skipped on your next roll.
-  - HP is 75 in co-op and 45 solo. It uses at most 3 abilities a turn (2 solo).
-  - These are tuning guesses; balance is unverified.
-- Beating it ends Act 1: heal half your missing health, pick a core, and get a new map. Act 2 has tougher monsters and Malkorr.
-- **Music:** two embedded MP3s, each about 2 MB.
-  - "Lanterns in the Maw" plays on the map, events and crystal screens.
-  - "Stone Vault Pulse" plays in PvE battles.
-  - They replace the old dungeon track.
-- Map text is now readable in dark mode.
-- Fixes: Cinder Curse no longer soft-locks waiting for the enemy; hitting an enemy that holds resources no longer waits for a block.
-- The file is now ~7 MB, and the line numbers in the code map below have shifted. Grep for names instead.
-
-### Complete and shipped (per the in-game changelog, through v0.40)
-- All 5 heroes, versus modes, and the AI opponent (versus only).
-- Online play through Firebase with "your move" alerts.
-- The full PvE dungeon:
-  - Map and events.
-  - Gold and the merchant.
-  - 8 neutral scroll cards.
-  - The enemy intent display redesign.
-  - Timed-effect expiry (fixed in v0.38).
-- Undo, local save/resume, story intro, guide/rules pages, sound effects, procedural music plus a dungeon MP3, and the version-history badge.
-
-### Partial or placeholder
-- **Time Hero:** UI placeholder only (`TIME_TH`, `TIME_ABIL`, `timeGuideHTML`). It has no cards and isn't in `HEROES`.
-- **AI bot:** plays versus only. It is heuristic: it scores cards and effects, and always plays seat 1.
-- **Online co-op simultaneous moves:** these rely on `coopMerge`. A rare "the other player acted at the same moment" toast still cancels a move.
-- **Tests:** there are none. Everything is verified by playing manually.
-
-## 3. Key Constraints & Architecture Decisions
-- **Single file, no build step, no framework.** Plain JS and template-string HTML; `render()` rebuilds the DOM from state. This is intentional so the game opens directly from disk or GitHub Pages. Keep it that way unless you decide otherwise.
-- **Immutable-style state transitions.** Every action does `const T = clone(S)`, mutates `T`, then calls `commit(T)` / `commitA(T, seat, label)`.
-  - `commit` bumps `ver`, re-renders, and in online play writes to Firebase.
-  - Writes take a short lock (`acquire`), do a version check, and on a version conflict either merge (co-op) or reject (versus).
-- **Undo:** stores the previous state, but is disabled after any action that rolled dice or drew cards (`rolledFlag`). This prevents rerolling for a better result.
-- **Effect engine:** card and ability effects are data (`ABIL`, `CFX`). `expand()` turns them into a queue `S.q`, and `advance()` / `runStep()` / `runOp()` process it.
-  - Steps in `INPUT` (defend, respond, hex, seal, burn window…) pause the queue for player input (`pendingInput`).
-- **Seat model:** in versus, seats are 0 and 1. In co-op, the heroes are seats 0 and 1 and the enemy side is seat 2.
-  - The helpers `FOE`, `TURN` and `STEP` hide this difference.
-  - Always use them instead of writing `1 - seat`.
-- **Bounded logs and effects:** the log keeps 80 entries, the sound queue 10 and the flash queue 6. This keeps Firebase documents small.
-- **Firebase:** web SDK 12.19.0, loaded from gstatic. The config is public on purpose (Firebase web keys aren't secret; security rules do the protecting). Opening the game as a local `file://` page makes online play unavailable (`EW_onlineError = 'file'`).
-- **Fonts:** Bangers (display) and Fredoka (body) from Google Fonts. Colors are CSS variables with light/dark themes.
-
-## 4. Art & Visual Pipeline
-- **All raster art is embedded** as base64 WebP in `const IMG = {...}` (line ~1107):
-  - `<hero>_face`, `<hero>_card` and `<hero>_banner` for each of electro, ice, dark, steel and volcanic.
-  - `boss`.
-  - Minions: `m_abyss`, `m_ember`, `m_frost`, `m_root`, `m_sand`, `m_tempest`, `m_volt`, `m_wave`.
-  - Story frames: `s_pano`, `s_squirrel`, `s_firesquirrel`, `s_mech`, `s_unleash`, `s_electro`.
-- **To add art:** convert the image to WebP, base64-encode it, add a key to `IMG`, and reference it as `IMG.key`. Hero images are wired up automatically through `HEROES[k].art()` / `.card()`. Keep images small, because the file size grows quickly.
-- **Vector icons:**
-  - `ICONS`: inline SVG for each element. `pip()`, `inlineIcon()` and `richText()` turn `{F}`-style tokens in card text into icons.
-  - `ARTICONS`, `place()`, `burst()` and `artSvg()` compose card art from icons.
-  - `THEME` holds hero colors; `COL` holds element colors.
-  - Map icons are inline SVG (`MAP_DEMON`, `MAP_CRYSTAL`).
-- **Audio:**
-  - All sound effects and the versus music are synthesized with WebAudio (`playSfx`, `tone`, `nburst`, `musicTick`).
-  - The dungeon track is an embedded base64 MP3 (`DUNGEON_MP3`, near the end of the file).
-- **Layout:** comic style (thick borders, yellow buttons), responsive up to `#app` max-width 1280px. Overlays: `#modal`, `#toast`, `#splash`, `#flashes`, `#guide`.
-
-## 5. Code Map (`index.html`, approximate line numbers)
-| Lines | What |
+| File | Why |
 |---|---|
-| 1–1010 | CSS |
-| 1012–1105 | Firebase wrapper (`EW_FIREBASE`, `makeDb`, `makeUser`) |
-| 1107 | `IMG` (huge base64 line — avoid printing it) |
-| 1108–1175 | Icons, element tables, `THEME` |
-| 1176–1345 | `CARDS`, `HEROES` |
-| 1346–1460 | Rules constants, `ABIL`, `CARDLIST`, `CFX`, card sets |
-| 1460–1930 | Rules engine: resources, damage, cores, burn, roll/collect, phases, effect queue |
-| 1933–2050 | Global state, `commit` / `commitA` / undo, modals |
-| 2050–2660 | UI: dice, actions, dialogs, panels, `render()` |
-| 2658–2870 | Sound effects, animations |
-| 2867–3275 | Rules/guide screens, lobby, online create/join, local start |
-| 3280–3460 | Versus AI bot |
-| 3466–3550 | Procedural music |
-| 3553–3675 | Game list, notifications, local save, vitals/draw animations |
-| 3676–4380 | PvE: minions, boss, relics, map, events, enemy AI, co-op UI |
-| ~4583 | `GAME_VERSION` + `VERSION_HISTORY` (bump this with every change) |
-| ~4660 | Story intro |
-| ~4900 | `DUNGEON_MP3` |
+| **`index.html`** | **The game** (v0.41): one self-contained file with all code, art, animations and music. This is the file to edit. |
+| **`HANDOFF.md`** (this file) | Context, rules, code map, decisions and the to-do list. |
+| `elemental-wars-rulebook.pdf` | Comic-style 10-page rulebook. *Out of date* on the Time Hero and the element wheel (see §8). It's generated from the game, so it can be rebuilt. |
+| `electro-hero-cards-print.pdf` | Printable Electro deck at Magic sleeve size (63×88 mm), with discard values. Same generator works for other heroes. |
+| `element-tracker-*.pdf/png` | Printable 3.80×2.75 in resource tracker boards, one per hero plus a generic one. |
+| `beta.html` | Identical to `index.html` except the version label says `0.41-beta`. Not needed unless you want a separate test build. |
 
-Tip: use `grep -n` with `cut -c1-150`. Never `cat` the whole file, because it would flood the context.
+- **Repo:** `rojastories-lgtm/Elemental-Wars`.
+- **Default (live) branch:** `claude/focused-feynman-a7mtbt`. There is no `main`. GitHub Pages serves `index.html` from it.
+- **Work branch:** `claude/compassionate-bohr-55ldst`. The newest work (Time Hero rebalance, dungeon-win upgrades, new battle music, tracker boards) is pushed here **but not merged into the default branch yet**. Merge it to make it live.
 
-## 6. Conventions
-- For each change: bump `GAME_VERSION` and add player-facing notes to `VERSION_HISTORY`.
-- Commit messages so far: "Update Elemental Wars game".
-- Push to the session's designated branch.
+---
 
-## 7. Next Steps / Immediate Goals
-_No explicit to-do list was recorded in the previous session. These are inferred from the code — edit before pasting:_
-1. Playtest and balance the Corrupted Hero (HP, ability cap) and Act 2 difficulty.
-2. Build the **Time Hero** (element `T` / hourglass already exists in `EL`; placeholder data in `TIME_ABIL`).
-2. Playtest the v0.38 map, events, merchant and gold balance.
-3. Reduce conflict toasts in online co-op.
-4. Possibly extend the AI to the PvE dungeon, or make the versus bot smarter.
-5. Your own list: ________________________________
+## 2. The game in one paragraph
+A browser card + dice battler in one HTML file.
+- **Six heroes:** Electro (Lightning), Ice Queen (Ice), Dark Hero (Darkness), Steel Hero (Steel, 4 core slots), Volcanic Lord (Lava), Time Hero (Time).
+- **Each hero has** 8 abilities, a 30-card deck (15 hero + 15 generic) and four resources: Fire, Water, Nature and their own element.
+- **Turn:** Income (roll 6 dice, collect resources) → Main 1 (cards) → Combat (abilities, once each) → Main 2 → End.
+- **Win:** bring the rival from 30 to 0.
+- **Modes:**
+  - **Versus:** pass & play, vs AI, or online through Firebase.
+  - **PvE dungeon:** solo or co-op, local or online. Two acts of branching maps. Act 1 ends with a Corrupted Hero (an unpicked hero turned boss). Act 2 ends with Malkorr, the Elemental Overlord.
+
+---
+
+## 3. Everything that changed since the first handoff (v0.40 → v0.41)
+
+### Heroes and cards
+- **Decks** are now exactly 15 generic + 15 per hero.
+  - Removed from decks (kept in `CARDLIST` so saved games still load): Drain Resource, Flip Side, Loaded Dice, Piercing Core, Null Ward, Rock Slide.
+  - Second Chance rerolls up to 4 dice. Blaze Core costs 3 Fire.
+- **Electro Hero**
+  - **Passive "Charged":** after 2 lightning hits, all his lightning deals +1 until he takes damage. Shown by a big ⚡+1 token on his banner.
+  - Fire Blast 1 unblockable + 3, Static Shock 2 + 2, Lightning Strike 3 unblockable + 2.
+  - Fire Sync 1 unblockable + 2, counted as lightning damage.
+  - Grounding Wave (1 Lightning, 2 Nature): 1 unblockable, charges him right away, refreshes another used ability.
+  - Chain Lightning is an instant. Mirror Veil reflects half. Tesla Coil counts as an instant.
+- **Ice Queen**
+  - Glacial Armor: 2 shield, +1 if she unfreezes a die.
+  - Frozen Fortress: 2 shield, +1 per die she unfreezes.
+  - Meltwater: heal 2, freeze 1.
+  - Glacier Core: in the Defend window, unfreeze frozen dice to block 1 each. No free blocking.
+  - Cold Storage is free. Whiteout costs 3 Ice.
+- **Dark Hero:** Twist Fate cancels 2 of the enemy's next dice. Shadow Step only prevents damage.
+- **Steel Hero**
+  - Forge button fixed.
+  - Iron Wall and Quench now upgrade a core: +1 max health and +1 current health.
+- **Volcanic Lord**
+  - Pyroclast and Magma Fist (2 damage) place a **burn token** on an enemy ability. Using it costs the owner 2 health. 1 Water quenches it in versus. In the dungeon it goes on the monster's move, and a boss with a token takes 2 each turn.
+  - Ash Cloud is a core. Volcano Core costs 4 Lava. Burn caps at 10 in the dungeon.
+- **Time Hero** (new, fully playable)
+  - Every ability runs on a **timer**: switch it on, it ticks down 1 each time you enter combat, and it fires at 0 on the target chosen at activation.
+  - Current numbers: Sand Shield 3 shield (t1), Delayed Blast 4 (t2), Rewind heal 3 + 1 resource (t1), Time Bomb 6 (t3), Erosion 2 dmg + enemy loses 2 resources (t2).
+  - Instant timer tricks: Accelerate (tick −1, +1 dmg), Borrowed Time (+1 wait, +3 dmg), Temporal Collapse (all tick −1, anything that fires gets +2).
+  - **His cards feed timers** instead of acting directly:
+    - Time Bolt +2, Chrono Strike +4 (waits +1), Echo Strike +5 (waits +1), Age to Dust / Time Warp +3 and tick.
+    - Sands of Fate +2 dmg +2 shield. Pendulum and Chrono Storm affect all timers.
+    - Rewind Wounds: +1 wait, +3 heal. Hourglass Shield: +1 wait, +3 shield.
+    - Temporal Rift fires every timer now. Tick Tock / Haste / Eternity tick timers.
+  - Damage cards need a running damage timer.
+  - **Time is weak to every element** and beats nothing.
+  - Art: hero card from the "TIME HERO" title card; portrait/banner from "Time's Bifurcation".
+
+### Combat and UI
+- Enemy hits on core stones fly into that core, which shakes. Damaged cores show corner cracks.
+- **Combo ultimate needs both players to agree:** the proposer picks a target, the partner gets Agree / Decline, and nobody pays until they agree.
+- **Tooltips** on nearly every button, shop item, reward, mystery-room option and map node. Mouse only.
+- **🐛 Bug button** (bottom right) opens a pre-filled GitHub issue with the player's note and a game-state snapshot. The player must submit it on GitHub.
+- **Debug mode:** type `5684` (keyboard) to toggle a 🐞 panel. It edits resources, health, gold, dice, hand, cores and items, and jumps to any fight, boss, mystery room or act. It's remembered per device.
+
+### PvE dungeon
+- **Rewards:** after a fight, a card **or** 1 of every resource, plus gold. Elites give a powerful core but **no longer an extra die**. Extra dice come only from ley lines and the rare **Wishing Well** event.
+- **Depth scaling:** +5% monster health per floor, harder hits deep down. Act 2 is tougher.
+- **New monsters**
+  - Act 2: Hollowed Knight, Ashen Cultist, Plague Priest, Fallen Warlord (elite), Storm Wraith, Magma Elemental, Void Rift.
+  - Extra: Obsidian Titan, Starlight Wyvern, Thunderhoof Kirin, Gale-Wing Griffin, Tidal Angler, Magma-Crust Behemoth, Overgrowth Spider, Iron-Bark Warden (elite), Bloom Vanguard, Ice-Forged Paladin, Frost-Bound Weaver.
+  - **Ruin Hydra** segmented elite: 3 heads, and killing one makes the others stronger.
+- **Monster mechanics**
+  - **Curses** deal damage each round until reflected with the element shown.
+  - **Element-immune** monsters can only be hurt by certain elements or Burn. If a hero has no ability of a valid element, the monster becomes vulnerable to that hero's main element (Fire) for the fight.
+  - Guard, immunity and burn tokens are shown as badges.
+- **Corrupted Steel Hero** forges up to 3 targetable corrupted cores (Anvil, Bastion, Furnace). Each gives his attacks +1 and powers his core abilities.
+- **Items** (shown under the abilities): Gambler's Charm, Ember Censer, Healing Potion, Frost Bomb, Mirror Shard.
+- **Shop:** buy as many things as you can afford. Each item is one of a kind, so once bought it's SOLD for the partner.
+- **Mystery rooms:** Spring, Shrine, Library, Cache, Merchant, Gambler's Table, Altar of Tribute, Cursed Chest, Echo of a Fallen Hero (learn another hero's attack), Mirror of Excess (2× resources, 2× damage), Blood Altar (trade a die for +3 damage), Dice Forge (gild, wild-cut or build a die), Wishing Well.
+- **Map rules**
+  - The unclaimed core stone can't appear on the last 2 floors before Malkorr.
+  - **Discards don't auto-reshuffle** in the dungeon. Used cards stay out until the pre-boss deck refresh.
+- **Dungeon wins and permanent upgrades** (stored in the browser's `localStorage` under `ewLegacy`)
+  - Each win lets you pick one face of your next die to give +1 resource forever, starting at die 1, then die 2, and so on.
+  - The dungeon menu shows wins and upgrades and has a Reset option with an "Are you sure?" step.
+  - Applies to every hero in local games, and to the host only online.
+- **Visuals**
+  - Dark dungeon backdrop, and an arena for boss fights.
+  - "Living" monster art: breathing, sway and element particles.
+  - Animated hydra heads.
+  - **Real animations** (from the artist's idle videos, cropped only, no edits) for the Sand Titan, Ember Stalker, Tempest Skylord and Abyssal Devourer.
+- **Music**
+  - Map: "Lanterns in the Maw".
+  - Battles: random each fight from Stone Vault Pulse, Dungeon Dance, Subterranean Pulse, Dungeon Pulse and Minor Key Dungeon. The new four are mono at about 48 kbps to keep size down.
+
+### Art pipeline used
+- **New hero art:** cards with the old name plates pasted under the new art (Dark Hero keeps its own title). Banners and portraits are cropped from the new art. Steel still uses old art.
+- **Enemy art:** cropped from the artist's sheets, picture only, with no frame or name plate.
+
+---
+
+## 4. Decisions and preferences (follow these)
+- **Show previews before committing visual or animation changes** to the artist's material. Never "fix" or blend their animations: crop and convert only.
+- Keep it **one self-contained HTML file** with no build step. Art is base64 WebP in `IMG`, and music is base64 MP3.
+- Keep the player-facing changelog: add notes to `VERSION_HISTORY` for every change.
+- `index.html` and `beta.html` are kept in sync. The only difference is the version label.
+- Balance numbers are first guesses. Expect the user to retune after playtesting, especially Act 2 difficulty, the Corrupted Hero bosses and the Time Hero.
+- The user rejected sprite-sheet animation (Sand Titan sheet). Use their idle videos instead.
+
+---
+
+## 5. How the code is organised (important)
+- The original v0.40 code makes up the first ~5,100 lines of the main `<script>`. All v0.41 work is **appended after it** in clearly marked blocks:
+
+| Marker (grep for it) | Contents |
+|---|---|
+| `v0.41 BETA ADDITIONS` | Deck rules, Time Hero, new cards, items, events, Act 2 monsters, curses, immunity, Electro passive, backgrounds |
+| `enemy art (from the artist` | Enemy art and 11 new monsters |
+| `core stone damage: cracks` | Core cracks |
+| `batch 3: Electro rework` | Electro abilities, burn tokens, Time timers (engine) |
+| `combo ultimate: the partner` | Ultimate agreement |
+| `living monster art` | Breathing / particles |
+| `Ice Queen: less free armor` | Ice changes (+ Glacier Core edits inside `defendDialog`) |
+| `shop: buy as much` / `tooltips:` | Shop and tooltips |
+| `Corrupted Steel Hero forges` | Boss cores |
+| `DEBUG MODE` | Debug panel |
+| `element-immune monsters must stay beatable` | Immunity safety net |
+| `animated monster art` | Animated WebP monsters |
+| `bug reports:` | Bug button |
+| `Time Hero rebalance` | Current Time numbers + timer-feeding cards |
+| `Dungeon wins & permanent dice upgrades` | Legacy upgrades + dungeon menu |
+| `more battle music` | Random battle tracks |
+| `/* ---------- version ---------- */` | `GAME_VERSION` + `VERSION_HISTORY` (stays last) |
+
+- **Wrapper pattern:** most features **re-wrap existing functions**, for example `const _x0 = runOp; runOp = function(...){ ...; return _x0(...); }`.
+  - Many functions are wrapped several times: `runOp`, `expand`, `runPacket`, `heroDamage`, `damageCore`, `coopStep`, `setupFight`, `gather`, `coopPrompt`, `coopEnemyHTML`, `abilitiesHTML`, `playerPanel`, `mitBadges`, `intentText`, `doCollect`.
+  - **The last definition in the file wins.** To change a behaviour, find the latest wrapper, or add a new one at the end before the version block.
+- **Card ids must never shift**, because saved games store them. New cards are only ever appended (`NEW_CARDS`, minion cards, etc.).
+- Core engine facts:
+  - Every action clones the state (`T=clone(S)`), changes it, then calls `commitA`.
+  - Effects are data: `ABIL`, `CFX` → `expand` → queue `S.q` → `advance`.
+  - Seats: 0/1 are heroes, and seat 2 is the enemy in the dungeon. Use `FOE` / `TURN` / `STEP`.
+  - Online merges co-op moves via `coopMerge`.
+
+---
+
+## 6. Testing approach used
+- There are no unit tests. Headless Chromium (Playwright) scripts drove the real page:
+  - **Engine-level dungeon simulation:** an auto-played run through both acts, for all heroes, solo and co-op, checking for crashes and soft-locks.
+  - **Targeted engine checks** per feature.
+  - **Screenshots and GIFs** of the UI.
+- Every change was syntax-checked by parsing each `<script>` with `new Function`.
+
+---
+
+## 7. Known issues and caveats
+- **File size is about 17 MB.** The first load is slower. Music is the biggest part, then art and animations.
+- **Tooltips** don't show on touch devices. **Debug mode** needs a keyboard.
+- **Permanent upgrades** are stored per device, not per account. Online they apply to the host only.
+- **Bug button:** needs GitHub Issues enabled on the repo, and the player must be logged into GitHub.
+- **Combo ultimate agreement** is only tested in local co-op, not online.
+- **Element-immune monsters** made fights slow in simulations. Watch Act 2 balance.
+- **The versus AI** doesn't use Glacier Core thawing, the refresh from Grounding Wave, or burn-token targeting choices (it auto-picks).
+- **The corrupted Time Hero boss** ignores timers: its abilities fire immediately.
+
+---
+
+## 8. Next steps / open items
+1. **Merge the work branch into the default branch** so the latest changes go live.
+2. **Regenerate the rulebook PDF:**
+   - The Time Hero section is outdated: old numbers, and it says "Time beats Darkness" (Time is now weak to everything).
+   - Add the newer systems: burn tokens, ultimate agreement, dungeon-win upgrades.
+3. **Playtest and rebalance:** Act 2 difficulty, the Corrupted Hero bosses, the Time Hero after its rebalance, and element-immune monsters.
+4. **More animated monsters:** the user may send more idle videos. Crop the frame and name plate only, then convert to animated WebP (12 fps, ~400 px wide). Set `IMG.m_<key>` and `MINIONS.<key>.animated = 1`. Show a preview before committing.
+5. **Printables for other heroes:** card sheets like the Electro one.
+6. **Possible:** a touch-friendly way to unlock debug mode, and account-based (Firebase) storage for upgrades so they work for both players online.
+7. The user's own list: ______________________
