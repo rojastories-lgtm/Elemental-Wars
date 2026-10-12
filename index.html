@@ -3025,7 +3025,7 @@ function showRules(){
   <p><b>Dice faces:</b> 1 Fire, 2 Water, 3 Nature, 4 your hero's element, 5–6 Wild ${wildPip()} (you pick). Flipping turns a die to its opposite face (faces add up to 7). Resources cap at ${MAXRES} each.</p>
   <p><b>Defending:</b> when hit, spend up to 2 resources. Each blocks 1, or 2 if it beats the attack's element. Unblockable damage skips blocks but shields still soak it. You can attack an enemy core stone instead of the hero.</p>
   <p><b>Beats:</b> fire › nature › water › fire (the wheel). Lightning beats water and loses to nature. Ice beats nature and loses to fire. Steel beats nature and loses to water. Darkness is neutral.</p>
-  <p><b>Start:</b> both players have 1 of every resource; the second player gets 1 extra of their hero's element.</p>
+  <p><b>Start:</b> both players have 1 of every resource; the second player gets 1 extra of their hero's element and 1 extra card.</p>
   <p><b>Instants</b> can be played any time, even on the enemy's turn.</p>
   <p><b>Discard for resources:</b> on your turn, discard a card to gain the resources in its cost, minus the left-most one. Fireball (3 fire) gives 2 fire; a nature + steel card gives 1 steel; free cards give nothing.</p>
   <p><b>Blaze Core</b> adds +1 to damage from anything you paid fire for.</p>
@@ -3266,7 +3266,7 @@ function howtoHTML(){
   <h3 class="gsect">1. Setup</h3>
   <ul class="hlist">
     <li>Each player picks a hero. Every hero has <b>8 skills</b> (abilities), a <b>deck of cards</b>, and four resources: ${elChip('F')} ${elChip('W')} ${elChip('E')} plus their own element (${elChip('L')} ${elChip('I')} ${elChip('D')} ${elChip('S')} or ${elChip('V')}).</li>
-    <li>Both players start with <b>1 of every resource</b>. The second player also gets <b>1 extra</b> of their own element.</li>
+    <li>Both players start with <b>1 of every resource</b>. The second player also gets <b>1 extra</b> of their own element and <b>1 extra card</b>.</li>
     <li>Everyone draws <b>${HAND0} cards</b>. Resources are tracked from 0 to <b>${MAXRES}</b> each.</li>
   </ul>
 
@@ -4824,7 +4824,7 @@ function showDelve(){
 }
 
 /* ---------- version badge + history ---------- */
-const GAME_VERSION='0.41';
+const GAME_VERSION='0.43';
 const VERSION_HISTORY=[
   {v:'0.40', date:'October 2026', notes:[
     'The PvE dungeon now has two acts. Act 1 ends with a Corrupted Hero — one of the heroes nobody picked, darkened and twisted. Beat it, catch your breath (heal half your missing health), claim a powerful core, and a brand-new random map opens for Act 2, with tougher monsters and Malkorr at the end.',
@@ -6464,6 +6464,531 @@ setupFight = function(S,spec){ _setupFight4(S,spec); if(S.fight) S.fight.music=B
 const _pveWant0 = pveWant;
 pveWant = function(){ const w=_pveWant0(); return w==='battle' && S.fight && S.fight.music && PVE_TRACKS[S.fight.music] ? S.fight.music : w; };
 
+/* =====================================================================
+   v0.42 BALANCE PASS (from the 7,200-game AI versus test)
+   ===================================================================== */
+(function(){
+  const f=(h,n)=>ABIL[h].find(a=>a.n===n);
+  // 1. Dark: Wither hits for 2; Eclipse costs 4 Darkness + 2 of anything
+  Object.assign(f('dark','Wither'),  {fx:[['dmg',2],['drain',1,0]], t:'Deal 2 damage. Drain 1 resource (you choose which).'});
+  Object.assign(f('dark','Eclipse'), {cost:['D','D','D','D','A','A']});
+  // Electro: his nature ability hit too hard (every other hero's nature ability is a shield)
+  Object.assign(f('electro','Earthen Wall'), {fx:[['dmg',2],['shield',1]], t:'Deal 2 damage. Gain 1 shield.'});
+  // 2. Ice Queen: Cold Snap was the best-value ability in the game (1 ice for 3 damage)
+  Object.assign(f('ice','Cold Snap'),    {fx:[['dmg',2],['freezeOwn',1]], t:'Deal 2 damage. Freeze 1 of your dice.'});
+  // 3. Time Hero: less stalling, more damage
+  Object.assign(f('time','Sand Shield'),  {fx:[['shield',2]], t:'Gain 2 shield.'});
+  Object.assign(f('time','Rewind'),       {fx:[['heal',2],['gainChoice',1]], t:'Heal 2 and get back 1 spent resource.'});
+  Object.assign(f('time','Delayed Blast'),{fx:[['dmg',5]], t:'Deal 5 damage.'});
+  Object.assign(f('time','Time Bomb'),    {fx:[['dmg',7]], t:'Deal 7 damage.'});
+  Object.assign(f('time','Erosion'),      {fx:[['dmg',3],['lose',2]], t:'Time wears the enemy down: deal 3 damage and they lose 2 resources.'});
+  // 4. Signature abilities cost 3 of the hero's element + 1 of anything
+  Object.keys(ABIL).forEach(h=>{ if(h==='dark') return; ABIL[h].forEach(a=>{ if(a.sig) a.cost=[a.el,a.el,a.el,'A']; }); });
+})();
+// choose what pays the "any" part of an ability cost (bots and old saves pay with their most plentiful resource)
+let __anyPick=null;
+const _pay042 = pay;
+pay = function(P,cost,x,anyPick){ if(!anyPick && __anyPick && Array.isArray(cost) && cost.includes('A')){ anyPick=__anyPick; __anyPick=null; } return _pay042(P,cost,x,anyPick); };
+const _abilityAct042 = act.ability;
+act.ability = async (ai)=>{
+  const seat=ACTOR(), a=S && abilsOf(S,seat)[ai];
+  if(a && Array.isArray(a.cost) && a.cost.includes('A') && !busy && !abilBlockReason(S,seat,ai)){
+    busy=true; let picks; try{ picks=await chooseAny(seat,a.cost,a.n); } finally{ busy=false; }
+    if(picks===null) return; __anyPick=picks;
+  }
+  try{ return await _abilityAct042(ai); } finally{ __anyPick=null; }
+};
+// 5. the second player also starts with 1 extra card (versus only)
+let __buildingCoop=0;
+const _makeGame042 = makeGame;
+makeGame = function(heroes, players, mode, code){
+  const S0=_makeGame042(heroes, players, mode, code);
+  if(!__buildingCoop && S0.p[1] && S0.p[1].deck.length) S0.p[1].hand.push(S0.p[1].deck.shift());
+  return S0;
+};
+const _makeCoop042 = makeCoop;
+makeCoop = function(){ __buildingCoop=1; try{ return _makeCoop042.apply(this,arguments); } finally{ __buildingCoop=0; } };
+// Burn tokens now hit shields first, like the Burn tick does
+const _expand042 = expand;
+expand = function(S,seat,fx,ctx,el,src){
+  return _expand042(S,seat,fx,ctx,el,src).map(st=> st && st.k==='op' && st.src==='Burn token' && st.op[0]==='selfHurt' ? Object.assign({},st,{op:['burnHurt',st.op[1]]}) : st);
+};
+const _runOp042 = runOp;
+runOp = function(S,st){
+  if(st.op[0]==='burnHurt'){ lg(S,`🔥 The burn token flares on {${st.seat}}.`); heroDamage(S,st.seat,st.op[1],FOE(S,st.seat),'Burn token','V'); return; }
+  return _runOp042(S,st);
+};
+
+/* =====================================================================
+   v0.42 AI: Dark and Time play to their plans
+   Dark = a stalker: drain the enemy's savings, bank Darkness and Shadow,
+          then cash the Shadow bar in with Eclipse for one big hit.
+   Time = sets up timers, empowers them with cards, banks Time to
+          accelerate / collapse them into big turns.
+   Every move is valued as (what it does) - (what the spent resources are worth),
+   so they hold resources when nothing is worth it.
+   ===================================================================== */
+const PLAN_HEROES = new Set(['dark','time']);
+const planOn = (S,seat) => !!S && !S.coop && PLAN_HEROES.has(S.heroes[seat]);
+function sumRes(P){ return Object.values(P.res||{}).reduce((a,b)=>a+(b||0),0); }
+// --- Dark helpers
+function darkEclipseIdx(S,seat){ return abilsOf(S,seat).findIndex(a=>a.fx.some(o=>o[0]==='shadowblast')); }
+function darkFireNow(S,seat){
+  const P=S.p[seat], E=S.p[FOE(S,seat)], sh=P.shadow||0, a=abilsOf(S,seat)[darkEclipseIdx(S,seat)];
+  if(!a || sh<(a.shadowReq||0)) return false;
+  const blocks=Math.min(2,sumRes(E));
+  return sh-blocks >= E.hp+(E.shield||0)   // lethal
+      || sh>=10                            // big enough: blocks are capped at 2, so this lands
+      || (P.hp<=9 && sh>=5)                // cash out before dying with it banked
+      || (S.round>=14 && sh>=7);
+}
+function darkSaving(S,seat){ const P=S.p[seat]; return (P.shadow||0)>=2 && !darkFireNow(S,seat); }
+// --- Time helpers
+function timerDmg(P,ai){ const tm=timersOf(P)[ai], a=ABIL.time[ai]; if(!tm||!a) return 0; const d=a.fx.filter(o=>o[0]==='dmg').reduce((s,o)=>s+o[1],0); return d ? d+(tm.bonus||0)+(tm.bdmg||0) : 0; }
+function dmgTimers(P){ return runningTimers(P).filter(ai=>timerDmg(P,ai)>0); }
+function bestDmgTimer(P,soon){ const l=dmgTimers(P); if(!l.length) return null;
+  return l.reduce((b,t)=> soon ? ((P.timers[t].left<P.timers[b].left || (P.timers[t].left===P.timers[b].left && timerDmg(P,t)>timerDmg(P,b)))?t:b) : (timerDmg(P,t)>timerDmg(P,b)?t:b)); }
+
+// what a resource is worth to this hero right now
+// Accelerate / Borrowed Time: value of boosting timer t (damage, or the shield / heal it will give)
+function timeBoostValue(S,seat,kind,t){
+  const P=S.p[seat], tm=timersOf(P)[t], a=ABIL.time[t]; if(!tm||!a) return -9;
+  const dmg=timerDmg(P,t)>0, heal=a.fx.some(o=>o[0]==='heal'), n=kind==='accel'?1:3;
+  const per = dmg ? 2.2 : heal ? (P.hp<=14?1.6:P.hp<24?1.0:0.2) : 1.5*(P.hp<=14?1.3:1);
+  if(kind==='accel') return n*per + (tm.left<=1 ? (dmg?1.6+0.15*timerDmg(P,t):1) : 0.3);
+  return n*per*Math.pow(0.9,tm.left+1) + (dmg && timerDmg(P,t)>=7 ? 1 : 0);
+}
+function timeBoostTarget(S,seat,kind){ const P=S.p[seat]; let best=null, bv=-1e9; runningTimers(P).forEach(t=>{ const v=timeBoostValue(S,seat,kind,t); if(v>bv){ bv=v; best=t; } }); return best; }
+function planResVal(S,seat,k){
+  const P=S.p[seat], h=S.heroes[seat], n=P.res[k]||0;
+  if(n>=MAXRES-1) return 0.3;                                   // about to overflow: spend it
+  if(h==='dark' && k==='D') return darkSaving(S,seat) ? 2.4 : 1.4;
+  if(h==='time' && k==='T') return n>=6 ? 1.2 : n>=4 ? 1.8 : 2.4;  // keep a stock for Borrowed Time, empower cards, Collapse
+  if(h==='time' && k==='F') return 1.1;
+  return 0.9;
+}
+function planCost(S,seat,cost){
+  if(!Array.isArray(cost)) return 0; let v=0;
+  cost.forEach(k=>{ v += k==='A' ? 0.8 : planResVal(S,seat,k); }); return v;
+}
+// would paying this break Dark's Eclipse reserve (3 Darkness + 1 more)?
+function breaksReserve(S,seat,cost){
+  if(S.heroes[seat]!=='dark' || !Array.isArray(cost)) return false;
+  const P=S.p[seat], ec=abilsOf(S,seat)[darkEclipseIdx(S,seat)]; if(!ec) return false;
+  if((P.shadow||0)<(ec.shadowReq||0)-1 || darkFireNow(S,seat)) return false;
+  const before=canPay(P,ec.cost), rem={...P.res}; cost.forEach(k=>{ if(rem[k]!=null) rem[k]--; });
+  if(!before) return cost.includes('D') && (rem.D||0)<4;   // still saving up: don't spend Darkness below 4
+  return !canPay({res:rem},ec.cost);                        // can pay Eclipse now: keep it payable
+}
+// value of an effect list for a plan hero
+function planFx(S,seat,fx,timerLeft){
+  const P=S.p[seat], E=S.p[FOE(S,seat)], dark=S.heroes[seat]==='dark', er=sumRes(E); let v=0;
+  fx.forEach(o=>{ const k=o[0];
+    if(k==='drain'){ const got=Math.min(o[1],er); v += got*(1.5 + (dark?1.7:0) + (er>=4?0.9:er>=2?0.4:0)) + Math.min(o[2]||0,got)*0.9; }
+    else if(k==='lose') v += Math.min(o[1],er)*1.2;
+    else if(k==='sealNext') v += E.sealNext ? -5 : 3.5 + 0.4*E.dice.filter(d=>!d.fz&&!d.fzE&&!d.cor).length;
+    else if(k==='hex') v += 2; else if(k==='twist') v += 4.5; else if(k==='fog') v += 2.2;
+    else if(k==='mindRot') v += E.hand.length ? 2.8 : 0;
+    else if(k==='shadowblast') v += darkFireNow(S,seat) ? 60 : -99;
+    else if(k==='heal') v += P.hp<=14 ? o[1]*1.6 : P.hp<24 ? o[1]*1.0 : 0.2;
+    else if(k==='shield') v += o[1]*(dark?1.1:1.5)*(P.hp<=14?1.3:1);
+    else if(k==='selfHurt') v -= P.hp>14 ? o[1]*0.6 : o[1]*2;
+    else if(k==='gain') v += o[2]*(o[1]==='T'?1.6:1.0);
+    else if(k==='timeAdd'){ const [_,what,n,delay]=o; const run=what==='dmg'?dmgTimers(P):runningTimers(P);
+      if(!run.length) v -= 6; else v += (what==='dmg'?n*2.2:what==='heal'?(P.hp<22?n*1.2:0.3):n*1.0)*Math.pow(0.88,delay||0); }
+    else if(k==='tick'){ v += dmgTimers(P).length ? 1.8 : runningTimers(P).length ? 0.6 : 0; }
+    else if(k==='tickAll'){ v += dmgTimers(P).length*1.6 + (runningTimers(P).length-dmgTimers(P).length)*0.5; }
+    else if(k==='fireAll'){ const l=runningTimers(P), pend=dmgTimers(P).reduce((s,t)=>s+timerDmg(P,t),0);
+      v += l.reduce((s,t)=>s+P.timers[t].left*1.8,0) + (pend-Math.min(2,er) >= E.hp+(E.shield||0) ? 30 : 0) - (l.length<2?6:0); }
+    else v += fxScore(S,seat,[o]);
+  });
+  if(timerLeft) v *= Math.pow(0.9,timerLeft);
+  return v;
+}
+function planAbilityValue(S,seat,ai){
+  const a=abilsOf(S,seat)[ai], P=S.p[seat], E=S.p[FOE(S,seat)];
+  const kind = S.heroes[seat]==='time' ? timeAbilKind(S,seat,ai) : null;
+  let v;
+  if(kind==='timer') v = planFx(S,seat,a.fx,a.timer) + (a.fx.some(o=>o[0]==='dmg') ? 0.6*P.hand.filter(id=>(CFX[CARDLIST[id].name]||[]).some(o=>o[0]==='timeAdd'&&o[1]==='dmg')).length : 0);
+  else if(kind==='accel'||kind==='borrow'){ const t=timeBoostTarget(S,seat,kind); v = t==null ? -9 : timeBoostValue(S,seat,kind,t); }
+  else if(kind==='collapse'){ v = runningTimers(P).reduce((s,t)=>s + (P.timers[t].left<=1 ? (timerDmg(P,t)>0 ? 2*2.2+1.5 : 1) : 1.2),0); if(dmgTimers(P).filter(t=>P.timers[t].left<=1).length<1) v-=4; }
+  else v = planFx(S,seat,a.fx);
+  if(breaksReserve(S,seat,a.cost) && !a.fx.some(o=>o[0]==='shadowblast')) v -= 6;
+  return v - planCost(S,seat,a.cost);
+}
+function planCardValue(S,seat,hi){
+  const P=S.p[seat], id=P.hand[hi], c=CARDLIST[id];
+  if(P.freeCard===id) return 6;
+  let v;
+  if(isCoreCard(c)) v = ['Hollow Core','Void Maw Core','Leech Core','Clockwork Core'].includes(c.name) ? 9 : 6.5;
+  else { const fx=CFX[c.name]||[]; if(!fx.length) return -1;
+    if(fx.some(o=>['blockN','preventAll','negate','protectCore'].includes(o[0]))) return -1; // defend-window cards: keep
+    v = planFx(S,seat,fx); }
+  if(c.cost!=='free' && breaksReserve(S,seat,c.cost)) v -= 6;
+  return v - (c.cost==='free' ? 0 : planCost(S,seat,c.cost));
+}
+const _botBestAbilityPlan = botBestAbility;
+botBestAbility = function(){
+  if(!planOn(S,BOT)) return _botBestAbilityPlan();
+  let best=-1, bs=0.3;
+  abilsOf(S,BOT).forEach((a,ai)=>{ if(abilBlockReason(S,BOT,ai)) return; const v=planAbilityValue(S,BOT,ai); if(v>bs){ bs=v; best=ai; } });
+  return best;
+};
+const _botBestCardPlan = botBestCard;
+botBestCard = function(){
+  if(!planOn(S,BOT)) return _botBestCardPlan();
+  const P=S.p[BOT]; let best=-1, bs=0.5;
+  P.hand.forEach((id,hi)=>{ if(cardBlockReason(S,BOT,hi)) return; const v=planCardValue(S,BOT,hi); if(v>bs){ bs=v; best=hi; } });
+  return best;
+};
+// Time: aim Accelerate / Borrowed Time / timer cards at damage timers
+const _botAbilityPlan = botAbility;
+botAbility = function(ai){
+  if(planOn(S,BOT) && S.heroes[BOT]==='time'){ const kind=timeAbilKind(S,BOT,ai);
+    if(kind==='accel'||kind==='borrow'){ const t=timeBoostTarget(S,BOT,kind); if(t==null) return false; const T=clone(S); applyTimeAbil(T,BOT,ai,{timer:t}); botCommit(T); return true; } }
+  return _botAbilityPlan(ai);
+};
+const _botCtxPlan = botCtx;
+botCtx = function(S,seat,fx,playingHi){
+  const ctx=_botCtxPlan(S,seat,fx,playingHi);
+  if(ctx && planOn(S,seat) && S.heroes[seat]==='time' && fx.some(o=>o[0]==='timeAdd')){ const t=bestDmgTimer(S.p[seat],false); if(t!=null) ctx.timer=t; }
+  return ctx;
+};
+// defending / losing resources: protect the banked hero element
+const PLAN_KEY={dark:'D', time:'T'};
+const _botAnswerPlan = botAnswer;
+botAnswer = function(pi){
+  const seat=BOT;
+  if(planOn(S,seat) && (pi.k==='defend' || pi.k==='lose')){
+    const P=S.p[seat], key=PLAN_KEY[S.heroes[seat]], keep=k=>k===key?1:0;
+    if(pi.k==='lose'){ const T=clone(S); T.q.shift(); const r=[], tmp={...T.p[seat].res};
+      for(let i=0;i<pi.n;i++){ const k=Object.keys(tmp).filter(x=>tmp[x]>0).sort((a,b)=>keep(a)-keep(b) || tmp[b]-tmp[a])[0]; if(k){ r.push(k); tmp[k]--; } }
+      r.forEach(k=>T.p[seat].res[k]--); lg(T,`{${seat}} loses ${r.map(k=>EL_NAME[k]).join(', ')}.`); advance(T); botCommit(T); return; }
+    const pk=pi.pk, avail={...P.res}, blocks=[];
+    const keys=Object.keys(P.res).sort((a,b)=>keep(a)-keep(b) || (beats(b,pk.el)-beats(a,pk.el)) || (P.res[b]-P.res[a]));
+    let need=pk.blk; const keen = pk.blk>=3 || P.hp<=12;
+    for(const k of keys){ if(k===key && P.hp>8) continue; while(keen && blocks.length<2 && need>0 && avail[k]>0){ blocks.push(k); avail[k]--; need-=beats(k,pk.el)?2:1; } }
+    let card=null;
+    P.hand.forEach((id,hi)=>{ const c=CARDLIST[id]; if(card!=null||!DEFEND_OK.has(c.name)||!canPay(P,c.cost)) return;
+      if(c.name==='Defensive Shield' && pk.blk>=4) card=hi; else if(c.name==='Shadow Step' && pk.blk+pk.unb>=5) card=hi; else if(c.name==='Ice Wall' && pk.blk+pk.unb>=4) card=hi; });
+    if(card!=null && CARDLIST[P.hand[card]].name==='Defensive Shield') blocks.length=0;
+    const ws=P.cores.find(c=>CARDLIST[c.id].name==='Water Stone');
+    const redirect = !!(ws && ws.hp > pk.blk+pk.unb && P.hp<20);
+    const T=clone(S); applyDefend(T,seat,{blocks,card,redirect}); botCommit(T); return;
+  }
+  return _botAnswerPlan(pi);
+};
+// income: wild dice feed the banked element
+const _botStepPlan = botStep;
+botStep = function(){
+  botTimer=null;
+  if(S && S.mode==='ai' && S.status==='playing' && !busy && !pendingInput(S) && S.turn===BOT && planOn(S,BOT) && S.phase==='income' && S.step!=='roll'){
+    const T=clone(S), TP=T.p[BOT], key=PLAN_KEY[S.heroes[BOT]]; TP.assign=TP.assign||{};
+    TP.dice.forEach((d,i)=>{ const o=dieOptions(T,BOT,i); if(o.length>1 && !TP.assign[i]){ const tmp={...TP.res}; Object.values(TP.assign).forEach(k=>tmp[k]=(tmp[k]||0)+1);
+      TP.assign[i] = (o.includes(key) && (tmp[key]||0)<7) ? key : o.slice().sort((a,b)=>(tmp[a]||0)-(tmp[b]||0))[0]; } });
+    doCollect(T); botCommit(T); return;
+  }
+  return _botStepPlan();
+};
+
+/* ---------- AI: freezing and melting (Ice is a controller) ----------
+   Frozen dice still pay out, they just can't reroll. So a frozen die only hurts when it is stuck
+   on a face its owner doesn't want. Ice freezes those faces; opponents melt them (1 fire) just
+   before rolling, so the die gets back into the roll. Hero-element and wild faces are never worth
+   freezing or melting. */
+function dieFaceValue(S,seat,i){ // how much the owner likes what this die shows
+  const P=S.p[seat], d=P.dice[i]; if(d.f===4) return 1.6; if(d.f>=5) return 2;
+  const k=d.f===1?'F':d.f===2?'W':'E', n=P.res[k]||0; return n>=4 ? 0.4 : n>=2 ? 0.7 : 1.0;
+}
+const _botCtxFreeze = botCtx;
+botCtx = function(S,seat,fx,playingHi){
+  const ctx=_botCtxFreeze(S,seat,fx,playingHi);
+  if(ctx && !S.coop){ const op=fx.find(o=>o[0]==='freezeEnemy');
+    if(op){ const tgt=1-seat, E=S.p[tgt];
+      ctx.efreeze = E.dice.map((d,i)=>i).filter(i=>!E.dice[i].fzE && !E.dice[i].fz && E.dice[i].f<=3)
+        .sort((a,b)=>dieFaceValue(S,tgt,a)-dieFaceValue(S,tgt,b)).slice(0,op[1]); } }
+  return ctx;
+};
+let __botNoMelt=false;
+const _canMeltAI = canMelt;
+canMelt = function(S,seat){ return __botNoMelt ? false : _canMeltAI(S,seat); };
+const _botStepMelt = botStep;
+botStep = function(){
+  if(S && S.mode==='ai' && S.status==='playing' && !busy && !S.coop && !pendingInput(S) && S.turn===BOT && S.phase==='income' && S.step==='roll' && _canMeltAI(S,BOT)){
+    const P=S.p[BOT], cand=P.dice.map((d,i)=>i).filter(i=>P.dice[i].fzE && P.dice[i].f<=3 && dieFaceValue(S,BOT,i)<=0.7);
+    if(cand.length && (P.res.F||0)>=2){ botTimer=null; const i=cand.sort((a,b)=>dieFaceValue(S,BOT,a)-dieFaceValue(S,BOT,b))[0];
+      const T=clone(S); T.p[BOT].res.F--; T.p[BOT].dice[i].fzE=0; lg(T,`🔥 {${BOT}} melts a frozen die with 1 fire.`); sfx(T,'el','F'); botCommit(T); return; }
+  }
+  __botNoMelt=true; try{ return _botStepMelt(); } finally{ __botNoMelt=false; }
+};
+
+/* =====================================================================
+   PvE COMPACT BATTLE LAYOUT (v0.43)
+   Everything on one screen: enemies (art + intents side by side), your hero
+   with face banner, a one-line ally strip (Details pops their full panel),
+   abilities grid, slim prompt / Combo / Ready bar, fanned hand at the bottom,
+   log ticker, ⚙ menu. Hover or drag a card / ability to see its targets and
+   damage; drop it on a monster (or a hero, for heals) to play it there.
+   Narrow screens (< 1000px wide) keep the classic layout. The ⚙ menu has a
+   "Classic layout" switch, remembered per device.
+   ===================================================================== */
+const CX_CSS = `
+body.cx{ overflow:hidden; }
+body.cx #app, body.cx main{ padding:0 !important; }
+.cxwrap{ height:100vh; display:grid; grid-template-rows:auto auto minmax(0,1fr) 212px; gap:6px; padding:6px 10px; box-sizing:border-box; max-width:1500px; margin:0 auto; }
+/* top bar */
+.cxtop{ display:flex; align-items:center; gap:6px; flex-wrap:nowrap; position:relative; z-index:40; }
+.cxtop .btn.sm{ min-height:30px; padding:2px 10px; font-size:.85rem; }
+.cxtop .gcode, .cxtop .phasechip{ white-space:nowrap; font-size:.95rem; }
+.cxtop .grow{ flex:1; }
+.cxtop .mapbtn{ display:flex; align-items:center; gap:8px; }
+.cxtop .mapbtn .gold{ background:#ffc400; color:#1a1030; border-radius:99px; padding:0 7px; font-size:.8rem; }
+.cxmenu{ position:relative; }
+.cxmenu .drop{ position:absolute; right:0; top:36px; z-index:60; display:flex; flex-direction:column; gap:4px; background:var(--panel); border:3px solid #1a1030; border-radius:12px; padding:6px; box-shadow:0 6px 0 #1a1030; min-width:180px; }
+.cxmenu .drop .btn{ justify-content:flex-start; text-align:left; }
+/* enemies: art with its intent bubble beside it */
+.cxen .enemyzone{ min-height:0 !important; height:auto !important; padding:6px 10px !important; }
+.cxen .minions{ display:flex !important; flex-wrap:nowrap; gap:10px; justify-content:center; align-items:stretch; min-height:0 !important; }
+.cxen .minion.creature{ position:relative; transform:none !important; margin:0 !important; width:380px !important; height:auto !important; display:grid !important;
+  grid-template-columns:180px 1fr; grid-template-rows:auto auto auto auto; column-gap:8px; row-gap:3px; align-items:start; }
+.cxen .minion .mbody{ grid-column:1; grid-row:1; width:180px !important; height:128px !important; }
+.cxen .minion .mbody img, .cxen .minion .mbody .mart{ max-height:128px !important; width:100% !important; object-fit:cover; }
+.cxen .minion .mname{ grid-column:1; grid-row:2; justify-self:center; text-align:center; font-size:.95rem !important; }
+.cxen .minion .mhp{ grid-column:1; grid-row:3; width:100% !important; }
+.cxen .minion .weak{ grid-column:1; grid-row:4; justify-self:center; }
+.cxen .minion .mthought{ grid-column:2; grid-row:1 / span 4; align-self:center; margin:0 0 0 12px !important; position:relative !important; transform:none !important; }
+.cxen .minion .mthought::before{ display:none !important; }
+.cxen .minion .mthought::after{ display:block; content:''; position:absolute; left:-13px; top:50%; bottom:auto; width:18px; height:18px; background:#fffaf0;
+  border:0; border-left:3px solid #1a1030; border-bottom:3px solid #1a1030; transform:translateY(-50%) rotate(45deg); }
+/* middle: you | prompt + abilities */
+.cxmid{ display:grid; grid-template-columns:320px 1fr; gap:8px; min-height:0; }
+.cxleft, .cxcenter{ display:flex; flex-direction:column; gap:6px; min-height:0; }
+.cxcenter h3.sect{ margin:0 !important; font-size:.95rem !important; }
+.cxcenter .midline{ margin:0 !important; min-width:0 !important; max-width:100% !important; }
+.cxcenter .prompt{ display:flex !important; flex-wrap:nowrap !important; align-items:center !important; gap:8px !important; padding:4px 6px 4px 10px !important; min-height:0; box-sizing:border-box; }
+.cxcenter .prompt > span:first-child{ flex:1 1 120px; min-width:120px; font-size:.85rem; line-height:1.15; }
+.cxcenter .ultbtn{ flex:0 1 auto !important; min-width:0 !important; min-height:0 !important; padding:2px 10px !important; display:flex !important; flex-direction:row !important; align-items:center; gap:6px; }
+.cxcenter .ultbtn .ulttitle{ font-size:.8rem !important; white-space:nowrap; } .cxcenter .ultbtn .ulttitle small{ display:none; }
+.cxcenter .ultbtn .ultcost{ font-size:0 !important; display:flex; gap:3px; white-space:nowrap; }
+.cxcenter .ultbtn .ultcost .ultpay{ font-size:.68rem !important; } .cxcenter .ultbtn .ultcost .pip{ width:13px !important; height:13px !important; }
+.cxcenter .phasebtn{ flex:0 1 auto !important; min-width:0 !important; width:auto !important; min-height:0 !important; height:40px !important; padding:0 14px 0 6px !important; transform:none !important; }
+.cxcenter .phasebtn .pbicon{ width:28px !important; height:28px !important; } .cxcenter .phasebtn .pblbl{ font-size:.85rem !important; white-space:nowrap; }
+.cxcenter .abils{ grid-template-columns:repeat(4,1fr) !important; gap:5px !important; }
+.cxcenter .abil{ padding:4px 6px !important; min-height:0 !important; }
+.cxcenter .abil .an{ font-size:.85rem !important; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cxcenter .abil .at{ font-size:.68rem !important; line-height:1.15 !important; }
+.cxcenter .abil .pip{ width:17px !important; height:17px !important; }
+/* your panel */
+.cxme .ppanel{ padding:6px !important; }
+.cxme .pbanner{ height:84px !important; min-height:0 !important; }
+.cxme .pbname{ font-size:1.25rem !important; }
+.cxme .hpbar{ height:16px !important; } .cxme .shbar{ height:14px !important; }
+.cxme .hpbar span, .cxme .shbar span{ height:12px !important; font-size:.7rem !important; }
+.cxme .counts, .cxme .stat{ font-size:.72rem !important; }
+.cxme .tracks{ display:grid !important; grid-template-columns:repeat(4,1fr); gap:4px; }
+.cxme .trk{ display:flex !important; align-items:center; justify-content:center; gap:4px; background:#fff; border:2px solid #1a1030; border-radius:10px; padding:2px 4px; }
+.cxme .trk .cells{ display:none !important; }
+.cxme .trk b{ font-family:var(--display); font-size:1.35rem; line-height:1; }
+.cxme .trk .pip{ width:24px !important; height:24px !important; }
+.cxme .dicerow{ gap:3px !important; flex-wrap:nowrap !important; } .cxme .dicerow .lbl{ display:none !important; }
+.cxme .die{ width:30px !important; height:30px !important; } .cxme .die .pip{ width:22px !important; height:22px !important; }
+.cxme .pcores{ font-size:.75rem; }
+/* ally strip */
+.cxally{ display:grid; grid-template-columns:40px 1fr auto; grid-template-rows:auto auto; column-gap:8px; row-gap:3px; align-items:center; background:#fff; color:#1a1030;
+  border:3px solid #1a1030; border-radius:12px; padding:4px 8px; box-shadow:0 3px 0 #1a1030; font-family:var(--body); }
+.cxally .face{ grid-row:1 / span 2; width:38px; height:38px; border-radius:50%; background:var(--c2) center 20%/cover; border:2px solid #1a1030; }
+.cxally .cxinfo{ grid-column:2; grid-row:1; min-width:0; }
+.cxally .who{ font-weight:700; font-size:.82rem; line-height:1.1; }
+.cxally .bar{ height:8px; border-radius:6px; background:#eee; border:1.5px solid #1a1030; overflow:hidden; margin-top:2px; width:100%; }
+.cxally .bar i{ display:block; height:100%; background:#ff4d6d; }
+.cxally .cxm{ display:flex; gap:4px; align-items:center; font-weight:700; font-size:.8rem; } .cxally .cxm .pip{ width:16px; height:16px; }
+.cxally .cxres{ grid-column:2 / span 2; grid-row:2; display:flex; gap:8px; }
+.cxally .more{ grid-column:3; grid-row:1; font:inherit; font-weight:700; font-size:.78rem; background:#ffc400; color:#1a1030; border:2px solid #1a1030; border-radius:99px; padding:2px 10px; cursor:pointer; }
+.cxally .rdy{ font-size:.7rem; font-weight:700; color:#2b9a40; }
+.cxally .down{ font-size:.7rem; font-weight:700; color:#e0243b; }
+.cxpop{ position:fixed; left:12px; bottom:12px; width:440px; max-height:calc(100vh - 80px); overflow:auto; z-index:50; filter:drop-shadow(0 10px 24px rgba(0,0,0,.45)); }
+/* bottom: hand + log ticker */
+.cxbot{ display:grid; grid-template-columns:1fr auto; gap:8px; align-items:end; min-height:0; }
+.cxhand{ display:flex; gap:6px; height:212px; align-items:flex-end; overflow:visible; padding:2px 2px 4px; }
+.cxhand .mcard{ width:132px !important; flex:none; transform-origin:bottom center; transition:transform .12s, margin .12s; }
+.cxhand .mcard:hover{ transform:translateY(-40px) scale(1.3); z-index:9; }
+.cxhand .mcard .mtext{ font-size:.66rem !important; display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
+.cxhand .mcard:hover .mtext{ -webkit-line-clamp:unset; display:block; }
+.cxhand .martbox{ height:40px !important; } .cxhand .martbox svg{ height:38px !important; }
+.cxhand.fan{ padding-top:2px; padding-bottom:0; }
+.cxhand.fan .mcard{ zoom:.9; margin-left:-46px; transform:rotate(var(--rot,0deg)) translateY(var(--dy,0px)); box-shadow:-4px 0 10px rgba(0,0,0,.35); }
+.cxhand.fan .mcard:first-child{ margin-left:0; }
+.cxhand.fan:hover .mcard{ margin-left:-20px; } .cxhand.fan:hover .mcard:first-child{ margin-left:0; }
+.cxhand.fan .mcard:hover{ transform:translateY(-44px) scale(1.3) rotate(0deg); z-index:9; }
+.cxside{ display:flex; flex-direction:column; gap:6px; width:250px; }
+.cxhint{ font-size:.7rem; color:var(--muted); text-align:center; }
+.cxticker{ background:var(--panel); color:var(--ink); border-radius:12px; padding:6px 8px; font-size:.74rem; line-height:1.25; display:flex; flex-direction:column; gap:3px; }
+.cxticker .tk{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:.75; } .cxticker .tk:first-child{ opacity:1; font-weight:600; }
+.cxticker button{ font:inherit; font-weight:700; align-self:flex-end; background:none; border:2px solid currentColor; color:inherit; border-radius:99px; padding:0 8px; cursor:pointer; }
+.cxlogpop{ position:fixed; right:14px; bottom:14px; width:340px; max-height:70vh; overflow:auto; z-index:60; background:var(--panel); color:var(--ink); border:3px solid #1a1030; border-radius:14px; padding:8px 10px; box-shadow:0 8px 0 #1a1030; font-size:.8rem; }
+.cxlogpop ol{ margin:0; padding:0; list-style:none; } .cxlogpop li{ padding:3px 0; border-bottom:1px dashed rgba(127,127,127,.35); }
+.cxlogpop .x{ float:right; font:inherit; font-weight:700; background:none; border:0; color:inherit; cursor:pointer; font-size:1rem; }
+/* faces in target tags */
+.iwho .tface, .tface{ display:inline-block; width:24px; height:24px; border-radius:50%; border:2px solid #1a1030; background:#ccc center 20%/cover no-repeat; vertical-align:-6px; margin-left:2px; }
+.iwho.faces{ display:inline-flex; align-items:center; gap:2px; padding-right:3px !important; }
+/* hover / drag target preview */
+.cxen .minion.cxtgt .mbody{ filter:drop-shadow(0 0 8px #ffde59) drop-shadow(0 0 3px #ffde59); }
+.cxen .minion.cxtgt{ animation:cxpulse 1s ease-in-out infinite; }
+@keyframes cxpulse{ 50%{ transform:translateY(-3px); } }
+@media (prefers-reduced-motion: reduce){ .cxen .minion.cxtgt{ animation:none; } }
+.cxen .minion.cxno{ opacity:.35; filter:grayscale(.8); }
+.cxen .minion.cxover .mbody{ filter:drop-shadow(0 0 12px #fff) drop-shadow(0 0 6px #ffde59); }
+.cxdmg{ position:absolute; left:132px; top:2px; z-index:8; font-family:var(--display); font-size:1.5rem; letter-spacing:.03em; color:#fff; background:#e0243b; border:3px solid #1a1030; border-radius:12px; padding:0 8px; box-shadow:0 3px 0 #1a1030; pointer-events:none; }
+.cxdmg small{ font-size:.75rem; display:block; line-height:1; margin-top:-2px; }
+.cxdmg.imm{ background:#666; font-size:1rem; }
+.cxme.cxtgt .ppanel, .cxally.cxtgt{ box-shadow:0 0 0 4px #ffde59, 0 0 18px #ffde59 !important; }
+.cxwrap [draggable="true"]{ cursor:grab; }
+/* shorter screens (e.g. 1366x768) */
+@media (max-height:820px){
+  .cxwrap{ grid-template-rows:auto auto minmax(0,1fr) 168px; gap:4px; }
+  .cxhand{ height:168px; } .cxhand .mcard{ zoom:.8; } .cxhand.fan .mcard{ zoom:.74; }
+  .cxen .minion.creature{ width:340px !important; grid-template-columns:150px 1fr; }
+  .cxen .minion .mbody, .cxen .minion .mbody img{ width:150px !important; height:100px !important; max-height:100px !important; }
+  .cxme .pbanner{ height:58px !important; }
+  .cxcenter .abil .at{ -webkit-line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden; }
+}
+`;
+(function(){ const st=document.createElement('style'); st.id='cxcss'; st.textContent=CX_CSS; document.head.appendChild(st); })();
+const cxUI = { ally:false, menu:false, log:false, classic:false };
+try{ cxUI.classic = localStorage.getItem('ewClassicPvE')==='1'; }catch(e){}
+function cxToggle(k){ cxUI[k]=!cxUI[k]; if(k==='classic'){ try{ localStorage.setItem('ewClassicPvE', cxUI.classic?'1':'0'); }catch(e){} cxUI.menu=false; } render(); }
+const cxOn = () => !cxUI.classic && window.innerWidth >= 1000;
+function cxFace(seat){ const h=S.heroes[seat]; return `<span class="tface" title="${esc(HEROES[h].name)}" style="background-color:${(THEME[HEROES[h].grp]||{}).c2};background-image:url('${IMG[h+'_face']||IMG[h+'_card']||''}')"></span>`; }
+// intent target tags: hero faces instead of YOU / ALLY (compact layout only)
+const _whoTagCx = whoTag;
+whoTag = function(S,seat,mode){
+  if(!cxOn() || mode==='self' || mode==='allies') return _whoTagCx(S,seat,mode);
+  if(mode==='both') return `<span class="iwho me faces">→ ${S.solo?cxFace(0):cxFace(0)+cxFace(1)}</span>`;
+  const me = S.solo || seat===viewSeat();
+  return `<span class="iwho ${me?'me':'ally'} faces" title="${me?'You':'Your ally'}">→ ${cxFace(seat)}${mode==='core'?' core':''}</span>`;
+};
+const _coopHTMLCx = coopHTML;
+coopHTML = function(v){
+  if(!cxOn()) return _coopHTMLCx(v);
+  const P=S.p[v], o=1-v, O=S.p[o];
+  const handHTML = (S.mode==='local' || mySeat===v) ? P.hand.map((id,hi)=>{ const why=cardBlockReason(S,v,hi); const ok=!why&&canAct(v); return miniCard(id, `data-act="play" data-i="${hi}" data-seat="${v}"`, ok?null:why, P.freeCard===id); }).join('') : '';
+  const phaseName = S.phase==='event'?'Event':S.phase==='enemy'?'Enemy turn':S.phase==='reward'?'Rewards':S.phase==='deckrefresh'?'Deck refresh':S.phase==='corefind'?'Core stone':S.phase==='leyline'?'Ley line':S.phase==='pathchoice'?'Choose a path':(PHASE_NAME[S.phase]||S.phase);
+  const M=S.map, fl=M?M.cur.f:0, last=M?M.floors.length-1:MAP_FLOORS+1;
+  const relics = p=> (p.relics||[]).length ? `<div class="relics">${p.relics.map(r=>`<span class="relicchip" title="${esc(RELICS[r])}">💎 ${esc(r)}</span>`).join('')}</div>` : '';
+  const th=THEME[HEROES[S.heroes[o]]?.grp]||{};
+  const resChips = Q => Object.entries(Q.res||{}).map(([k,n])=>`<span class="cxm">${pip(k)}${n}</span>`).join('');
+  const ally = (S.solo || !O || O.absent) ? '' : `<div class="cxally" data-cxhero="${o}" style="--c2:${th.c2}">
+      <span class="face" style="background-image:url('${IMG[S.heroes[o]+'_face']||IMG[S.heroes[o]+'_card']||''}')"></span>
+      <span class="cxinfo"><div class="who">${esc(seatLabel(o))} ${O.ready?'<span class="rdy">✓ ready</span>':''}${O.down?'<span class="down">💀 down</span>':''}</div>
+        <div class="bar"><i style="width:${Math.max(0,100*O.hp/maxHp(O))}%"></i></div>
+        <div class="cxm" style="margin-top:2px">❤ ${O.hp}/${maxHp(O)} · 🛡 ${O.shield||0} · 🂠 ${O.hand.length}${O.burn?` · 🔥 ${O.burn}`:''}</div></span>
+      <span class="cxres">${resChips(O)}</span>
+      <button type="button" class="more" onclick="cxToggle('ally')">${cxUI.ally?'▾ Hide':'▸ Details'}</button>
+    </div>${cxUI.ally?`<div class="cxpop">${playerPanel(S,o,false)}${relics(O)}</div>`:''}`;
+  const tk=S.log.slice(-3).reverse().map(m=>`<div class="tk">${fmtLog(m)}</div>`).join('');
+  return `<div class="cxwrap">
+    <div class="cxtop">
+      <button class="btn ghost sm" data-act="lobby" title="Back to the lobby">←</button>
+      <span class="gcode">${S.solo?'🗡 Solo':'🤝 Co-op'} ${S.mode==='online'?'· '+esc(S.code):''}</span>
+      <button type="button" class="btn ghost sm mapbtn" data-act="viewmap">🗺 Act ${S.act||1} · ${fl}/${last} <span class="gold">🪙 ${S.gold||0}</span></button>
+      <span class="phasechip">Round ${S.round} · ${phaseName}</span>
+      ${S.mode==='local'&&!S.solo?[0,1].map(i=>`<button class="btn sm ${v===i?'':'ghost'}" data-act="coopview" data-i="${i}">${esc(seatLabel(i))}${S.p[i].ready?' ✓':''}${S.p[i].down?' 💀':''}</button>`).join(''):''}
+      <span class="grow"></span>
+      ${canUndo()?`<button class="btn sm undo" data-act="undo">↶ Undo: ${esc(undoLabel())}</button>`:''}
+      <span class="cxmenu"><button type="button" class="btn ghost sm" onclick="cxToggle('menu')" aria-label="Settings">⚙</button>${cxUI.menu?`<span class="drop">
+        <button class="btn ghost sm" data-act="sound">${soundOn?'🔔 Sound on':'🔕 Sound off'}</button>
+        <button class="btn ghost sm" data-act="music">🎵 Music ${musicOn?'on':'off'}</button>
+        <button class="btn ghost sm" data-act="guide">📖 Decks</button>
+        <button class="btn ghost sm" data-act="rules">📜 How to play</button>
+        <button type="button" class="btn ghost sm" onclick="cxToggle('classic')">🧱 Classic layout</button></span>`:''}</span>
+    </div>
+    <div class="cxen">${coopEnemyHTML(S)}</div>
+    <div class="cxmid">
+      <div class="cxleft"><div class="cxme" data-cxhero="${v}">${playerPanel(S,v,true)}${relics(P)}</div>${ally}</div>
+      <div class="cxcenter"><div class="midline">${coopPrompt(S,v)}</div>
+        <h3 class="sect">Your abilities <small>each once per combat · drag onto a target, or click</small></h3>${abilitiesHTML(S,v)}${itemsHTML(S,v)}</div>
+    </div>
+    <div class="cxbot">
+      <div class="cxhand ${P.hand.length>=7?'fan':''}">${handHTML||'<span class="none">No cards</span>'}</div>
+      <div class="cxside">
+        ${TURN(S,v) && canAct(v) && isMyTurnFree(S,v) && !(S.phase==='income'&&STEP(S,v)==='roll') && P.hand.length ? '<button class="btn sm ghost sellbtn" data-act="sell">♻ Discard a card for resources</button>' : ''}
+        <div class="cxticker">${tk}<button type="button" onclick="cxToggle('log')">📜 ${cxUI.log?'Hide':'Full'} log</button></div>
+        <div class="cxhint">Drag a card or ability onto a target, or click it</div></div>
+    </div>
+    ${cxUI.log?`<div class="cxlogpop"><button type="button" class="x" onclick="cxToggle('log')" aria-label="Close">✕</button><h3 class="sect">Log</h3><ol>${S.log.slice().reverse().map(m=>`<li>${fmtLog(m)}</li>`).join('')}</ol></div>`:''}
+  </div>`;
+};
+// after each render: body class, fan angles, draggable sources
+const _renderCx = render;
+render = function(){
+  const r=_renderCx.apply(this,arguments);
+  try{
+    document.body.classList.toggle('cx', !!document.querySelector('.cxwrap'));
+    const cards=[...document.querySelectorAll('.cxhand.fan .mcard')], n=cards.length;
+    cards.forEach((c,i)=>{ const t=(i-(n-1)/2); c.style.setProperty('--rot',(t*1.4)+'deg'); c.style.setProperty('--dy',(t*t*0.7)+'px'); });
+    document.querySelectorAll('.cxwrap [data-act="ability"], .cxwrap .cxhand [data-act="play"]').forEach(b=>{ if(b.getAttribute('aria-disabled')!=='true' && !b.classList.contains('off')) b.setAttribute('draggable','true'); });
+  }catch(e){}
+  return r;
+};
+// ---- target preview (hover or drag) ----
+function cxFxOf(el){
+  if(!el || !S || !S.coop) return null;
+  const v=viewSeat();
+  if(el.dataset.act==='ability'){ const a=abilsOf(S,v)[+el.dataset.i]; return a ? {fx:a.fx, el:a.el} : null; }
+  if(el.dataset.act==='play'){ const id=S.p[v].hand[+el.dataset.i], c=CARDLIST[id]; return c ? {fx:CFX[c.name]||[], el:cardEl(c)} : null; }
+  return null;
+}
+function cxClearPreview(){ document.querySelectorAll('.cxtgt,.cxno,.cxover').forEach(n=>n.classList.remove('cxtgt','cxno','cxover')); document.querySelectorAll('.cxdmg').forEach(n=>n.remove()); }
+function cxPreview(src){
+  cxClearPreview(); const info=cxFxOf(src); if(!info) return;
+  const {fx, el}=info, hits=fx.filter(o=>o[0]==='dmg'), E=S.p[2];
+  const healish=fx.some(o=>['heal','shield'].includes(o[0]));
+  if(hits.length){
+    document.querySelectorAll('.cxen .minion[data-uid]').forEach(node=>{
+      const c=E.cores.find(x=>x.m&&x.m.uid===+node.dataset.uid); if(!c) return;
+      const m=MINIONS[c.m.key]; let imm=null; if(m.only && !m.only.includes(el)) imm='immune'; if(c.prot && c.prot>=S.tn) imm='guarded';
+      const sup = el && beats(el,c.m.el), n=hits.reduce((s,o)=>s+o[1]+(sup?1:0),0);
+      node.classList.add(imm?'cxno':'cxtgt');
+      const b=document.createElement('span'); b.className='cxdmg'+(imm?' imm':''); b.innerHTML = imm ? imm : `-${n}${sup?'<small>super effective</small>':''}`; node.appendChild(b);
+    });
+  } else if(healish){
+    document.querySelector('.cxme')?.classList.add('cxtgt');
+    if(fx.some(o=>o[0]==='heal')) document.querySelector('.cxally')?.classList.add('cxtgt');
+  }
+}
+document.addEventListener('mouseover', e=>{ if(!document.querySelector('.cxwrap') || cxDrag) return; const s=e.target.closest && e.target.closest('.cxwrap [data-act="ability"], .cxwrap .cxhand [data-act="play"]'); if(s) cxPreview(s); }, true);
+document.addEventListener('mouseout', e=>{ if(cxDrag) return; const s=e.target.closest && e.target.closest('.cxwrap [data-act="ability"], .cxwrap .cxhand [data-act="play"]'); if(s && !(e.relatedTarget && s.contains(e.relatedTarget))) cxClearPreview(); }, true);
+// ---- drag & drop: drop on a monster (or a hero for heals) to play it there ----
+let cxDrag=null, cxDropTgt=null, cxDropHeal=null;
+document.addEventListener('dragstart', e=>{
+  const s=e.target.closest && e.target.closest('.cxwrap [data-act="ability"], .cxwrap .cxhand [data-act="play"]'); if(!s) return;
+  cxDrag=s; cxPreview(s); try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', s.dataset.act+':'+s.dataset.i); }catch(_){}
+});
+function cxDropZone(t){ return t && t.closest && (t.closest('.cxen .minion[data-uid]') || t.closest('.cxen .enemyzone') || t.closest('[data-cxhero]')); }
+document.addEventListener('dragover', e=>{ if(!cxDrag) return; const z=cxDropZone(e.target); if(z){ e.preventDefault(); document.querySelectorAll('.cxover').forEach(n=>n!==z&&n.classList.remove('cxover')); if(z.matches('.minion')) z.classList.add('cxover'); } });
+document.addEventListener('dragend', ()=>{ cxDrag=null; cxClearPreview(); });
+document.addEventListener('drop', e=>{
+  if(!cxDrag) return; const src=cxDrag, z=cxDropZone(e.target); cxDrag=null; cxClearPreview(); if(!z) return; e.preventDefault();
+  const E=S.p[2];
+  if(z.matches('.minion[data-uid]')){ const i=E.cores.findIndex(c=>c.m&&c.m.uid===+z.dataset.uid); if(i>=0) cxDropTgt={seat:2, core:i, uid:+z.dataset.uid}; }
+  else if(z.matches('[data-cxhero]')) cxDropHeal=+z.dataset.cxhero;
+  else if(E.boss) cxDropTgt={seat:2, core:-1};
+  setTimeout(()=>{ cxDropTgt=null; cxDropHeal=null; }, 4000); // only for this one action
+  src.click();
+});
+const _coopPickTargetCx = coopPickTarget;
+coopPickTarget = async function(seat){
+  if(cxDropTgt){ const t=cxDropTgt; cxDropTgt=null; const E=S.p[2];
+    if(t.core===-1 ? E.boss : (E.cores[t.core] && (t.uid==null || (E.cores[t.core].m && E.cores[t.core].m.uid===t.uid)))) return t; }
+  return _coopPickTargetCx(seat);
+};
+const _pickOneCx = pickOne;
+pickOne = function(title, opts, o){
+  if(cxDropHeal!=null && /^Who do you want to heal/.test(title||'')){ const h=cxDropHeal; cxDropHeal=null; return Promise.resolve(h===viewSeat() ? 'me' : 'ally'); }
+  return _pickOneCx(title, opts, o);
+};
+window.addEventListener('resize', ()=>{ if(S && S.coop) render(); });
+
 /* ---------- version ---------- */
 VERSION_HISTORY.unshift({v:'0.41', date:'October 2026', notes:[
   'After a normal fight you can take a card OR 1 of every resource.',
@@ -6507,6 +7032,30 @@ VERSION_HISTORY.unshift({v:'0.41', date:'October 2026', notes:[
   'Elites no longer grant an extra die. Extra dice are now rare: the ley line, or the new Wishing Well mystery room.',
   'Enemy attacks aimed at a core stone now fly into that core (which shakes and flashes red) instead of the hero, and damaged core stones show cracks spreading from their corners.',
   'New enemy art: Act 2 monsters and the monsters that used to share a picture now have their own art, plus 11 new monsters (Obsidian Titan, Starlight Wyvern, Thunderhoof Kirin, Gale-Wing Griffin, Tidal Angler, Magma-Crust Behemoth, Overgrowth Spider, Iron-Bark Warden elite, Bloom Vanguard, Ice-Forged Paladin, Frost-Bound Weaver).'
+]});
+VERSION_HISTORY.unshift({v:'0.42', date:'October 2026', notes:[
+  'Balance pass from a 7,200-game AI versus test (Ice won 85% of matchups, Dark 9%, Time 16%).',
+  'Dark Hero: Wither deals 2 damage (was 1). Eclipse costs 4 Darkness + 2 of any resource (was 4 Darkness + nature, fire, water); it still needs 4 Shadow.',
+  'Electro Hero: Earthen Wall deals 2 damage (was 3), still gains 1 shield.',
+  'Ice Queen: Cold Snap deals 2 damage (was 3).',
+  'Time Hero: Sand Shield gives 2 shield (was 3) and Rewind heals 2 (was 3), but Delayed Blast deals 5, Time Bomb 7 and Erosion 3 (each +1). He should win by damage now, not by stalling.',
+  'Signature abilities (Lightning Strike, Absolute Zero, Iron Tempest, Eruption, Temporal Collapse) cost 3 of the hero’s element + 1 of any resource. You pick which resource pays the “any” part. Eclipse costs 4 Darkness + 2 of any.',
+  'Versus: the second player starts with 1 extra card as well as the extra resource.',
+  'Burn tokens now hit shields before health, like the Burn tick does.',
+  'Smarter AI for the Dark Hero: he plays as a stalker. He drains your biggest resource piles, banks Darkness and spare resources for Eclipse, builds his Shadow bar, then cashes it in when it is lethal, reaches 10, or he is about to fall.',
+  'Smarter AI for the Time Hero: he banks Time, aims Accelerate, Borrowed Time and his timer cards at whichever timer gains the most, and saves Temporal Collapse / Temporal Rift for when several timers are ready.',
+  'Both now weigh what a move does against what its resources are worth, so they hold resources instead of spending everything each turn.',
+  'AI and freezing: the AI no longer wastes fire melting every frozen die. Frozen dice still pay out, so it only melts a die stuck on a face it doesn’t want, right before rolling. The AI Ice Queen plays as a controller: she freezes the enemy dice showing faces they don’t want, so those dice can’t reroll into something better.',
+]});
+VERSION_HISTORY.unshift({v:'0.43', date:'October 2026', notes:[
+  'PvE battle screen redesigned to fit on one screen, no scrolling: monsters with their intents beside them, your hero with face banner, your 8 abilities in a grid, and your hand along the bottom.',
+  'Your ally is a one-line strip (face, health, shield, cards, resources, ready). Press Details to pop open their full panel.',
+  'Slim prompt bar: Combo Ultimate and Ready are smaller.',
+  'Hover or drag a card or ability to see what it can hit: targets glow and show the damage they would take (super effective, immune or guarded included). Heals light up the heroes.',
+  'Drag a card or ability onto a monster to play it on that monster (or onto a hero for heals). Clicking still works.',
+  'Monster intent tags show the target hero’s face instead of YOU / ALLY.',
+  'The log is a three-line feed with a Full log button. Big hands fan out like a real hand.',
+  'Sound, music, decks and rules moved into a ⚙ menu, and floor and gold now sit on the Map button. The ⚙ menu also has a Classic layout switch, and narrow screens keep the classic layout.',
 ]});
 
 </script>
