@@ -2576,8 +2576,8 @@ function defendDialog(seat, pk){
       const m=openModal(`<h3>Defend!</h3>
         <p class="msub">${S.coop&&pk.from===2?'':esc(seatLabel(pk.from))+'’s '}<b>${esc(pk.src)}</b> deals ${pk.blk} ${EL_NAME[pk.el]||''} damage${pk.unb?` + ${pk.unb} unblockable`:''}.</p>
         <div class="myres"><span class="mlbl">You</span><span class="rchip hpchip">♥<b>${P.hp}</b>/${maxHp(P)}</span>${P.shield?`<span class="rchip hpchip">🛡<b>${P.shield}</b></span>`:''}${Object.keys(P.res).map(k=>`<span class="rchip">${pip(k)}<b>${left[k]}</b></span>`).join('')}<span class="rtotal">Total ${Object.values(left).reduce((a,b)=>a+b,0)}</span></div>
-        <p class="mlbl">Spend up to 2 resources (each blocks 1, or 2 if it beats ${EL_NAME[pk.el]||'the attack'}):</p>
-        <div class="mopts">${Object.keys(P.res).map(k=>`<button type="button" class="mopt" data-res="${k}" ${left[k]<=0||blocks.length>=2?'disabled':''}>${elBtn(k,` · ${P.res[k]}${beats(k,pk.el)?' · blocks 2':''}`)}</button>`).join('')}</div>
+        <p class="mlbl">Spend up to ${DEFMAX()} resources (each blocks 1, or 2 if it beats ${EL_NAME[pk.el]||'the attack'}):</p>
+        <div class="mopts">${Object.keys(P.res).map(k=>`<button type="button" class="mopt" data-res="${k}" ${left[k]<=0||blocks.length>=DEFMAX()?'disabled':''}>${elBtn(k,` · ${P.res[k]}${beats(k,pk.el)?' · blocks 2':''}`)}</button>`).join('')}</div>
         ${blocks.length?`<div class="blocking"><span class="mlbl">Blocking with</span>${blocks.map(k=>`<span class="rchip">${pip(k)}${beats(k,pk.el)?'<b>2</b>':'<b>1</b>'}</span>`).join('')}<button type="button" class="clearbtn" data-clr>✕ Clear</button></div>`:''}
         ${cards.length?`<p class="mlbl">Or play a defense card:</p><div class="mopts">${cards.map(x=>`<button type="button" class="mopt ${card===x.hi?'sel':''}" data-card="${x.hi}"><span class="eb">${esc(x.c.name)} <span class="mcost">${x.c.cost.map(pip).join('')}</span></span></button>`).join('')}</div>`:''}
         ${fzN?`<p class="mlbl">❄ Glacier Core: unfreeze dice to block 1 damage each (${fzN} frozen):</p><div class="mopts"><button type="button" class="mopt" data-thaw="-1" ${thaw<=0?'disabled':''}><span class="eb">− 1</span></button><span class="rchip">❄ unfreeze <b>${thaw}</b> → block ${thaw}</span><button type="button" class="mopt" data-thaw="1" ${thaw>=fzN?'disabled':''}><span class="eb">+ 1</span></button></div>`:''}
@@ -2639,7 +2639,7 @@ function playerPanel(S,seat,mine){
     <div class="pinfo">
       <div class="hpbar"><span class="hpfill" style="width:${Math.min(100,Math.max(0,P.hp)/maxHp(P)*100)}%"></span><span class="hptxt">♥ ${P.hp} / ${maxHp(P)}${P.down?' · knocked out':''}</span></div>
       ${(P.burn||0)>0?`<div class="burnbar"><span class="flame">🔥</span> Burn ${P.burn} <small>· hits for ${P.burn+(hasCore(S.p[FOE(S,seat)],'Molten Core')?1:0)} after their next roll, then halves · 1 ${pip('W')} water removes 2</small>${mine&&canAct(seat)&&canCool(S,seat)?`<button class="mini coolbtn" data-act="cool">💧 Spend 1 ${pip('W')} → −2 Burn</button>`:''}${P.st.noCool&&P.st.noCool>=S.tn?' <small>· ash cloud: can’t cool</small>':''}</div>`:''}
-      <div class="shbar ${P.shield?'':'empty'} ${(P.st.reflN||P.st.reflHalf)?'reflecting':''}"><span class="shfill" style="width:${Math.min(P.shield,10)*10}%"></span><span class="shtxt">🛡 ${P.shield} shield${(P.st.reflN||P.st.reflHalf)?' ↩':''}</span></div>
+      <div class="shbar ${P.shield?'':'empty'} ${(P.st.reflN||P.st.reflHalf)?'reflecting':''}"><span class="shfill" style="width:${Math.min(P.shield,10)*10}%"></span><span class="shtxt">🛡 ${P.shield} shield${P.frozenShield&&P.shield?' ❄ frozen':''}${(P.st.reflN||P.st.reflHalf)?' ↩':''}</span></div>
       ${S.heroes[seat]==='dark'?`<div class="shadowbar ${(P.shadow||0)?'':'empty'} ${(P.shadow||0)>=4?'ready':''} ${(P.shadow||0)>12?'over':''}"><span class="shadowfill" style="width:${Math.min(100,(P.shadow||0)/12*100)}%"></span><span class="shadowtxt">🌑 Shadow ${P.shadow||0}${(P.shadow||0)>=4?' · Eclipse ready!':''}</span></div>`:''}
       <div class="stat">${statuses.map(esc).join(' · ')||'&nbsp;'}</div>
       <div class="counts">${!mine?`<span class="backs">${Array.from({length:Math.min(P.hand.length,8)},()=>'<i></i>').join('')}</span> `:''}Hand ${P.hand.length} · Deck ${P.deck.length} · Discard ${P.disc.length}</div>
@@ -3023,7 +3023,9 @@ function showRules(){
   <p><b>Goal:</b> bring the other hero from ${START_HP} health to 0.</p>
   <p><b>Turn:</b> Income (draw 1, roll 6 dice, choose wilds, collect) → Main 1 (cards) → Combat (each hero ability once) → Main 2 (cards) → End.</p>
   <p><b>Dice faces:</b> 1 Fire, 2 Water, 3 Nature, 4 your hero's element, 5–6 Wild ${wildPip()} (you pick). Flipping turns a die to its opposite face (faces add up to 7). Resources cap at ${MAXRES} each.</p>
-  <p><b>Defending:</b> when hit, spend up to 2 resources. Each blocks 1, or 2 if it beats the attack's element. Unblockable damage skips blocks but shields still soak it. You can attack an enemy core stone instead of the hero.</p>
+  <p><b>Defending:</b> when hit, spend up to 3 resources (2 in the dungeon). Each blocks 1, or 2 if it beats the attack's element. Unblockable damage skips blocks but shields still soak it. You can attack an enemy core stone instead of the hero.</p>
+  <p><b>Shields</b> last one turn: any shield you have fades when your next turn starts (Ice Queen can freeze hers to keep it one more turn). <b>Brace:</b> once per turn, discard 2 resources to gain 3 shield.</p>
+  <p><b>Reroll:</b> once per turn, after rolling, pay 1 resource to reroll up to 2 dice. <b>Hand limit:</b> 7 cards; discard down when you end your turn.</p>
   <p><b>Beats:</b> fire › nature › water › fire (the wheel). Lightning beats water and loses to nature. Ice beats nature and loses to fire. Steel beats nature and loses to water. Darkness is neutral.</p>
   <p><b>Start:</b> both players have 1 of every resource; the second player gets 1 extra of their hero's element and 1 extra card.</p>
   <p><b>Instants</b> can be played any time, even on the enemy's turn.</p>
@@ -3496,7 +3498,7 @@ function botAnswer(pi){
     const pk=pi.pk, avail={...P.res}, blocks=[];
     const keys=Object.keys(P.res).sort((a,b)=>(beats(b,pk.el)-beats(a,pk.el)) || (P.res[b]-P.res[a]));
     let need=pk.blk; const keen = pk.blk>=2 || P.hp<=12;
-    for(const k of keys){ while(keen && blocks.length<2 && need>0 && avail[k]>0){ blocks.push(k); avail[k]--; need-=beats(k,pk.el)?2:1; } }
+    for(const k of keys){ while(keen && blocks.length<DEFMAX() && need>0 && avail[k]>0){ blocks.push(k); avail[k]--; need-=beats(k,pk.el)?2:1; } }
     let card=null;
     P.hand.forEach((id,hi)=>{ const c=CARDLIST[id]; if(card!=null||!DEFEND_OK.has(c.name)||!canPay(P,c.cost)) return;
       if(c.name==='Defensive Shield' && pk.blk>=4) card=hi;
@@ -4824,7 +4826,7 @@ function showDelve(){
 }
 
 /* ---------- version badge + history ---------- */
-const GAME_VERSION='0.43';
+const GAME_VERSION='0.48';
 const VERSION_HISTORY=[
   {v:'0.40', date:'October 2026', notes:[
     'The PvE dungeon now has two acts. Act 1 ends with a Corrupted Hero — one of the heroes nobody picked, darkened and twisted. Beat it, catch your breath (heal half your missing health), claim a powerful core, and a brand-new random map opens for Act 2, with tougher monsters and Malkorr at the end.',
@@ -6667,7 +6669,7 @@ botAnswer = function(pi){
     const pk=pi.pk, avail={...P.res}, blocks=[];
     const keys=Object.keys(P.res).sort((a,b)=>keep(a)-keep(b) || (beats(b,pk.el)-beats(a,pk.el)) || (P.res[b]-P.res[a]));
     let need=pk.blk; const keen = pk.blk>=3 || P.hp<=12;
-    for(const k of keys){ if(k===key && P.hp>8) continue; while(keen && blocks.length<2 && need>0 && avail[k]>0){ blocks.push(k); avail[k]--; need-=beats(k,pk.el)?2:1; } }
+    for(const k of keys){ if(k===key && P.hp>8) continue; while(keen && blocks.length<DEFMAX() && need>0 && avail[k]>0){ blocks.push(k); avail[k]--; need-=beats(k,pk.el)?2:1; } }
     let card=null;
     P.hand.forEach((id,hi)=>{ const c=CARDLIST[id]; if(card!=null||!DEFEND_OK.has(c.name)||!canPay(P,c.cost)) return;
       if(c.name==='Defensive Shield' && pk.blk>=4) card=hi; else if(c.name==='Shadow Step' && pk.blk+pk.unb>=5) card=hi; else if(c.name==='Ice Wall' && pk.blk+pk.unb>=4) card=hi; });
@@ -6723,7 +6725,7 @@ botStep = function(){
 };
 
 /* =====================================================================
-   PvE COMPACT BATTLE LAYOUT (v0.43)
+   PvE COMPACT BATTLE LAYOUT (v0.43, enlarged in v0.44)
    Everything on one screen: enemies (art + intents side by side), your hero
    with face banner, a one-line ally strip (Details pops their full panel),
    abilities grid, slim prompt / Combo / Ready bar, fanned hand at the bottom,
@@ -6735,7 +6737,7 @@ botStep = function(){
 const CX_CSS = `
 body.cx{ overflow:hidden; }
 body.cx #app, body.cx main{ padding:0 !important; }
-.cxwrap{ height:100vh; display:grid; grid-template-rows:auto auto minmax(0,1fr) 212px; gap:6px; padding:6px 10px; box-sizing:border-box; max-width:1500px; margin:0 auto; }
+.cxwrap{ position:fixed; left:0; top:0; z-index:1; height:100vh; display:grid; grid-template-rows:auto auto minmax(0,1fr) 212px; gap:6px; padding:6px 10px; box-sizing:border-box; margin:0 auto; }
 /* top bar */
 .cxtop{ display:flex; align-items:center; gap:6px; flex-wrap:nowrap; position:relative; z-index:40; }
 .cxtop .btn.sm{ min-height:30px; padding:2px 10px; font-size:.85rem; }
@@ -6744,7 +6746,7 @@ body.cx #app, body.cx main{ padding:0 !important; }
 .cxtop .mapbtn{ display:flex; align-items:center; gap:8px; }
 .cxtop .mapbtn .gold{ background:#ffc400; color:#1a1030; border-radius:99px; padding:0 7px; font-size:.8rem; }
 .cxmenu{ position:relative; }
-.cxmenu .drop{ position:absolute; right:0; top:36px; z-index:60; display:flex; flex-direction:column; gap:4px; background:var(--panel); border:3px solid #1a1030; border-radius:12px; padding:6px; box-shadow:0 6px 0 #1a1030; min-width:180px; }
+.cxmenu .drop{ position:absolute; right:0; top:36px; z-index:60; display:flex; flex-direction:column; gap:4px; background:var(--panel); border:3px solid #1a1030; border-radius:12px; padding:6px; box-shadow:0 6px 0 #1a1030; min-width:280px; }
 .cxmenu .drop .btn{ justify-content:flex-start; text-align:left; }
 /* enemies: art with its intent bubble beside it */
 .cxen .enemyzone{ min-height:0 !important; height:auto !important; padding:6px 10px !important; }
@@ -6761,23 +6763,50 @@ body.cx #app, body.cx main{ padding:0 !important; }
 .cxen .minion .mthought::after{ display:block; content:''; position:absolute; left:-13px; top:50%; bottom:auto; width:18px; height:18px; background:#fffaf0;
   border:0; border-left:3px solid #1a1030; border-bottom:3px solid #1a1030; transform:translateY(-50%) rotate(45deg); }
 /* middle: you | prompt + abilities */
-.cxmid{ display:grid; grid-template-columns:320px 1fr; gap:8px; min-height:0; }
+.cxmid{ display:grid; grid-template-columns:360px 1fr; gap:10px; min-height:0; }
 .cxleft, .cxcenter{ display:flex; flex-direction:column; gap:6px; min-height:0; }
+.cxleft{ overflow-y:auto; overflow-x:hidden; scrollbar-width:thin; padding-right:2px; }
+.cxbot{ position:relative; z-index:1; } .cxmid{ position:relative; z-index:2; }
+.cxhand .mcard:hover{ z-index:30; } .cxbot:hover{ z-index:5; }
+.cxme .pcores{ display:flex !important; flex-wrap:wrap; gap:4px; }
+.cxwrap.battle .cxme .pcores{ display:none !important; }
+.cxcores{ display:flex; gap:8px; align-items:stretch; flex:none; }
+.cxcores .lbl{ align-self:center; font-weight:800; font-size:.75rem; letter-spacing:.08em; color:var(--muted); text-transform:uppercase; white-space:nowrap; }
+.cxcores .core, .cxme .core{ color:#1a1030 !important; }
+.cxcores .core *{ color:inherit; opacity:1; }
+.cxcores .core{ width:auto !important; flex:1 1 0; max-width:300px; font-size:.78rem !important; }
+.cxcores .core .mini{ font-size:.78rem; }
+html:has(body.cx){ overflow:hidden; }
+body.cx #volbtn{ display:none; }
+.cxside{ margin-right:64px; }
+.cxme .core{ width:auto !important; flex:1 1 30%; min-width:92px; font-size:.68rem !important; padding:3px 5px !important; }
+.cxme .core .mini{ font-size:.7rem; padding:1px 6px; }
 .cxcenter h3.sect{ margin:0 !important; font-size:.95rem !important; }
-.cxcenter .midline{ margin:0 !important; min-width:0 !important; max-width:100% !important; }
-.cxcenter .prompt{ display:flex !important; flex-wrap:nowrap !important; align-items:center !important; gap:8px !important; padding:4px 6px 4px 10px !important; min-height:0; box-sizing:border-box; }
-.cxcenter .prompt > span:first-child{ flex:1 1 120px; min-width:120px; font-size:.85rem; line-height:1.15; }
-.cxcenter .ultbtn{ flex:0 1 auto !important; min-width:0 !important; min-height:0 !important; padding:2px 10px !important; display:flex !important; flex-direction:row !important; align-items:center; gap:6px; }
-.cxcenter .ultbtn .ulttitle{ font-size:.8rem !important; white-space:nowrap; } .cxcenter .ultbtn .ulttitle small{ display:none; }
-.cxcenter .ultbtn .ultcost{ font-size:0 !important; display:flex; gap:3px; white-space:nowrap; }
-.cxcenter .ultbtn .ultcost .ultpay{ font-size:.68rem !important; } .cxcenter .ultbtn .ultcost .pip{ width:13px !important; height:13px !important; }
-.cxcenter .phasebtn{ flex:0 1 auto !important; min-width:0 !important; width:auto !important; min-height:0 !important; height:40px !important; padding:0 14px 0 6px !important; transform:none !important; }
-.cxcenter .phasebtn .pbicon{ width:28px !important; height:28px !important; } .cxcenter .phasebtn .pblbl{ font-size:.85rem !important; white-space:nowrap; }
-.cxcenter .abils{ grid-template-columns:repeat(4,1fr) !important; gap:5px !important; }
-.cxcenter .abil{ padding:4px 6px !important; min-height:0 !important; }
-.cxcenter .abil .an{ font-size:.85rem !important; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.cxcenter .abil .at{ font-size:.68rem !important; line-height:1.15 !important; }
-.cxcenter .abil .pip{ width:17px !important; height:17px !important; }
+.cxleft .midline{ margin:0 !important; min-width:0 !important; max-width:100% !important; }
+.cxleft .prompt{ display:flex !important; flex-wrap:wrap !important; align-items:center !important; gap:8px !important; padding:4px 6px 4px 10px !important; min-height:0; box-sizing:border-box; }
+.cxleft .prompt > span:not(.spin):first-of-type{ flex:1 1 100%; font-size:.9rem; line-height:1.2; }
+.cxleft .prompt > .spin{ flex:none !important; width:22px !important; height:22px !important; min-width:0 !important; }
+.cxleft .prompt.thinking{ font-size:.9rem !important; gap:8px !important; }
+.cxleft .prompt.thinking > span:not(.spin){ flex:1 1 200px; }
+.cxleft .prompt .btn{ min-height:34px; }
+.cxleft .ultbtn{ flex:0 1 auto !important; min-width:0 !important; min-height:0 !important; padding:2px 10px !important; display:flex !important; flex-direction:row !important; align-items:center; gap:6px; }
+.cxleft .ultbtn .ulttitle{ font-size:.8rem !important; white-space:nowrap; } .cxleft .ultbtn .ulttitle small{ display:none; }
+.cxleft .ultbtn .ultcost{ font-size:0 !important; display:flex; gap:3px; white-space:nowrap; }
+.cxleft .ultbtn .ultcost .ultpay{ font-size:.68rem !important; } .cxleft .ultbtn .ultcost .pip{ width:13px !important; height:13px !important; }
+.cxleft .phasebtn{ flex:1 1 auto !important; justify-content:center; min-width:0 !important; width:auto !important; min-height:0 !important; height:36px !important; padding:0 14px 0 6px !important; transform:none !important; }
+.cxleft .phasebtn .pbicon{ width:28px !important; height:28px !important; } .cxleft .phasebtn .pblbl{ font-size:.85rem !important; white-space:nowrap; }
+.cxcenter .abils{ flex:1; min-height:0; grid-template-columns:repeat(4,1fr) !important; grid-auto-rows:1fr; gap:8px !important; }
+.cxcenter .abil{ padding:8px 10px !important; min-height:0 !important; align-content:start; }
+.cxcenter .abil .an{ font-size:1.08rem; white-space:nowrap; overflow:hidden; line-height:1.15; }
+.cxcenter .abil .at{ font-size:.88rem; line-height:1.22 !important; }
+.cxcenter .abil{ overflow:hidden; }
+.cxcenter .abil .pip{ width:24px !important; height:24px !important; }
+.cxcenter .midline{ margin:0 !important; } .cxcenter .prompt{ font-size:1rem; }
+.cxme{ position:relative; }
+.cxme .cxabbtn{ position:absolute; top:12px; right:12px; z-index:3; font:inherit; font-weight:700; font-size:.8rem; background:#fff; color:#1a1030; border:2px solid #1a1030; border-radius:99px; padding:2px 10px; cursor:pointer; box-shadow:0 2px 0 #1a1030; }
+.cxabpop{ position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); width:min(1000px,94vw); max-height:86vh; overflow:auto; z-index:70; background:var(--panel); color:var(--ink); border:4px solid #1a1030; border-radius:16px; padding:10px 12px; box-shadow:0 10px 0 #1a1030; }
+.cxabpop .abils{ grid-template-columns:repeat(4,1fr) !important; gap:8px; }
+.cxabpop h3{ margin:0 0 8px; } .cxabpop .x{ float:right; font:inherit; font-weight:700; font-size:1.2rem; background:none; border:0; color:inherit; cursor:pointer; }
 /* your panel */
 .cxme .ppanel{ padding:6px !important; }
 .cxme .pbanner{ height:84px !important; min-height:0 !important; }
@@ -6806,7 +6835,8 @@ body.cx #app, body.cx main{ padding:0 !important; }
 .cxally .more{ grid-column:3; grid-row:1; font:inherit; font-weight:700; font-size:.78rem; background:#ffc400; color:#1a1030; border:2px solid #1a1030; border-radius:99px; padding:2px 10px; cursor:pointer; }
 .cxally .rdy{ font-size:.7rem; font-weight:700; color:#2b9a40; }
 .cxally .down{ font-size:.7rem; font-weight:700; color:#e0243b; }
-.cxpop{ position:fixed; left:12px; bottom:12px; width:440px; max-height:calc(100vh - 80px); overflow:auto; z-index:50; filter:drop-shadow(0 10px 24px rgba(0,0,0,.45)); }
+.cxpop .abils{ grid-template-columns:repeat(2,1fr) !important; }
+.cxpop{ position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); border:4px solid #1a1030; width:min(900px,92vw); display:grid; grid-template-columns:420px 1fr; gap:10px; align-items:start; background:var(--page); border-radius:16px; padding:8px; max-height:calc(100vh - 80px); overflow:auto; z-index:50; filter:drop-shadow(0 10px 24px rgba(0,0,0,.45)); }
 /* bottom: hand + log ticker */
 .cxbot{ display:grid; grid-template-columns:1fr auto; gap:8px; align-items:end; min-height:0; }
 .cxhand{ display:flex; gap:6px; height:212px; align-items:flex-end; overflow:visible; padding:2px 2px 4px; }
@@ -6820,17 +6850,22 @@ body.cx #app, body.cx main{ padding:0 !important; }
 .cxhand.fan .mcard:first-child{ margin-left:0; }
 .cxhand.fan:hover .mcard{ margin-left:-20px; } .cxhand.fan:hover .mcard:first-child{ margin-left:0; }
 .cxhand.fan .mcard:hover{ transform:translateY(-44px) scale(1.3) rotate(0deg); z-index:9; }
-.cxside{ display:flex; flex-direction:column; gap:6px; width:250px; }
+.cxside{ display:flex; flex-direction:column; gap:5px; width:300px; justify-content:flex-end; max-height:100%; min-height:0; overflow:hidden; }
 .cxhint{ font-size:.7rem; color:var(--muted); text-align:center; }
 .cxticker{ background:var(--panel); color:var(--ink); border-radius:12px; padding:6px 8px; font-size:.74rem; line-height:1.25; display:flex; flex-direction:column; gap:3px; }
+.cxticker .tk:nth-child(3){ display:none; }
 .cxticker .tk{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:.75; } .cxticker .tk:first-child{ opacity:1; font-weight:600; }
 .cxticker button{ font:inherit; font-weight:700; align-self:flex-end; background:none; border:2px solid currentColor; color:inherit; border-radius:99px; padding:0 8px; cursor:pointer; }
 .cxlogpop{ position:fixed; right:14px; bottom:14px; width:340px; max-height:70vh; overflow:auto; z-index:60; background:var(--panel); color:var(--ink); border:3px solid #1a1030; border-radius:14px; padding:8px 10px; box-shadow:0 8px 0 #1a1030; font-size:.8rem; }
 .cxlogpop ol{ margin:0; padding:0; list-style:none; } .cxlogpop li{ padding:3px 0; border-bottom:1px dashed rgba(127,127,127,.35); }
 .cxlogpop .x{ float:right; font:inherit; font-weight:700; background:none; border:0; color:inherit; cursor:pointer; font-size:1rem; }
 /* faces in target tags */
-.iwho .tface, .tface{ display:inline-block; width:24px; height:24px; border-radius:50%; border:2px solid #1a1030; background:#ccc center 20%/cover no-repeat; vertical-align:-6px; margin-left:2px; }
+.iwho .tface, .tface{ display:inline-block; width:32px; height:32px; border-radius:50%; border:2px solid #1a1030; background:#ccc center 20%/cover no-repeat; vertical-align:-6px; margin-left:2px; }
 .iwho.faces{ display:inline-flex; align-items:center; gap:2px; padding-right:3px !important; }
+.cxen .minion .mthought{ font-size:1.12rem; min-width:190px; }
+.cxen .minion .mthought .mnext{ font-size:.75rem; }
+.cxen .minion .mthought .inum{ font-size:1.5rem; }
+.cxen .minion .mthought .pip{ width:22px; height:22px; }
 /* hover / drag target preview */
 .cxen .minion.cxtgt .mbody{ filter:drop-shadow(0 0 8px #ffde59) drop-shadow(0 0 3px #ffde59); }
 .cxen .minion.cxtgt{ animation:cxpulse 1s ease-in-out infinite; }
@@ -6843,18 +6878,9 @@ body.cx #app, body.cx main{ padding:0 !important; }
 .cxdmg.imm{ background:#666; font-size:1rem; }
 .cxme.cxtgt .ppanel, .cxally.cxtgt{ box-shadow:0 0 0 4px #ffde59, 0 0 18px #ffde59 !important; }
 .cxwrap [draggable="true"]{ cursor:grab; }
-/* shorter screens (e.g. 1366x768) */
-@media (max-height:820px){
-  .cxwrap{ grid-template-rows:auto auto minmax(0,1fr) 168px; gap:4px; }
-  .cxhand{ height:168px; } .cxhand .mcard{ zoom:.8; } .cxhand.fan .mcard{ zoom:.74; }
-  .cxen .minion.creature{ width:340px !important; grid-template-columns:150px 1fr; }
-  .cxen .minion .mbody, .cxen .minion .mbody img{ width:150px !important; height:100px !important; max-height:100px !important; }
-  .cxme .pbanner{ height:58px !important; }
-  .cxcenter .abil .at{ -webkit-line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden; }
-}
 `;
 (function(){ const st=document.createElement('style'); st.id='cxcss'; st.textContent=CX_CSS; document.head.appendChild(st); })();
-const cxUI = { ally:false, menu:false, log:false, classic:false };
+const cxUI = { ally:false, menu:false, log:false, abil:false, classic:false };
 try{ cxUI.classic = localStorage.getItem('ewClassicPvE')==='1'; }catch(e){}
 function cxToggle(k){ cxUI[k]=!cxUI[k]; if(k==='classic'){ try{ localStorage.setItem('ewClassicPvE', cxUI.classic?'1':'0'); }catch(e){} cxUI.menu=false; } render(); }
 const cxOn = () => !cxUI.classic && window.innerWidth >= 1000;
@@ -6869,7 +6895,7 @@ whoTag = function(S,seat,mode){
 };
 const _coopHTMLCx = coopHTML;
 coopHTML = function(v){
-  if(!cxOn()) return _coopHTMLCx(v);
+  if(!cxOn()){ const h=_coopHTMLCx(v); return (cxUI.classic && window.innerWidth>=1000) ? h.replace('<div class="gtop">', '<div class="gtop"><button type="button" class="btn sm" onclick="cxToggle(\'classic\')" title="Switch back to the new one-screen layout">✨ New layout</button>') : h; }
   const P=S.p[v], o=1-v, O=S.p[o];
   const handHTML = (S.mode==='local' || mySeat===v) ? P.hand.map((id,hi)=>{ const why=cardBlockReason(S,v,hi); const ok=!why&&canAct(v); return miniCard(id, `data-act="play" data-i="${hi}" data-seat="${v}"`, ok?null:why, P.freeCard===id); }).join('') : '';
   const phaseName = S.phase==='event'?'Event':S.phase==='enemy'?'Enemy turn':S.phase==='reward'?'Rewards':S.phase==='deckrefresh'?'Deck refresh':S.phase==='corefind'?'Core stone':S.phase==='leyline'?'Ley line':S.phase==='pathchoice'?'Choose a path':(PHASE_NAME[S.phase]||S.phase);
@@ -6884,9 +6910,11 @@ coopHTML = function(v){
         <div class="cxm" style="margin-top:2px">❤ ${O.hp}/${maxHp(O)} · 🛡 ${O.shield||0} · 🂠 ${O.hand.length}${O.burn?` · 🔥 ${O.burn}`:''}</div></span>
       <span class="cxres">${resChips(O)}</span>
       <button type="button" class="more" onclick="cxToggle('ally')">${cxUI.ally?'▾ Hide':'▸ Details'}</button>
-    </div>${cxUI.ally?`<div class="cxpop">${playerPanel(S,o,false)}${relics(O)}</div>`:''}`;
+    </div>${cxUI.ally?`<div class="cxpop"><button type="button" class="x" onclick="cxToggle('ally')" aria-label="Close" style="position:absolute;right:10px;top:6px;font:inherit;font-weight:700;font-size:1.2rem;background:none;border:0;color:var(--ink);cursor:pointer;z-index:2">✕</button><div>${playerPanel(S,o,false)}${relics(O)}</div><div><h3 class="sect">${esc(seatLabel(o))}'s abilities</h3>${abilitiesHTML(S,o,true)}</div></div>`:''}`;
   const tk=S.log.slice(-3).reverse().map(m=>`<div class="tk">${fmtLog(m)}</div>`).join('');
-  return `<div class="cxwrap">
+  const battle=['income','main1','combat','main2','enemy'].includes(S.phase);
+  const z=Math.max(0.72, Math.min(1.3, window.innerWidth/1440, window.innerHeight/900));
+  return `<div class="cxwrap ${battle?'battle':''}" style="zoom:${z};width:${(window.innerWidth/z).toFixed(1)}px;height:${(window.innerHeight/z).toFixed(1)}px">
     <div class="cxtop">
       <button class="btn ghost sm" data-act="lobby" title="Back to the lobby">←</button>
       <span class="gcode">${S.solo?'🗡 Solo':'🤝 Co-op'} ${S.mode==='online'?'· '+esc(S.code):''}</span>
@@ -6900,21 +6928,22 @@ coopHTML = function(v){
         <button class="btn ghost sm" data-act="music">🎵 Music ${musicOn?'on':'off'}</button>
         <button class="btn ghost sm" data-act="guide">📖 Decks</button>
         <button class="btn ghost sm" data-act="rules">📜 How to play</button>
+        ${volSlidersHTML()}
         <button type="button" class="btn ghost sm" onclick="cxToggle('classic')">🧱 Classic layout</button></span>`:''}</span>
     </div>
     <div class="cxen">${coopEnemyHTML(S)}</div>
     <div class="cxmid">
-      <div class="cxleft"><div class="cxme" data-cxhero="${v}">${playerPanel(S,v,true)}${relics(P)}</div>${ally}</div>
-      <div class="cxcenter"><div class="midline">${coopPrompt(S,v)}</div>
-        <h3 class="sect">Your abilities <small>each once per combat · drag onto a target, or click</small></h3>${abilitiesHTML(S,v)}${itemsHTML(S,v)}</div>
+      <div class="cxleft">${battle?`<div class="midline">${coopPrompt(S,v)}</div>`:''}<div class="cxme" data-cxhero="${v}">${playerPanel(S,v,true)}${relics(P)}<button type="button" class="cxabbtn" onclick="cxToggle('abil')">📜 Abilities</button></div></div>
+      <div class="cxcenter">${battle?`<h3 class="sect">Your abilities <small>each once per combat · drag onto a target, or click</small></h3>${abilitiesHTML(S,v)}${itemsHTML(S,v)}${P.cores.length?`<div class="cxcores"><span class="lbl">Cores ${P.cores.length}/${maxCores(S,v)}</span>${P.cores.map((c,ci)=>coreHTML(S,v,ci,true)).join('')}</div>`:''}`:`<div class="midline">${coopPrompt(S,v)}</div>`}</div>
     </div>
     <div class="cxbot">
       <div class="cxhand ${P.hand.length>=7?'fan':''}">${handHTML||'<span class="none">No cards</span>'}</div>
-      <div class="cxside">
-        ${TURN(S,v) && canAct(v) && isMyTurnFree(S,v) && !(S.phase==='income'&&STEP(S,v)==='roll') && P.hand.length ? '<button class="btn sm ghost sellbtn" data-act="sell">♻ Discard a card for resources</button>' : ''}
+      <div class="cxside">${ally}
+        ${TURN(S,v) && canAct(v) && isMyTurnFree(S,v) && !(S.phase==='income'&&STEP(S,v)==='roll') && P.hand.length ? '<button class="btn sm ghost sellbtn" data-act="sell" style="min-height:28px;padding:0 10px;font-size:.8rem">♻ Discard a card for resources</button>' : ''}
         <div class="cxticker">${tk}<button type="button" onclick="cxToggle('log')">📜 ${cxUI.log?'Hide':'Full'} log</button></div>
-        <div class="cxhint">Drag a card or ability onto a target, or click it</div></div>
+      </div>
     </div>
+    ${cxUI.abil?`<div class="cxabpop"><button type="button" class="x" onclick="cxToggle('abil')" aria-label="Close">✕</button><h3 class="sect">${esc(HEROES[S.heroes[v]].name)}'s abilities</h3>${abilitiesHTML(S,v,true)}</div>`:''}
     ${cxUI.log?`<div class="cxlogpop"><button type="button" class="x" onclick="cxToggle('log')" aria-label="Close">✕</button><h3 class="sect">Log</h3><ol>${S.log.slice().reverse().map(m=>`<li>${fmtLog(m)}</li>`).join('')}</ol></div>`:''}
   </div>`;
 };
@@ -6924,6 +6953,7 @@ render = function(){
   const r=_renderCx.apply(this,arguments);
   try{
     document.body.classList.toggle('cx', !!document.querySelector('.cxwrap'));
+    cxFit();
     const cards=[...document.querySelectorAll('.cxhand.fan .mcard')], n=cards.length;
     cards.forEach((c,i)=>{ const t=(i-(n-1)/2); c.style.setProperty('--rot',(t*1.4)+'deg'); c.style.setProperty('--dy',(t*t*0.7)+'px'); });
     document.querySelectorAll('.cxwrap [data-act="ability"], .cxwrap .cxhand [data-act="play"]').forEach(b=>{ if(b.getAttribute('aria-disabled')!=='true' && !b.classList.contains('off')) b.setAttribute('draggable','true'); });
@@ -6988,6 +7018,493 @@ pickOne = function(title, opts, o){
   return _pickOneCx(title, opts, o);
 };
 window.addEventListener('resize', ()=>{ if(S && S.coop) render(); });
+
+
+// "Not ready yet" had no click handler
+document.addEventListener('click', e=>{ const b=e.target.closest && e.target.closest('[data-act="unready"]'); if(b && !b.closest('#modal')) act.unready(); });
+// Insight Core (elite reward): extra card every other turn instead of every turn
+RELICS['Insight Core']='Draw 1 extra card every other turn (odd rounds).';
+const _doRollInsight = doRoll;
+doRoll = function(S, seatArg){
+  const seat=seatArg!=null?seatArg:S.turn, P=S.p[seat], R=P&&P.relics, i=R?R.indexOf('Insight Core'):-1;
+  if(i<0 || S.round%2===1) return _doRollInsight(S, seatArg);
+  R.splice(i,1); try{ return _doRollInsight(S, seatArg); } finally{ R.splice(i,0,'Insight Core'); }
+};
+
+/* ---------- volume: separate levels for sound effects and music ----------
+   Every sound used to go straight to the speakers. Two master gains sit in front of them now:
+   music (the synth theme and the dungeon MP3s) and sound effects (everything else). */
+const VOL={sfx:1, music:1};
+try{ const v=JSON.parse(localStorage.getItem('ewVol')||'{}'); if(typeof v.sfx==='number') VOL.sfx=v.sfx; if(typeof v.music==='number') VOL.music=v.music; }catch(e){}
+let cxMusicBuild=false;
+function volMasters(ac){
+  if(!ac.__sfx){ const conn=AudioNode.prototype.__origConnect;
+    ac.__sfx=ac.createGain(); ac.__mus=ac.createGain(); ac.__sfx.gain.value=VOL.sfx; ac.__mus.gain.value=VOL.music;
+    conn.call(ac.__sfx, ac.destination); conn.call(ac.__mus, ac.destination); }
+  return ac;
+}
+if(window.AudioNode && !AudioNode.prototype.__origConnect){
+  AudioNode.prototype.__origConnect = AudioNode.prototype.connect;
+  AudioNode.prototype.connect = function(dst, ...rest){
+    try{ if(window.AudioDestinationNode && dst instanceof AudioDestinationNode){ const ac=volMasters(dst.context);
+      dst = (cxMusicBuild || (typeof pveGain!=='undefined' && this===pveGain)) ? ac.__mus : ac.__sfx; } }catch(e){}
+    return AudioNode.prototype.__origConnect.call(this, dst, ...rest);
+  };
+}
+const _musicOutVol = musicOut;
+musicOut = function(ac){ cxMusicBuild=true; try{ return _musicOutVol(ac); } finally{ cxMusicBuild=false; } };
+let volChimeT=null;
+function setVol(k, val){
+  VOL[k]=Math.max(0, Math.min(1, val)); try{ localStorage.setItem('ewVol', JSON.stringify(VOL)); }catch(e){}
+  const ac=audioCtx; if(ac && ac.__sfx){ (k==='sfx'?ac.__sfx:ac.__mus).gain.setTargetAtTime(VOL[k], ac.currentTime, 0.03); }
+  if(k==='sfx'){ clearTimeout(volChimeT); volChimeT=setTimeout(()=>{ if(soundOn) try{ playSfx('card'); }catch(e){} }, 180); }
+  document.querySelectorAll(`.volrow[data-k="${k}"] output`).forEach(o=>o.textContent=Math.round(VOL[k]*100)+'%');
+}
+function volSlidersHTML(){
+  const row=(k,label)=>`<label class="volrow" data-k="${k}"><span>${label}</span><input type="range" min="0" max="100" step="5" value="${Math.round(VOL[k]*100)}" oninput="setVol('${k}', this.value/100)" aria-label="${label} volume"><output>${Math.round(VOL[k]*100)}%</output></label>`;
+  return `<div class="volbox">${row('sfx','🔔 Sounds')}${row('music','🎵 Music')}</div>`;
+}
+(function(){
+  const st=document.createElement('style'); st.textContent=`
+  .volbox{ display:flex; flex-direction:column; gap:6px; padding:4px 2px; }
+  .volrow{ display:grid; grid-template-columns:88px 1fr 40px; align-items:center; gap:6px; font-weight:700; font-size:.82rem; color:var(--ink); }
+  .volrow input{ width:100%; accent-color:#ffc400; }
+  .volrow output{ font-variant-numeric:tabular-nums; text-align:right; font-size:.75rem; }
+  #volbtn{ position:fixed; right:10px; bottom:calc(78px + env(safe-area-inset-bottom,0px)); z-index:60; font:inherit; font-weight:800; font-size:.8rem; padding:3px 9px; border:2px solid #1a1030; border-radius:999px; background:#fff; color:#1a1030; cursor:pointer; box-shadow:0 2px 0 #1a1030; }
+  #volpop{ position:fixed; right:10px; bottom:calc(112px + env(safe-area-inset-bottom,0px)); z-index:61; width:250px; background:var(--panel); color:var(--ink); border:3px solid #1a1030; border-radius:14px; padding:8px 10px; box-shadow:0 6px 0 #1a1030; }
+  #volpop h4{ margin:0 0 4px; font-size:.9rem; }
+  `; document.head.appendChild(st);
+  const b=document.createElement('button'); b.type='button'; b.id='volbtn'; b.textContent='🔊 Volume'; b.setAttribute('aria-label','Sound and music volume');
+  b.onclick=()=>{ let p=document.getElementById('volpop'); if(p){ p.remove(); return; } p=document.createElement('div'); p.id='volpop'; p.innerHTML='<h4>Volume</h4>'+volSlidersHTML(); document.body.appendChild(p); };
+  document.body.appendChild(b);
+  document.addEventListener('click', e=>{ const p=document.getElementById('volpop'); if(p && !p.contains(e.target) && e.target.id!=='volbtn') p.remove(); });
+})();
+
+// shrink-to-fit: ability names stay on one line, descriptions never get cut, the hero column never needs a scrollbar
+function cxFit(){
+  const wrap=document.querySelector('.cxwrap'); if(!wrap) return;
+  wrap.querySelectorAll('.cxcenter .abil').forEach(tile=>{
+    const n=tile.querySelector('.an'), t=tile.querySelector('.at');
+    if(n){ n.style.fontSize=''; let f=parseFloat(getComputedStyle(n).fontSize); while(n.scrollWidth>n.clientWidth+0.5 && f>11){ f-=0.5; n.style.fontSize=f+'px'; } }
+    if(t){ t.style.fontSize=''; let f=parseFloat(getComputedStyle(t).fontSize); while(tile.scrollHeight>tile.clientHeight+1 && f>9){ f-=0.5; t.style.fontSize=f+'px'; } }
+  });
+  const left=wrap.querySelector('.cxleft'), ban=wrap.querySelector('.cxme .pbanner');
+  if(left && ban){ ban.style.removeProperty('height'); let h=84; while(left.scrollHeight>left.clientHeight+1 && h>44){ h-=4; ban.style.setProperty('height',h+'px','important'); } }
+}
+/* =====================================================================
+   v0.47 DEFENSE REWORK (versus only; PvE is unchanged)
+   - Shields last one turn: whatever shield you have is gone when your next turn starts.
+   - Hero ability shields are doubled to make up for it.
+   - Defend with up to 3 resources per attack (was 2).
+   - Brace: discard 2 resources to gain 3 shield (once per turn, on your turn).
+   - Reroll: once per turn, after rolling, pay 1 resource to reroll up to 2 dice.
+   - Hand limit 7: discard down to 7 when you end your turn.
+   RULES47 switches each part on or off (used by the AI test tool to compare variants).
+   ===================================================================== */
+var RULES47 = {on:true, shieldExpire:true, shieldMult:2, cardShieldMult:1, heroShieldMult:{}, iceFrozenShield:true, thawPerDie:1, thawBase:2, thawHold:4, defendMax:3, brace:true, braceMax:1, braceCost:2, braceShield:3, reroll:true, handLimit:7};
+function R47(S){ return !!(RULES47.on && S && !S.coop); }
+function DEFMAX(){ return R47(S) ? RULES47.defendMax : 2; }
+const resTotal47 = P => Object.values(P.res).reduce((a,b)=>a+b,0);
+
+// --- doubled hero shields (only the hero's own ability shields; cards are unchanged)
+const HERO_ABIL_NAMES47 = {};
+Object.keys(ABIL).forEach(h=>{ HERO_ABIL_NAMES47[h]=new Set((ABIL[h]||[]).map(a=>a.n)); });
+const _runOp47 = runOp;
+runOp = function(S,st){
+  if(R47(S) && st && st.op && st.op[0]==='thawBurst'){
+    const P=S.p[st.seat], E=S.p[FOE(S,st.seat)], own=P.dice.filter(d=>d.fz).length, en=E.dice.filter(d=>d.fzE).length;
+    P.dice.forEach(d=>d.fz=0); E.dice.forEach(d=>d.fzE=0);
+    const dmg=Math.floor(RULES47.thawPerDie*(own+en))+RULES47.thawBase;
+    lg(S,`💥 {${st.seat}} shatters the ice: ${own} of their dice and ${en} enemy dice unfreeze at once for ${dmg} damage!`); flash(S,`💥 Thaw Burst: ${dmg}!`);
+    S.q.unshift({k:'packet', from:st.seat, unb:0, blk:dmg, el:'F', src:st.src, tgt:st.ctx.tgt||null, fire:st.ctx.fire});
+    return;
+  }
+  if(st && st.op && st.op[0]==='freezeShield'){ const P=S.p[st.seat]; P.frozenShield=1; lg(S,`❄ {${st.seat}} freezes their shield: it will hold through their next turn start.`); return; }
+  if(R47(S) && st && st.op && st.op[0]==='shield' && st.seat<2 && S.heroes && HERO_ABIL_NAMES47[S.heroes[st.seat]] && HERO_ABIL_NAMES47[S.heroes[st.seat]].has(st.src)){
+    const op=st.op.slice(), hm=RULES47.heroShieldMult[S.heroes[st.seat]]; op[1]=Math.round(op[1]*(hm||RULES47.shieldMult)); return _runOp47(S, Object.assign({}, st, {op}));
+  }
+  if(R47(S) && RULES47.cardShieldMult!==1 && st && st.op && st.op[0]==='shield' && st.seat<2 && CI[st.src]!=null){
+    const op=st.op.slice(); op[1]=Math.round(op[1]*RULES47.cardShieldMult); return _runOp47(S, Object.assign({}, st, {op}));
+  }
+  return _runOp47(S,st);
+};
+const ICE_ARMOR47 = new Set(['Glacial Armor','Frozen Fortress']);
+const _abilsOf47 = abilsOf;
+abilsOf = function(S,seat){
+  let list=_abilsOf47(S,seat);
+  if(!R47(S)) return list;
+  if(RULES47.iceFrozenShield && RULES47.shieldExpire) list=list.map(a=> ICE_ARMOR47.has(a.n) && !a.fx.some(o=>o[0]==='freezeShield') ? Object.assign({},a,{fx:a.fx.concat([['freezeShield']]), t:a.t+' Freeze your shield: it won’t fade when your next turn starts.'}) : a);
+  if(RULES47.thawPerDie!==1) list=list.map(a=> a.fx.some(o=>o[0]==='thawBurst') ? Object.assign({},a,{t:`Unfreeze all your dice and all enemy dice at once. Deal ${RULES47.thawPerDie} damage for each die unfrozen${RULES47.thawBase?`, plus ${RULES47.thawBase}`:''}.`}) : a);
+  if(RULES47.shieldMult===1) return list;
+  return list.map(a=> /Gain \d+ shield/.test(a.t||'') ? Object.assign({},a,{t:a.t.replace(/Gain (\d+) shield/,(m,n)=>`Gain ${Math.round(n*(RULES47.heroShieldMult[S.heroes[seat]]||RULES47.shieldMult))} shield`)}) : a);
+};
+
+// --- end of turn: hand limit, reset per-turn actions; start of turn: shields fade
+function handLimitDiscard47(S,seat){ // auto-discard (AI / fallback): lowest-value cards go first
+  const P=S.p[seat], lim=RULES47.handLimit; if(!lim || P.hand.length<=lim) return;
+  const order=P.hand.map((id,hi)=>{ let v=0; try{ v=cardScore(S,seat,hi); }catch(e){} return {hi,v}; }).sort((a,b)=>a.v-b.v);
+  const drop=order.slice(0,P.hand.length-lim).map(o=>o.hi).sort((a,b)=>b-a), names=[];
+  drop.forEach(hi=>{ const id=P.hand[hi]; P.hand.splice(hi,1); P.disc.push(id); names.push(CARDLIST[id].name); });
+  lg(S,`✋ {${seat}} is over the hand limit and discards ${names.join(', ')}.`);
+}
+const _endTurn47 = endTurn;
+endTurn = function(S){
+  if(!R47(S)) return _endTurn47(S);
+  const seat=S.turn, P=S.p[seat];
+  handLimitDiscard47(S,seat);
+  P.st.brace=0; P.st.rr=0;
+  const r=_endTurn47(S);
+  const N=S.p[S.turn];
+  if(RULES47.shieldExpire && N && N.frozenShield){ N.frozenShield=0; if(N.shield>0) lg(S,`❄ {${S.turn}}'s frozen shield holds (${N.shield}). Refreeze it this turn or it fades next turn.`); }
+  else if(RULES47.shieldExpire && N && N.shield>0){ lg(S,`🛡 {${S.turn}}'s ${N.shield} shield fades as their turn begins.`); N.shield=0; }
+  return r;
+};
+
+// --- legality
+function canBrace(S,seat){ const P=S.p[seat];
+  return R47(S) && RULES47.brace && S.status==='playing' && TURN(S,seat) && !pendingInput(S) && S.phase!=='income' && (P.st.brace||0)<RULES47.braceMax && resTotal47(P)>=RULES47.braceCost; }
+const rerollable47 = d => !d.fz && !d.fzE && !d.cor;
+function canReroll(S,seat){ const P=S.p[seat];
+  return R47(S) && RULES47.reroll && S.status==='playing' && TURN(S,seat) && !pendingInput(S) && S.phase==='income' && S.step==='adjust' && !P.st.rr && resTotal47(P)>=1 && P.dice.some(rerollable47); }
+
+// --- state changes (shared by player and AI)
+function doBrace47(T,seat,pay){ const P=T.p[seat];
+  pay.forEach(k=>{ P.res[k]=Math.max(0,(P.res[k]||0)-1); });
+  P.shield+=RULES47.braceShield; P.st.brace=(P.st.brace||0)+1;
+  lg(T,`🛡 {${seat}} braces: discards ${pay.map(k=>EL_NAME[k]).join(' + ')} for ${RULES47.braceShield} shield (it fades when their next turn starts).`); sfx(T,'block'); }
+function doReroll47(T,seat,dice,payK){ const P=T.p[seat];
+  P.res[payK]=Math.max(0,(P.res[payK]||0)-1); P.st.rr=1;
+  const a=Object.assign({},P.assign||{}); dice.forEach(i=>{ P.dice[i].f=rollF(P.dice[i]); delete a[i]; }); P.assign=a; bumpRoll(P,dice);
+  lg(T,`🎲 {${seat}} pays 1 ${EL_NAME[payK]} to reroll ${dice.length} ${dice.length===1?'die':'dice'}.`); }
+
+// --- player actions
+act.brace = ()=>guard(async()=>{
+  const seat=ACTOR(); if(!canBrace(S,seat)) return; const v0=S.ver;
+  const pay=await pickRes(`Brace: discard ${RULES47.braceCost} resources for ${RULES47.braceShield} shield`, seat, RULES47.braceCost, {sub:'The shield lasts until your next turn starts. Once per turn.'});
+  if(!pay || pay.length<RULES47.braceCost || boardChanged(v0)) return;
+  const T=clone(S); doBrace47(T,seat,pay); await commitA(T,seat,'brace');
+});
+act.reroll2 = ()=>guard(async()=>{
+  const seat=ACTOR(); if(!canReroll(S,seat)) return; const v0=S.ver;
+  const dice=await pickDice('Reroll up to 2 dice', seat, rerollable47, 1, 2, 'Then pay 1 resource. Once per turn. Frozen dice can’t be rerolled.');
+  if(!dice || !dice.length || boardChanged(v0)) return;
+  const pay=await pickRes('Pay 1 resource for the reroll', seat, 1); if(!pay || !pay.length || boardChanged(v0)) return;
+  const T=clone(S); doReroll47(T,seat,dice,pay[0]); await commitA(T,seat,null);
+});
+const _actNext47 = act.next;
+act.next = ()=>{
+  if(S && R47(S) && S.status==='playing' && S.phase==='main2' && !pendingInput(S) && RULES47.handLimit && S.p[S.turn].hand.length>RULES47.handLimit && canAct(S.turn)){
+    return guard(async()=>{
+      const seat=S.turn, P=S.p[seat], over=P.hand.length-RULES47.handLimit, v0=S.ver;
+      const opts=P.hand.map((id,hi)=>({v:hi, html:`<span class="eb">${esc(CARDLIST[id].name)}</span>`}));
+      const pick=await pickMulti(`Hand limit ${RULES47.handLimit}: discard ${over} card${over>1?'s':''}`, opts, {min:over, max:over, sub:'Tip: cancel and use “Discard a card for resources” first if you want something back for them.', confirm:'Discard and end turn'});
+      if(!pick || pick.length!==over || boardChanged(v0)) return;
+      const T=clone(S), TP=T.p[seat], names=[];
+      pick.slice().sort((a,b)=>b-a).forEach(hi=>{ const id=TP.hand[hi]; TP.hand.splice(hi,1); TP.disc.push(id); names.push(CARDLIST[id].name); });
+      lg(T,`✋ {${seat}} discards ${names.join(', ')} to the hand limit.`);
+      nextPhase(T); await commitA(T,seat,'end turn');
+    });
+  }
+  return _actNext47();
+};
+document.addEventListener('click', e=>{
+  const b=e.target.closest('[data-act="brace"],[data-act="reroll2"]'); if(!b || b.closest('#modal')) return;
+  act[b.dataset.act]();
+});
+
+// --- buttons: a fixed action strip under the prompt, always in the same place (greyed out when not usable)
+const ICON47 = {
+  brace:`<svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 6 L88 18 V50 C88 74 70 88 50 96 C30 88 12 74 12 50 V18 Z" fill="#6cc0ff" stroke="#1a1030" stroke-width="8" stroke-linejoin="round"/><path d="M50 22 L72 29 V50 C72 64 62 73 50 78 Z" fill="#fff" opacity=".55"/><text x="50" y="60" font-family="Bangers,sans-serif" font-size="34" text-anchor="middle" fill="#1a1030">+3</text></svg>`,
+  reroll:`<svg viewBox="0 0 100 100" aria-hidden="true"><rect x="14" y="14" width="62" height="62" rx="14" fill="#fff" stroke="#1a1030" stroke-width="8" transform="rotate(-10 45 45)"/><g fill="#1a1030" transform="rotate(-10 45 45)"><circle cx="31" cy="31" r="6"/><circle cx="45" cy="45" r="6"/><circle cx="59" cy="59" r="6"/></g><path d="M86 52 A34 34 0 0 1 54 88" fill="none" stroke="#ff4d6d" stroke-width="9" stroke-linecap="round"/><path d="M44 80 L56 92 L60 76 Z" fill="#ff4d6d" stroke="#ff4d6d" stroke-width="4" stroke-linejoin="round"/></svg>`
+};
+function actStrip47(S,seat){
+  const P=S.p[seat], mine=canAct(seat) && TURN(S,seat), pend=!!pendingInput(S);
+  const why = (k)=>{
+    if(!mine) return 'On your turn';
+    if(pend) return 'Finish the current choice first';
+    if(k==='reroll'){ if(P.st.rr) return 'Used this turn'; if(!(S.phase==='income' && S.step==='adjust')) return 'Right after you roll'; if(resTotal47(P)<1) return 'Needs 1 resource'; if(!P.dice.some(rerollable47)) return 'No dice can be rerolled'; return ''; }
+    if((P.st.brace||0)>=RULES47.braceMax) return 'Used this turn'; if(S.phase==='income') return 'After you collect'; if(resTotal47(P)<RULES47.braceCost) return `Needs ${RULES47.braceCost} resources`; return '';
+  };
+  const b=(k,act,label,sub)=>{ const w=why(k), ok=!w && (k==='reroll'?canReroll(S,seat):canBrace(S,seat));
+    return `<button type="button" class="xact ${ok?'ready':''}" data-act="${act}" ${ok?'':'disabled'} title="${esc(sub)}"><span class="xico">${ICON47[k]}</span><span class="xtxt"><b>${label}</b><small>${esc(ok?sub:w)}</small></span></button>`; };
+  return `<div class="xacts" aria-label="Extra actions">${b('reroll','reroll2','Reroll 2 dice','Pay 1 resource · once per turn')}${b('brace','brace','Brace','2 resources → 3 shield · once per turn')}</div>`;
+}
+(function(){ const st=document.createElement('style'); st.textContent=`
+.midline:has(> .xacts){ flex-wrap:wrap; }
+.midline:has(> .xacts) > .prompt{ min-height:120px; align-content:center; }
+.xacts{ display:flex; gap:8px; flex-wrap:nowrap; margin:2px 0 4px; flex:1 1 100%; order:9; width:100%; }
+.xact{ flex:1 1 0 !important; min-width:0; }
+.xact{ flex:1 1 200px; display:flex; align-items:center; gap:8px; min-height:48px; padding:4px 12px 4px 6px; font:inherit; text-align:left; color:#1a1030; background:#fff; border:3px solid #1a1030; border-radius:14px; box-shadow:0 3px 0 #1a1030; cursor:pointer; }
+.xact.ready{ background:#fff3b0; }
+.xact.ready:hover{ transform:translateY(-2px); box-shadow:0 5px 0 #1a1030; }
+.xact:disabled{ opacity:.55; cursor:default; box-shadow:none; filter:grayscale(.6); }
+.xico{ flex:none; width:38px; height:38px; display:grid; place-items:center; }
+.xico svg{ width:38px; height:38px; display:block; }
+.xtxt{ display:flex; flex-direction:column; line-height:1.1; min-width:0; }
+.xtxt b{ font-family:var(--display); font-weight:400; letter-spacing:.04em; font-size:1.05rem; }
+.xtxt small{ font-size:.72rem; font-weight:700; color:#4a3f6b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+body.comic .xact{ border-width:3px 4px 5px 3px; border-radius:12px 16px 10px 18px / 16px 10px 18px 12px; box-shadow:4px 4px 0 #1a1030;
+  background-image: radial-gradient(circle, rgba(255,40,120,.10) 0 1px, transparent 1.4px), radial-gradient(circle, rgba(0,170,255,.10) 0 1px, transparent 1.4px); background-size:8px 8px; background-position:0 0, 4px 4px; }
+body.comic .xact .xtxt b{ transform:skewX(-7deg); display:inline-block; text-shadow:2px 2px 0 rgba(26,16,48,.2); }
+body.comic .xact:disabled{ box-shadow:2px 2px 0 rgba(26,16,48,.5); }
+`; document.head.appendChild(st); })();
+const _render47 = render;
+render = function(){
+  const r=_render47.apply(this,arguments);
+  try{
+    if(S && R47(S) && S.status==='playing' && !document.querySelector('.xacts')){
+      const seat=S.mode==='local' ? S.turn : viewSeat();
+      const pr=document.querySelector('#app .prompt');
+      if(pr && seat!=null && S.p[seat]) pr.insertAdjacentHTML('afterend', actStrip47(S,seat));
+    }
+  }catch(e){}
+  return r;
+};
+
+// --- AI: reroll weak faces, sell then trim to the hand limit, brace with spare resources
+function botCheapRes47(S,seat,n){ // the n resources this bot misses least
+  const P=S.p[seat], tmp={...P.res}, out=[];
+  for(let j=0;j<n;j++){
+    const ks=Object.keys(tmp).filter(k=>tmp[k]>0); if(!ks.length) break;
+    const val=k=>{ let v = planOn(S,seat) ? planResVal(S,seat,k) : (k===heroEl(S,seat) ? 1.4 : 0.9); return v - 0.08*tmp[k]; };
+    const k=ks.sort((a,b)=>val(a)-val(b))[0]; out.push(k); tmp[k]--;
+  }
+  return out;
+}
+function botWantsBrace47(S,seat){
+  const P=S.p[seat], tot=resTotal47(P); if(!canBrace(S,seat)) return false;
+  const spare=tot-3; if(spare<RULES47.braceCost) return false;            // keep 3 to block with
+  if(planOn(S,seat) && P.hp>12 && typeof breaksReserve==='function'){ const pay=botCheapRes47(S,seat,RULES47.braceCost); if(breaksReserve(S,seat,pay)) return false; }
+  const maxEl=Math.max(...Object.values(P.res));
+  return P.hp<=20 || maxEl>=MAXRES-2 || tot>=9;
+}
+// AI: a shield only helps until your next turn, so extra shield on top of what one enemy turn can deal is worth little
+const _fxScore47 = fxScore;
+fxScore = function(S,seat,fx){
+  if(!R47(S) || !RULES47.shieldExpire || !fx.some(o=>o[0]==='shield'||o[0]==='freezeShield')) return _fxScore47(S,seat,fx);
+  const P=S.p[seat], frz=fx.some(o=>o[0]==='freezeShield'); let sc=_fxScore47(S,seat,fx.filter(o=>o[0]!=='shield'&&o[0]!=='freezeShield')), have=P.shield||0;
+  if(frz && !P.frozenShield) sc+=0.8*Math.min(have,12);
+  fx.forEach(o=>{ if(o[0]!=='shield') return; const n=o[1], room=Math.max(0,(frz?14:8)-have); sc+=1.1*Math.min(n,room)+0.15*Math.max(0,n-room); have+=n; });
+  return sc;
+};
+const _fxScoreThaw47 = fxScore;
+fxScore = function(S,seat,fx){
+  if(!R47(S) || !fx.some(o=>o[0]==='thawBurst')) return _fxScoreThaw47(S,seat,fx);
+  const P=S.p[seat], E=S.p[1-seat], n=P.dice.filter(d=>d.fz).length+E.dice.filter(d=>d.fzE).length, dmg=Math.floor(RULES47.thawPerDie*n)+RULES47.thawBase;
+  const rest=_fxScoreThaw47(S,seat,fx.filter(o=>o[0]!=='thawBurst'));
+  if(n<RULES47.thawHold && dmg<E.hp+(E.shield||0)) return rest-1;
+  return rest+dmg*2.2;
+};
+const _botStep47 = botStep;
+botStep = function(){
+  if(S && S.mode==='ai' && S.status==='playing' && !busy && R47(S) && !pendingInput(S) && S.turn===BOT){
+    const P=S.p[BOT];
+    // reroll: the two weakest faces, if they are weak enough to be worth a resource
+    if(canReroll(S,BOT)){
+      const cand=P.dice.map((d,i)=>i).filter(i=>rerollable47(P.dice[i]) && dieFaceValue(S,BOT,i)<=0.7).sort((a,b)=>dieFaceValue(S,BOT,a)-dieFaceValue(S,BOT,b)).slice(0,2);
+      const gain=cand.reduce((s,i)=>s+(1.3-dieFaceValue(S,BOT,i)),0);
+      if(cand.length && gain>=0.6){ botTimer=null; const T=clone(S); doReroll47(T,BOT,cand,botCheapRes47(S,BOT,1)[0]); botCommit(T); return; }
+    }
+    if(S.phase==='main2'){
+      // nothing better to play? sell the excess over the hand limit for resources rather than throwing it away
+      if(RULES47.handLimit && P.hand.length>RULES47.handLimit && botBestCard()<0){
+        let worst=-1, wv=1e9; P.hand.forEach((id,hi)=>{ const val=discardValue(CARDLIST[id]); if(!val.length) return; let v=0; try{ v=cardScore(S,BOT,hi); }catch(e){} v-=0.3*val.length; if(v<wv){ wv=v; worst=hi; } });
+        if(worst>=0){ botTimer=null; const T=clone(S), TP=T.p[BOT], id=TP.hand[worst], val=discardValue(CARDLIST[id]), gains=val.map(k=>k==='A'?heroEl(T,BOT):k);
+          TP.hand.splice(worst,1); TP.disc.push(id); gains.forEach(k=>{ if(TP.res[k]!==undefined) addRes(TP,k,1); });
+          lg(T,`{${BOT}} discards ${CARDLIST[id].name} for ${gains.map(k=>EL_NAME[k]).join(', ')}.`); botCommit(T); return; }
+      }
+      if(botBestCard()<0 && botWantsBrace47(S,BOT)){ botTimer=null; const T=clone(S); doBrace47(T,BOT,botCheapRes47(S,BOT,RULES47.braceCost)); botCommit(T); return; }
+    }
+  }
+  return _botStep47();
+};
+
+/* =====================================================================
+   AI: Time Hero lines his attacks up for one big Temporal Collapse
+   Plan: start his damage timers, keep them from going off one by one
+   (Borrowed Time / delay cards push a timer that is about to go off back
+   by one combat and add damage), bank Time for the signature, then when
+   two or more damage timers are ready (or the hit is lethal), Accelerate
+   one more into the window and Collapse: they all go off at once, +2 each.
+   ===================================================================== */
+var TIMEAI = {strict:true, minSet:3};
+const TIME_IDX = {};
+ABIL.time.forEach((a,i)=>{ const k=a.fx[0]&&a.fx[0][0]; if(k==='accel'||k==='borrow'||k==='collapse') TIME_IDX[k]=i; });
+const COLLAPSE_COST = () => ABIL.time[TIME_IDX.collapse].cost;
+function timeUsed(P,k){ return (P.st.used||[]).includes(TIME_IDX[k]); }
+function canPayAfter(P,first,then){ const r={...P.res}; for(const k of first){ if(k==='A') continue; if(!r[k]) return false; r[k]--; } return canPay({res:r},then); }
+// what Collapse would do right now: the damage timers that are ready (1 left) go off together
+function collapsePlan(S,seat){
+  const P=S.p[seat], E=S.p[FOE(S,seat)], dm=dmgTimers(P);
+  const ready=dm.filter(t=>P.timers[t].left<=1), next=dm.filter(t=>P.timers[t].left===2).sort((a,b)=>timerDmg(P,b)-timerDmg(P,a));
+  const canCollapse=!timeUsed(P,'collapse') && canPay(P,COLLAPSE_COST());
+  const accelOK=canCollapse && !timeUsed(P,'accel') && next.length>0 && canPayAfter(P,ABIL.time[TIME_IDX.accel].cost,COLLAPSE_COST());
+  const set=ready.concat(accelOK?[next[0]]:[]);
+  const dmg=set.reduce((s,t)=>s+timerDmg(P,t)+2,0)+(accelOK?1:0);
+  const lethal = dmg - 2*Math.min(DEFMAX(), sumRes(E)) >= E.hp+(E.shield||0);
+  const go = canCollapse && set.length>0 && (set.length>=TIMEAI.minSet || lethal || (!TIMEAI.strict && dm.length===set.length && dmg>=10) || (P.hp<=8 && dmg>=6));
+  return {go, ready, next, set, dmg, accelOK, canCollapse, lethal};
+}
+// Keep enough Time banked to Collapse once damage timers are running
+function breaksCollapseReserve(S,seat,cost){
+  const P=S.p[seat]; if(S.heroes[seat]!=='time' || !Array.isArray(cost) || timeUsed(P,'collapse') || !dmgTimers(P).length) return false;
+  const before=canPay(P,COLLAPSE_COST()), rem={...P.res}; cost.forEach(k=>{ if(rem[k]!=null && k!=='A') rem[k]--; });
+  if(!before) return cost.includes('T') && (rem.T||0)<3;
+  return !canPay({res:rem},COLLAPSE_COST());
+}
+const _planAbilityValueTime = planAbilityValue;
+planAbilityValue = function(S,seat,ai){
+  if(S.heroes[seat]!=='time') return _planAbilityValueTime(S,seat,ai);
+  const kind=timeAbilKind(S,seat,ai), P=S.p[seat], a=abilsOf(S,seat)[ai], cp=collapsePlan(S,seat);
+  if(kind==='collapse'){
+    if(!cp.go) return -9;
+    if(cp.accelOK && !timeUsed(P,'accel')) return 30;            // accelerate the next one in first
+    return 40 + cp.dmg;
+  }
+  if(kind==='accel'){
+    if(cp.go && cp.accelOK) return 50;
+    return -9;                                                   // never fire a timer on its own
+  }
+  if(kind==='borrow'){
+    if(cp.go) return -9;                                         // collapse first, don't pull a timer out of the set
+    const P2=P, soon=dmgTimers(P2).filter(t=>P2.timers[t].left<=1);
+    if(soon.length) return 9 + 0.3*timerDmg(P2,soon[0]) - planCost(S,seat,a.cost);   // about to go off alone: hold it back, +3
+    const t=timeBoostTarget(S,seat,'borrow'); return t==null ? -9 : timeBoostValue(S,seat,'borrow',t) - planCost(S,seat,a.cost);
+  }
+  let v=_planAbilityValueTime(S,seat,ai);
+  if(breaksCollapseReserve(S,seat,a.cost)) v-=4;
+  return v;
+};
+const _planCardValueTime = planCardValue;
+planCardValue = function(S,seat,hi){
+  let v=_planCardValueTime(S,seat,hi);
+  if(S.heroes[seat]==='time'){ const c=CARDLIST[S.p[seat].hand[hi]];
+    if(c.cost!=='free' && breaksCollapseReserve(S,seat,c.cost)) v-=4;
+    const fx=CFX[c.name]||[];
+    if(fx.some(o=>o[0]==='timeAdd' && o[3])){ const P=S.p[seat]; if(dmgTimers(P).some(t=>P.timers[t].left<=1) && !collapsePlan(S,seat).go) v+=3; } } // a delay card holds a timer back too
+  return v;
+};
+// targets: Accelerate the strongest timer 2 away; Borrowed Time the strongest timer about to go off
+const _timeBoostTargetSync = timeBoostTarget;
+timeBoostTarget = function(S,seat,kind){
+  if(!planOn(S,seat)) return _timeBoostTargetSync(S,seat,kind);
+  const P=S.p[seat], cp=collapsePlan(S,seat);
+  if(kind==='accel' && cp.accelOK) return cp.next[0];
+  if(kind==='borrow'){ const soon=dmgTimers(P).filter(t=>P.timers[t].left<=1).sort((a,b)=>timerDmg(P,b)-timerDmg(P,a)); if(soon.length) return soon[0]; }
+  return _timeBoostTargetSync(S,seat,kind);
+};
+// delay cards aim at the timer that is about to go off
+const _botCtxSync = botCtx;
+botCtx = function(S,seat,fx,playingHi){
+  const ctx=_botCtxSync(S,seat,fx,playingHi);
+  if(ctx && planOn(S,seat) && S.heroes[seat]==='time'){ const op=fx.find(o=>o[0]==='timeAdd');
+    if(op && op[3]){ const P=S.p[seat], soon=dmgTimers(P).filter(t=>P.timers[t].left<=1).sort((a,b)=>timerDmg(P,b)-timerDmg(P,a)); if(soon.length) ctx.timer=soon[0]; } }
+  return ctx;
+};
+// say how big the collapse was (players see it in the log; the AI tester counts it)
+const _applyTimeAbilSync = applyTimeAbil;
+applyTimeAbil = function(T,seat,ai,ctx){
+  if(timeAbilKind(T,seat,ai)==='collapse'){ const P=T.p[seat], set=dmgTimers(P).filter(t=>P.timers[t].left<=1);
+    if(set.length){ const d=set.reduce((s,t)=>s+timerDmg(P,t)+2,0); lg(T,`🌀 {${seat}} collapses time: ${set.length} attack${set.length>1?'s go':' goes'} off at once for ${d} damage!`); } }
+  return _applyTimeAbilSync(T,seat,ai,ctx);
+};
+
+/* =====================================================================
+   COMIC LOOK (v0.48): Ben-Day halftone dots, hand-inked outlines, slanted POW titles
+   with a red/blue shift, action-burst speed lines behind the active phase, and speech /
+   thought / shout balloons for prompts and pop-ups. On by default; the switch lives in the
+   Volume popup and the dungeon's gear menu (remembered per device as ewComic).
+   ===================================================================== */
+const COMIC_CSS = `:root{
+  --dots-ink: radial-gradient(circle at 50% 50%, rgba(26,16,48,.16) 0 1.15px, transparent 1.5px);
+  --dots-mag: radial-gradient(circle at 50% 50%, rgba(255,40,120,.10) 0 1px, transparent 1.4px);
+  --dots-cya: radial-gradient(circle at 50% 50%, rgba(0,170,255,.10) 0 1px, transparent 1.4px);
+  --dots-lite: radial-gradient(circle at 50% 50%, rgba(255,255,255,.35) 0 1.2px, transparent 1.6px);
+  --ink-shadow: 4px 5px 0 #1a1030;
+}
+body.comic .ppanel,body.comic .cxhero,body.comic .cxenemy,body.comic .cxally{ background-image: var(--dots-ink), var(--dots-mag), var(--dots-cya) !important;
+  background-size: 7px 7px, 7px 7px, 7px 7px !important; background-position: 0 0, 2px 3px, 4px 1px !important; }
+body.comic .btn:not(.phasebtn),body.comic .ph.on{ background-image: var(--dots-ink), var(--dots-lite) !important; background-size:6px 6px, 6px 6px !important; background-position:0 0, 3px 3px !important; }
+body.comic .hpfill{ background: var(--dots-lite) 0 0/6px 6px, radial-gradient(circle, rgba(140,0,40,.25) 0 1.3px, transparent 1.7px) 3px 3px/6px 6px, linear-gradient(90deg,#ff3d64,#ff8aa3) !important; }
+body.comic .shfill{ background: var(--dots-lite) 0 0/6px 6px, radial-gradient(circle, rgba(0,40,140,.25) 0 1.3px, transparent 1.7px) 3px 3px/6px 6px, linear-gradient(90deg,#1f7dff,#7cc6ff) !important; }
+body.comic .abil,body.comic .mcard,body.comic .core,body.comic .prompt,body.comic .logbox{ background-image: var(--dots-mag), var(--dots-cya) !important; background-size: 8px 8px, 8px 8px !important; background-position: 0 0, 4px 4px !important; }
+body.comic .abil.sig{ background-image: var(--dots-ink), var(--dots-mag) !important; }
+body.comic .ppanel{ border-width:4px 6px 7px 4px !important; border-radius:18px 24px 16px 26px / 24px 16px 26px 18px !important; box-shadow: 5px 6px 0 #1a1030 !important; }
+body.comic .zone.acting .ppanel{ animation:none !important; box-shadow: 0 0 0 4px var(--c1), 7px 8px 0 4px #1a1030 !important; }
+body.comic .pport{ border-width:3px 5px 6px 3px !important; border-radius:10px 16px 9px 18px / 16px 10px 18px 9px !important; box-shadow: 3px 3px 0 #1a1030; }
+body.comic .abil{ border-width:3px 4px 5px 3px !important; border-radius:12px 16px 10px 18px / 16px 10px 18px 12px !important; box-shadow: var(--ink-shadow) !important; }
+body.comic .abil:hover:not(:disabled){ transform: translate(-1px,-2px) rotate(-.4deg); box-shadow: 6px 7px 0 #1a1030 !important; }
+/* cards keep their normal outline; only the art box gets the inked bar */
+body.comic .core{ border-width:3px 4px 5px 3px !important; border-radius:9px 14px 8px 15px / 14px 8px 15px 9px !important; }
+body.comic .hpbar,body.comic .shbar{ border-width:3px 4px 5px 3px !important; border-radius:99px 80px 99px 70px / 60px 99px 70px 99px !important; box-shadow: 2px 3px 0 #1a1030; }
+body.comic .rchip{ border-width:2px 3px 4px 2px !important; }
+body.comic .trk .cells i{ border-width:2px 2px 3px 2px; }
+body.comic .logbox{ border-width:3px 5px 6px 3px !important; border-radius:14px 20px 12px 22px / 20px 12px 22px 14px !important; }
+body.comic .btn:not(.phasebtn){ transform: skewX(-8deg); box-shadow: 4px 4px 0 #1a1030 !important; border-width:3px 4px 5px 3px !important; }
+body.comic .sect,body.comic .pname,body.comic .an,body.comic .mhead,body.comic .zlabel{ transform: skewX(-7deg); text-shadow: 2px 2px 0 rgba(26,16,48,.25); }
+body.comic .pname{ text-shadow: 2px 2px 0 #fff, 3px 3px 0 #1a1030; color:#1a1030; }
+body.comic .turnbanner{ transform: skewX(-8deg) rotate(-.6deg); border-width:4px 6px 7px 4px !important; border-radius:14px 22px 12px 24px / 22px 12px 24px 14px !important;
+  text-shadow: -3px -1px 0 #ff2d55, 3px 2px 0 #19c3ff, 5px 6px 0 #1a1030 !important; font-size:2.3rem !important;
+  background-image: repeating-conic-gradient(from 0deg at 50% 50%, rgba(255,255,255,.0) 0deg 7deg, rgba(255,255,255,.16) 7deg 10deg), var(--dots-ink) !important;
+  background-size: auto, 7px 7px !important; box-shadow: 6px 7px 0 #1a1030 !important; }
+body.comic .turnbanner .tphase{ text-shadow:none; transform: skewX(4deg); }
+body.comic .flash{ font-size:1.8rem !important; text-shadow: -2px -1px 0 #ff2d55, 2px 2px 0 #19c3ff, 4px 4px 0 #1a1030; color:#fff !important; }
+body.comic .ph{ position:relative; isolation:isolate; }
+body.comic .ph.on{ transform: skewX(-8deg) scale(1.12); box-shadow: 3px 3px 0 #1a1030; }
+body.comic .ph.on::before{ content:''; position:absolute; left:50%; top:50%; width:220%; height:340%; transform:translate(-50%,-50%); z-index:-1; pointer-events:none;
+  background: repeating-conic-gradient(from 0deg, transparent 0deg 8deg, rgba(255,196,0,.85) 8deg 11deg);
+  -webkit-mask: radial-gradient(closest-side, transparent 30%, #000 45%, transparent 100%); mask: radial-gradient(closest-side, transparent 30%, #000 45%, transparent 100%);
+  animation: burstspin 14s linear infinite; }
+@keyframes burstspin{ to{ transform:translate(-50%,-50%) rotate(360deg); } }
+body.comic .phasebtn{ isolation:isolate; }
+body.comic .phasebtn::after{ content:''; position:absolute; inset:-14px -22px; z-index:-1; pointer-events:none;
+  background: repeating-conic-gradient(from 0deg, transparent 0deg 9deg, rgba(255,60,60,.55) 9deg 12deg);
+  -webkit-mask: radial-gradient(closest-side, transparent 55%, #000 70%, transparent 100%); mask: radial-gradient(closest-side, transparent 55%, #000 70%, transparent 100%); }
+@media (prefers-reduced-motion: reduce){ body.comic .ph.on::before{ animation:none; } }
+body.comic .prompt{ position:relative; border-width:3px 5px 6px 3px !important; border-radius: 26px 30px 26px 30px / 40px 34px 40px 34px !important; box-shadow: 4px 5px 0 #1a1030 !important; margin-bottom:14px; overflow:visible !important; }
+body.comic .prompt::before,body.comic .prompt::after{ content:''; position:absolute; left:34px; bottom:-20px; width:0; height:0; border-style:solid; pointer-events:none; }
+body.comic .prompt::before{ border-width:20px 6px 0 22px; border-color:#1a1030 transparent transparent transparent; bottom:-22px; left:32px; filter: drop-shadow(3px 3px 0 #1a1030); }
+body.comic .prompt::after{ border-width:14px 3px 0 15px; border-color:#fff3b0 transparent transparent transparent; bottom:-12px; left:37px; }
+body.comic .prompt:not(.you)::after{ border-top-color:#fff; }
+body.comic .prompt.thinking{ border-radius: 50px / 60px !important; border-style:solid; }
+body.comic .prompt.thinking::before{ border:3px solid #1a1030; border-radius:50%; width:14px; height:14px; background:#fff; bottom:-18px; left:30px; filter:none; }
+body.comic .prompt.thinking::after{ border:3px solid #1a1030; border-radius:50%; width:8px; height:8px; background:#fff; bottom:-30px; left:20px; }
+body.comic .flash{ border:none !important; border-radius:0 !important; padding:16px 34px !important; box-shadow:none !important; filter: drop-shadow(0 0 0 #1a1030) drop-shadow(3px 0 0 #1a1030) drop-shadow(-3px 0 0 #1a1030) drop-shadow(0 3px 0 #1a1030) drop-shadow(0 -3px 0 #1a1030) drop-shadow(5px 6px 0 #1a1030);
+  clip-path: none; background:none !important; position:relative; isolation:isolate; }
+body.comic .flash::before{ content:''; position:absolute; inset:0; z-index:-1; background: #ffc400; background-image: var(--dots-ink); background-size:7px 7px;
+  clip-path: polygon(0% 22%, 8% 10%, 6% 0%, 20% 8%, 30% 0%, 38% 9%, 50% 1%, 58% 10%, 70% 0%, 76% 11%, 92% 4%, 90% 16%, 100% 20%, 94% 34%, 100% 50%, 93% 62%, 100% 80%, 89% 84%, 92% 100%, 78% 90%, 66% 100%, 56% 90%, 44% 100%, 34% 90%, 22% 100%, 16% 88%, 2% 96%, 6% 80%, 0% 66%, 6% 52%, 0% 38%); }
+body.comic .flash.phase::before{ background-color:#c9b8ff; }
+body.comic .flash.back::before{ background-color:#ffc400; }
+body.comic #toast{ border-radius: 22px / 30px; border-width:3px 4px 5px 3px; }
+body.comic .abil.sig{ background: var(--dots-ink) 0 0/8px 8px, var(--dots-mag) 4px 4px/8px 8px, linear-gradient(135deg,#ffe680,#fff3b0 45%,#fff 85%) !important; border-color:#1a1030 !important; box-shadow: 0 0 0 3px #ffc400, 5px 6px 0 3px #1a1030 !important; }
+body.comic .abil.sig .an{ color:#1a1030; text-shadow: 2px 2px 0 #ffc400; }
+body.comic .abil.off{ opacity:.7 !important; filter: grayscale(.35); }
+body.comic .abil.sig.off{ opacity:.82 !important; filter: grayscale(.2); }
+body.comic .abil.used{ opacity:.5 !important; }
+
+body.comic .mcard{ background-image: radial-gradient(circle, rgba(26,16,48,.20) 0 1.3px, transparent 1.7px), radial-gradient(circle, rgba(255,40,120,.14) 0 1.1px, transparent 1.5px) !important; background-size:7px 7px, 7px 7px !important; background-position:0 0, 3.5px 3.5px !important; }
+
+body.comic .mcard.off{ opacity:.72 !important; filter:grayscale(.4) !important; }
+body.comic .mhead{ transform: skewX(-8deg) rotate(-1deg); border-width:2px 3px 4px 2px !important; background-image: var(--dots-lite) !important; background-size:5px 5px !important;
+  text-shadow: 2px 2px 0 #1a1030, -1px -1px 0 #1a1030, 1px -1px 0 #1a1030, -1px 1px 0 #1a1030 !important; box-shadow: 2px 2px 0 #1a1030; }
+body.comic .martbox{ border-width:2px 3px 4px 2px !important; border-radius:6px 10px 6px 11px / 10px 6px 11px 6px !important;
+  background: var(--dots-ink) 0 0/6px 6px, repeating-conic-gradient(from 0deg at 50% 62%, var(--c2) 0 7.5deg, var(--c2d) 7.5deg 15deg) !important; }
+body.comic .mtype{ display:block; transform: skewX(-8deg); text-shadow: 1px 1px 0 rgba(255,255,255,.8), 2px 2px 0 rgba(26,16,48,.25); }
+body.comic .mtext{ border-width:2px 3px 4px 2px !important; border-radius:9px 12px 8px 13px / 12px 8px 13px 9px !important; box-shadow: 2px 2px 0 #1a1030;
+  background: var(--dots-cya) 0 0/7px 7px, #fff !important; }
+body.comic .mcard:not(.off):hover .mhead{ transform: skewX(-8deg) rotate(-2deg) scale(1.04); }
+
+body.comic .pbanner{ border-color:#1a1030 !important; border-width:4px 7px 8px 4px !important; border-radius:12px 20px 10px 22px / 20px 10px 22px 12px !important; box-shadow: inset 0 0 0 3px var(--c1), 5px 6px 0 #1a1030 !important; }
+body.comic .hpick{ border:4px solid #1a1030 !important; border-width:4px 6px 7px 4px !important; border-radius:12px 18px 10px 20px / 18px 10px 20px 12px !important; box-shadow:5px 6px 0 #1a1030 !important; }
+body.comic .martbox{ border-color:#1a1030 !important; border-width:2px 3px 7px 2px !important; border-radius:6px 10px 5px 11px / 10px 6px 11px 5px !important; box-shadow: 2px 3px 0 #1a1030; }
+`;
+(function(){ const st=document.createElement('style'); st.id='comiccss'; st.textContent=COMIC_CSS; document.head.appendChild(st); })();
+var comicOn=true; try{ comicOn = localStorage.getItem('ewComic')!=='off'; }catch(e){}
+function applyComic(){ document.body.classList.toggle('comic', !!comicOn); }
+function setComic(on){ comicOn=!!on; try{ localStorage.setItem('ewComic', comicOn?'on':'off'); }catch(e){} applyComic(); try{ render(); }catch(e){} }
+applyComic();
+const _volSlidersComic = volSlidersHTML;
+volSlidersHTML = function(){ return _volSlidersComic().replace(/<\/div>$/, `<label class="volrow comicrow"><span>💥 Comic look</span><input type="checkbox" ${comicOn?'checked':''} onchange="setComic(this.checked)" aria-label="Comic look" style="width:20px;height:20px;justify-self:start"><output></output></label></div>`); };
 
 /* ---------- version ---------- */
 VERSION_HISTORY.unshift({v:'0.41', date:'October 2026', notes:[
@@ -7056,6 +7573,43 @@ VERSION_HISTORY.unshift({v:'0.43', date:'October 2026', notes:[
   'Monster intent tags show the target hero’s face instead of YOU / ALLY.',
   'The log is a three-line feed with a Full log button. Big hands fan out like a real hand.',
   'Sound, music, decks and rules moved into a ⚙ menu, and floor and gold now sit on the Map button. The ⚙ menu also has a Classic layout switch, and narrow screens keep the classic layout.',
+]});
+VERSION_HISTORY.unshift({v:'0.44', date:'October 2026', notes:[
+  'PvE screen is bigger: it scales up to fill large screens, the abilities are larger and line up with your hero, and enemy intents and target faces are bigger.',
+  'Roll, Ready and the other phase buttons moved to the left, just above your hero portrait.',
+  'Your abilities only show during fights. On rewards, events and other screens, use the 📜 Abilities button in your hero box to check them.',
+  'Details on your ally now shows their abilities too.',
+  'Fixed: “Not ready yet” now takes back your Ready.',
+  'Fixed: the waiting spinner was stretched into a big spinning line across the screen.',
+  'Insight Core (elite reward) draws 1 extra card every other turn instead of every turn.',
+]});
+VERSION_HISTORY.unshift({v:'0.45', date:'October 2026', notes:[
+  'Fixed: on smaller screens your hand covered the core stone buttons (like Rime Core’s “Freeze a die”), so you couldn’t click them. Your hero column now stays above the hand, and the whole PvE screen scales down to fit smaller screens.',
+  'During fights your core stones (and their buttons) sit in a strip under your abilities, so they are always visible.',
+  'Classic layout now has a ✨ New layout button to switch back.',
+  'New 🔊 Volume button (bottom right, on every screen) with separate sliders for sounds and music. They are also in the ⚙ menu (on the PvE screen they live there) and are remembered on this device.',
+]});
+VERSION_HISTORY.unshift({v:'0.46', date:'October 2026', notes:[
+  'PvE screen sizing: a middle ground. It now uses the full width of the window (it was boxed into the middle on big screens) and scales up to 1.3× instead of 1.6×.',
+  'Ability names stay on one line and descriptions are never cut off: they shrink a little only when they would not fit.',
+  'Your hero box no longer needs a scroll bar to show your dice: the portrait banner shrinks a little instead.',
+]});
+VERSION_HISTORY.unshift({v:'0.47', date:'October 2026', notes:[
+  'Defense rework (versus): shields now last one turn and fade when your next turn starts. Hero ability shields are doubled to make up for it (Sand Shield, Gloom Ward, Iron Wall and the rest give 4, Pyroclast 6, Earthen Wall 2).',
+  'Defend with up to 3 resources per attack (was 2).',
+  'New: Brace. Once per turn, discard 2 resources to gain 3 shield.',
+  'New: Reroll. Once per turn, after rolling, pay 1 resource to reroll up to 2 dice.',
+  'New: hand limit of 7. Discard down when you end your turn (sell cards for resources first if you want something back).',
+  'Ice Queen: Glacial Armor and Frozen Fortress also freeze her shield, so it doesn’t fade when her next turn starts. Refreeze it every turn or it fades.',
+  'Ice Queen: Thaw Burst is her big hit. It unfreezes all her dice and all enemy dice at once for 1 damage each, plus 2 (up to 14). The AI now freezes up and saves it until at least 4 dice are frozen, instead of firing it early.',
+  'Time Hero AI: lines his attacks up. He starts his damage timers, holds back any that are about to go off on their own with Borrowed Time, banks Time, then Accelerates one more into place and uses Temporal Collapse so they all go off at once (+2 each). The log now says how many attacks went off together and for how much.',
+  'The AI uses all of these. The dungeon (PvE) is unchanged.'
+]});
+VERSION_HISTORY.unshift({v:'0.48', date:'October 2026', notes:[
+  'New comic-book look: halftone dots in panels, buttons and bars; hand-inked outlines with hard shadows; slanted POW-style titles with a red/blue shift on YOUR TURN; speed-line bursts behind the active phase; speech balloons for prompts, thought bubbles while you wait, and jagged shout bursts for pop-ups.',
+  'Cards get the comic look too: slanted name banners, halftone art boxes, inked caption boxes and hard shadows. Signature abilities keep their gold tile and stay readable when you can’t afford them.',
+  'Reroll and Brace now have their own icon buttons in a fixed row under the turn banner. They stay in the same place all turn and grey out (with the reason) when you can’t use them.',
+  'Turn it off or on with “💥 Comic look” in the Volume popup (or the dungeon’s ⚙ menu).'
 ]});
 
 </script>
