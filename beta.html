@@ -1481,8 +1481,8 @@ const HLIVE = S => HS(S).filter(i=>!S.p[i].absent);
 const PARTY = S => HLIVE(S).length;
 // v0.50: enemy toughness by party size (solo 0.6, pair 1, trio and quad tougher)
 const P50={hp:{1:0.6, 2:1, 3:1.5, 4:2.1}, extra:{3:1, 4:2}, dmg:{3:1, 4:2}, maxMon:4}; // maxMon: the battlefield shows at most 4 monsters
-const pHp = S => S && S.coop ? (S.solo ? P50.hp[1] : (P50.hp[PARTY(S)]||1)) : 1;
-const pDmg = S => S && S.coop ? (S.solo ? -1 : (P50.dmg[PARTY(S)]||0)) : 0;
+let pHp = S => S && S.coop ? (S.solo ? P50.hp[1] : (P50.hp[PARTY(S)]||1)) : 1;
+let pDmg = S => S && S.coop ? (S.solo ? -1 : (P50.dmg[PARTY(S)]||0)) : 0;
 const pnum = seat => (seat===0||seat===1) ? seat+1 : seat;
 const allDone = (S,D) => HS(S).every(i=>S.p[i].absent || (D && D.done && D.done[i]));
 const alliesOf = (S,seat) => HLIVE(S).filter(i=>i!==seat);
@@ -3110,7 +3110,7 @@ async function createOnline(coop, size){
   if(busy) return; busy=true;
   try{
     const code=genCode(), n=coop===true ? Math.max(2,Math.min(4,size||2)) : 2;
-    const doc={v:1, code, mode:'online', status:'waiting', players:[myId,...Array(n-1).fill(null)], heroes:[pickedHero,...Array(n-1).fill(null)], coop:coop===true, createdAt:Date.now(), updatedAt:Date.now()};
+    const doc={v:1, code, mode:'online', status:'waiting', players:[myId,...Array(n-1).fill(null)], heroes:[pickedHero,...Array(n-1).fill(null)], coop:coop===true, heat:(coop===true?(window.__nextHeat||0):0), createdAt:Date.now(), updatedAt:Date.now()};
     await db.doc('games/'+code).set(doc);
     lobbyMsg=`Game ${code} created. Send the code to your ${n>2?'friends ('+(n-1)+' more heroes can join)':'friend'}. You'll get an alert here when they join and it's your move. You can close the page and come back later.`;
     renderLobby(); showCreated(code);
@@ -3138,9 +3138,9 @@ async function joinOnline(code){
     if(g.coop && g.players.length>2){
       const players=g.players.slice(), heroes=g.heroes.slice(); players[slot]=myId; heroes[slot]=pickedHero;
       if(players.includes(null)){ await ref.set(Object.assign({}, g, {players, heroes, updatedAt:Date.now()})); await openOnline(code); return; }
-      const S1=makeCoop(heroes, players, 'online', code); S1.createdAt=g.createdAt; await ref.set(S1); await openOnline(code); return;
+      window.__nextHeat=g.heat||0; const S1=makeCoop(heroes, players, 'online', code); S1.createdAt=g.createdAt; await ref.set(S1); await openOnline(code); return;
     }
-    const S0=g.coop ? makeCoop([g.heroes[0],pickedHero],[g.players[0],myId],'online',code) : makeGame([g.heroes[0],pickedHero],[g.players[0],myId],'online',code);
+    if(g.coop) window.__nextHeat=g.heat||0; const S0=g.coop ? makeCoop([g.heroes[0],pickedHero],[g.players[0],myId],'online',code) : makeGame([g.heroes[0],pickedHero],[g.players[0],myId],'online',code);
     S0.createdAt=g.createdAt;
     await ref.set(S0);
     await openOnline(code);
@@ -3169,7 +3169,7 @@ function leaveGame(){
 }
 function startLocal(){
   const order=Object.keys(HEROES), other = order[(order.indexOf(pickedHero)+1)%order.length];
-  pickOne('Choose the second hero', Object.entries(HEROES).map(([k,h])=>({v:k,label:h.name+(k===other?' (suggested)':'')})) ).then(h2=>{
+  pickOne('Player 2: pick a hero', Object.entries(HEROES).map(([k,h])=>({v:k,html:ptile(`<img class="picface" src="${IMG[k+'_card']||IMG[k+'_face']}" alt="">`, h.name, k===other?'suggested':'', h.name, 'hero')})) ).then(h2=>{
     if(!h2) return;
     seenRoll={}; lastTurnKey=undefined; lastFlashN=undefined; lastPendOther=false; lastSxN=undefined; lastPhase=undefined; S=makeGame([pickedHero,h2],[null,null],'local'); mySeat=null; render();
   });
@@ -3592,7 +3592,7 @@ function scheduleBot(){
 }
 function startAI(){
   const keys=Object.keys(HEROES);
-  pickOne('Practice vs AI: choose the AI’s hero', [{v:'random',label:'🎲 Random'}].concat(keys.map(k=>({v:k,label:HEROES[k].name})))).then(h2=>{
+  pickOne('Vs the computer: pick its hero', [{v:'random',html:ptile(pic(['cosmic',null,['die',80,56,1.3,-15,5],['die',125,60,1,20,3],['fx:circles',100,56,30,'#fff']]),'Random','Surprise me','The computer picks a random hero.','hero')}].concat(keys.map(k=>({v:k,html:ptile(`<img class="picface" src="${IMG[k+'_card']||IMG[k+'_face']}" alt="">`, HEROES[k].name, '', HEROES[k].name, 'hero')})))).then(h2=>{
     if(!h2) return;
     if(h2==='random') h2=keys[Math.floor(Math.random()*keys.length)];
     seenRoll={}; lastTurnKey=undefined; lastFlashN=undefined; lastPendOther=false; lastSxN=undefined; lastPhase=undefined;
@@ -3949,12 +3949,12 @@ function mapFight(f, t, act){
 }
 function pickCorruptHero(hs){ const c=Object.keys(HEROES).filter(k=>!(hs||[]).includes(k)); return c.length ? c[rnd(c.length)] : 'dark'; }
 const bossSpecOf = nd => (nd && nd.boss) || {kind:'malkorr'};
-const bossName = bs => bs.kind==='corrupt' ? 'Corrupted '+HEROES[bs.hero].name : BOSS.name;
+const bossName = bs => bs.kind==='corrupt' ? 'Corrupted '+HEROES[bs.hero].name : bs.kind==='verdant' ? 'the Verdant Hydra' : BOSS.name;
 function genMap(act, bossHero){
   act=act||1;
   const floors=[[{t:'start', y:50, next:[], streak:0}]];
   for(let f=1; f<=MAP_FLOORS; f++){ const n = f===1 ? 3 : 2+rnd(3); floors.push(mapSpreadY(n).map(y=>({t:null, y, next:[]}))); }
-  floors.push([{t:'boss', y:50, next:[], boss: (act===1 && bossHero) ? {kind:'corrupt', hero:bossHero} : {kind:'malkorr'}}]);
+  floors.push([{t:'boss', y:50, next:[], boss: (act===1 && bossHero) ? {kind:'corrupt', hero:bossHero} : act===2 ? {kind:'verdant'} : {kind:'malkorr'}}]);
   floors[0][0].next=floors[1].map((_,i)=>i);
   for(let f=1; f<MAP_FLOORS; f++) mapLink(floors[f], floors[f+1]);
   floors[MAP_FLOORS].forEach(nd=>{ nd.next=[0]; });
@@ -4051,6 +4051,7 @@ function coopPickEvent(T,seat,choice){
   if(allDone(T,EV)){ T.event=null; advancePath(T); }
 }
 function setupFight(S, spec){
+  const verdant = spec && spec.boss==='verdant'; if(verdant) spec={kind:'elite', keys:['hydra'], bonus:2};
   if(!spec){ const f=COOP_FIGHTS[Math.max(0,Math.min(4,S.fightIdx))]; spec={kind:f.kind, tier:f.tier, n:f.n}; }
   S.fight={kind:spec.kind, n:S.fightIdx+1, tier:spec.tier||1, boss: spec.kind==='boss' ? (spec.boss||'malkorr') : null, title: spec.kind==='boss'?'Boss':spec.kind==='elite'?'Elite':spec.tier===3?'Minion pack':'Minions'};
   S.heroes[2]='enemy';
@@ -4059,6 +4060,7 @@ function setupFight(S, spec){
   else if(spec.kind==='elite'){ const keys=spec.keys || elitePick(S); keys.forEach(k=>addMinion(S,k,spec.bonus||0)); S.p[2].name='Elite'; }
   else if(spec.boss==='corrupt' && HEROES[spec.hero]) setupCorruptBoss(S, spec.hero);
   else { const E=S.p[2]; E.name=BOSS.name; E.boss=1; E.hp=E.maxhp=Math.round(BOSS.hp*pHp(S)); E.dice=Array.from({length:6},()=>({f:1+rnd(6),fz:0,fzE:0,fog:0})); E.deck=shuffle(BOSS_CARDS.map((c,i)=>i)); E.disc=[]; }
+  if(verdant){ S.fight.boss='verdant'; S.fight.title='Act boss'; S.p[2].name='The Verdant Hydra'; S.p[2].cores.forEach(c=>{ if(c.m){ c.hp=c.max=Math.round(c.hp*1.4); } }); lg(S,'🌿 The Verdant Hydra uncoils from the ivy, three heads hissing!'); flash(S,'🌿 The Verdant Hydra!'); }
   // heroes: the very first encounter starts fresh; after that you keep your cores, resources, shield, hand, deck and discard
   const fresh = !S.freshDone; S.freshDone=true;
   HS(S).forEach(i=>{
@@ -4265,14 +4267,19 @@ function coopCheck(S){
 function fightWon(S){
   S.q=[]; sfx(S,'deflect');
   { const E0=S.p[2]; if(E0.cores.some(c=>c.m && c.m.optional)){ S.coreEmpower=(S.coreEmpower||0)+1; lg(S,'💠 The core stone\'s unstable power surges into future enemies!'); flash(S,'💠 Enemies grow stronger!'); } }
-  { const g = S.fight.kind==='boss' ? (S.fight.boss==='corrupt' ? 60 : 100) : S.fight.kind==='elite' ? 35+rnd(11) : 10+5*(S.fight.tier||1)+rnd(6); S.gold=(S.gold||0)+g; S.lastGold=g; lg(S,`🪙 The heroes collect ${g} gold (${S.gold} in the purse).`); }
+  { const g = S.fight.boss==='verdant' ? 80 : S.fight.kind==='boss' ? (S.fight.boss==='corrupt' ? 60 : 100) : S.fight.kind==='elite' ? 35+rnd(11) : 10+5*(S.fight.tier||1)+rnd(6); S.gold=(S.gold||0)+g; S.lastGold=g; lg(S,`🪙 The heroes collect ${g} gold (${S.gold} in the purse).`); }
   if(S.fight.kind==='boss' && S.fight.boss!=='corrupt'){ S.status='over'; S.winner=-1; S.coopWin=true; lg(S,`🏆 ${BOSS.name} is defeated! You win the run!`); flash(S,'🏆 Victory!'); return; }
   lg(S,`🏆 Fight ${S.fight.n} won!`); flash(S,'🏆 Fight won! Choose your reward.');
   HS(S).forEach(i=>{ const P=S.p[i]; if(P.down && !P.absent){ P.down=0; P.hp=4; lg(S,`{${i}} gets back up with 4 health.`); } });
   if(S.fight.boss==='corrupt'){
     lg(S,`☀ The corruption lifts from the ${HEROES[S.p[2].heroBoss].name}. Act 1 is complete!`); flash(S,'🏆 Act 1 complete!');
     HS(S).forEach(i=>{ const P=S.p[i]; if(P.absent) return; P.dice.forEach(d=>{ d.cor=0; }); const h=Math.ceil((maxHp(P)-P.hp)/2); if(h>0){ P.hp+=h; lg(S,`💚 {${i}} catches their breath and heals ${h}.`); } });
-    S.act=2; S.map=genMap(2); lg(S,'🗺 A new path opens into the Overlord’s depths: Act 2 begins.');
+    S.act=2; S.map=genMap(2); lg(S,'🌿 The path winds down into ivy-choked, overgrown caverns: Act 2 begins.');
+  }
+  if(S.fight.boss==='verdant'){
+    lg(S,'🌿 The Verdant Hydra withers. Act 2 is complete!'); flash(S,'🏆 Act 2 complete!');
+    HS(S).forEach(i=>{ const P=S.p[i]; if(P.absent) return; const h=Math.ceil((maxHp(P)-P.hp)/2); if(h>0){ P.hp+=h; lg(S,`💚 {${i}} catches their breath and heals ${h}.`); } });
+    S.act=3; S.map=genMap(3); lg(S,'🔥 Below the roots the stone splits open, crackling with elemental wisps. Malkorr waits at the bottom: Act 3 begins.');
   }
   const kind = (S.fight.kind==='elite' || S.fight.boss==='corrupt') ? 'relic' : 'card', opts={};
   HS(S).forEach(i=>{
@@ -4569,7 +4576,7 @@ function mapNodeIcon(nd, detail){
   if(nd.t==='monster'||nd.t==='elite'){ const k=nd.fight&&nd.fight.keys&&nd.fight.keys[0], m=k&&MINIONS[k]; return detail && m && IMG[m.img] ? `<img src="${IMG[m.img]}" alt="">` : MAP_DEMON; }
   if(nd.t==='event') return `<span class="mq">?</span>`;
   if(nd.t==='crystal') return MAP_CRYSTAL;
-  if(nd.t==='boss'){ const bs=bossSpecOf(nd); return bs.kind==='corrupt' ? `<img class="corruptimg" src="${IMG[bs.hero+'_face']}" alt="">` : `<img src="${IMG.boss}" alt="">`; }
+  if(nd.t==='boss'){ const bs=bossSpecOf(nd); return bs.kind==='corrupt' ? `<img class="corruptimg" src="${IMG[bs.hero+'_face']}" alt="">` : bs.kind==='verdant' ? `<img class="verdantimg" src="${IMG.m_hydra}" alt="">` : `<img src="${IMG.boss}" alt="">`; }
   return '';
 }
 function mapNodeTitle(nd, detail){
@@ -4599,7 +4606,7 @@ function mapHTML(S, interactive){
       const st = (f===cf && i===M.cur.i) ? 'cur' : onTrail(f,i) ? 'done' : ci>=0 ? 'choice' : (f>cf+1 && f!==last) ? 'dim' : f<=cf ? 'past' : '';
       const votes = PC && ci>=0 ? HS(S).filter(s=>!S.p[s].absent && PC.done[s] && PC.pick[s]===ci).map(s=>`<span class="mvote">${S.solo?'✓':'P'+pnum(s)}</span>`).join('') : '';
       const attr = ci>=0 && !PC.done[viewSeat()] ? ` data-act="pathvote" data-i="${ci}" role="button" tabindex="0"` : '';
-      const label = nd.t==='boss' ? (bossSpecOf(nd).kind==='corrupt' ? `<span class="mlabel">CORRUPTED<br>${esc(HEROES[bossSpecOf(nd).hero].name.toUpperCase())}</span>` : '<span class="mlabel">BOSS<br>MALKORR</span>') : nd.t==='start' ? '<span class="mlabel">START</span>' : '';
+      const label = nd.t==='boss' ? (bossSpecOf(nd).kind==='verdant' ? '<span class="mlabel">VERDANT<br>HYDRA</span>' : bossSpecOf(nd).kind==='corrupt' ? `<span class="mlabel">CORRUPTED<br>${esc(HEROES[bossSpecOf(nd).hero].name.toUpperCase())}</span>` : '<span class="mlabel">BOSS<br>MALKORR</span>') : nd.t==='start' ? '<span class="mlabel">START</span>' : '';
       nodes.push(`<div class="mnode t-${nd.t} ${nd.t==='boss'&&bossSpecOf(nd).kind==='corrupt'?'b-corrupt':''} ${st}" style="left:${x}%;top:${nd.y}%" title="${esc(mapNodeTitle(nd,d))}"${attr}><span class="mbadge">${mapNodeIcon(nd,d)}</span>${votes}${label}</div>`);
     });
   });
@@ -4860,7 +4867,7 @@ function showDelve(){
 }
 
 /* ---------- version badge + history ---------- */
-const GAME_VERSION='0.52';
+const GAME_VERSION='0.58';
 const VERSION_HISTORY=[
   {v:'0.40', date:'October 2026', notes:[
     'The PvE dungeon now has two acts. Act 1 ends with a Corrupted Hero — one of the heroes nobody picked, darkened and twisted. Beat it, catch your breath (heal half your missing health), claim a powerful core, and a brand-new random map opens for Act 2, with tougher monsters and Malkorr at the end.',
@@ -5442,14 +5449,14 @@ const ACT2_MIX=ACT2_ALL.concat(['sand','guard']);
 const actOf = S => S.act||1;
 const depthOf = S => (S.map && S.map.cur) ? S.map.cur.f : 0;
 // Monsters scale with how deep you are: +5% health per floor, Act 2 is much tougher and hits harder.
-function depthHp(S){ return S.coop ? (1+0.05*depthOf(S))*(actOf(S)>=2?1.3:1) : 1; }
+function depthHp(S){ return S.coop ? (1+0.05*depthOf(S))*(actOf(S)>=3?1.45:actOf(S)>=2?1.3:1) : 1; }
 function depthDmg(S){ return S.coop && depthOf(S)>=5 ? 1 : 0; } // Act 2 maps already add +1 (and +5 health) to every monster
 function minionPool(S,tier){ return actOf(S)>=2 ? (tier>=3?ACT2_ALL:ACT2_MIX) : (tier>=2?STRONG:WEAK); }
-function elitePick(S){ return actOf(S)>=2 ? (rnd(2)?['hydra']:['warlord', ACT2_MIX[rnd(ACT2_MIX.length)]]) : (rnd(3)===0?['hydra']:[ELITES[rnd(ELITES.length)], WEAK[rnd(WEAK.length)]]); }
+function elitePick(S){ return actOf(S)>=2 ? ['warlord', ACT2_MIX[rnd(ACT2_MIX.length)]] : (rnd(3)===0?['hydra']:[ELITES[rnd(ELITES.length)], WEAK[rnd(WEAK.length)]]); }
 mapFight = function(f, t, act){
-  const bonus = act===2 ? 1 : 0, S0={act:act||1};
+  const bonus = Math.max(0,(act||1)-1), S0={act:act||1};
   if(t==='elite') return {kind:'elite', bonus, keys:elitePick(S0)};
-  const tier = act===2 ? (f<=3 ? 2 : 3) : (f<=2 ? 1 : f<=4 ? 2 : 3);
+  const tier = act>=2 ? (f<=3 ? 2 : 3) : (f<=2 ? 1 : f<=4 ? 2 : 3);
   return {kind:'minion', tier, bonus, keys:shuffle(minionPool(S0,tier).slice()).slice(0, tier===1?2:3)};
 };
 // Element that can cleanse/reflect a curse from a monster of element el (always one of F/W/E so every hero has it)
@@ -6236,7 +6243,7 @@ function dbgOpen(){
   ${S.coop?`<div class="dbgsec">Items</div>
   <div class="dbgrow"><select id="dbgitem">${Object.keys(ITEMS).map(k=>dbgOpt(k,ITEMS[k].name)).join('')}</select><button data-act2="additem">Give item</button><button data-act2="clearitems">Clear items</button></div>
   <div class="dbgsec">Dungeon</div>
-  <div class="dbgrow"><span>Act <select id="dbgact">${dbgOpt(1,'1',S.act!==2)}${dbgOpt(2,'2',S.act===2)}</select></span><span>Floor <input type="number" id="dbgfloor" min="0" max="${MAP_FLOORS}" value="${S.map&&S.map.cur?S.map.cur.f:0}" style="width:44px"></span></div>
+  <div class="dbgrow"><span>Act <select id="dbgact">${dbgOpt(1,'1',(S.act||1)===1)}${dbgOpt(2,'2',S.act===2)}${dbgOpt(3,'3',S.act===3)}</select></span><span>Floor <input type="number" id="dbgfloor" min="0" max="${MAP_FLOORS}" value="${S.map&&S.map.cur?S.map.cur.f:0}" style="width:44px"></span></div>
   <div class="dbgrow"><select id="dbgmon" multiple size="5">${mons.map(k=>dbgOpt(k,MINIONS[k].name.replace(/^The /,'')+(MINIONS[k].elite?' (elite)':''))).join('')}</select><div class="dbgcol"><button data-act2="fight">Fight selected</button><button data-act2="hydra">Fight Ruin Hydra</button><button data-act2="malkorr">Fight Malkorr</button>
     <span><select id="dbgcorrupt">${Object.keys(HEROES).map(h=>dbgOpt(h,HEROES[h].name)).join('')}</select><button data-act2="corrupt">Fight corrupted</button></span></div></div>
   <div class="dbgrow"><select id="dbgevent">${Object.keys(EVENTS).map(k=>dbgOpt(k,EVENTS[k].icon+' '+EVENTS[k].title)).join('')}</select><button data-act2="event">Visit</button><button data-act2="leyline">Ley line</button><button data-act2="corefind">Core stone</button><button data-act2="map">Back to map</button></div>
@@ -6315,7 +6322,7 @@ IMG.m_abyss = 'data:image/webp;base64,UklGRmo+BABXRUJQVlA4WAoAAAASAAAAjwEAswAAQU
 const _genMap0 = genMap;
 genMap = function(act, bossHero){
   const M=_genMap0(act, bossHero);
-  if(act===2) M.floors.forEach((fl,f)=>{ if(f>=MAP_FLOORS-1) fl.forEach(nd=>{ if(nd.t==='crystal' && nd.sub==='corefind') nd.sub='leyline'; }); });
+  if(act>=3) M.floors.forEach((fl,f)=>{ if(f>=MAP_FLOORS-1) fl.forEach(nd=>{ if(nd.t==='crystal' && nd.sub==='corefind') nd.sub='leyline'; }); });
   return M;
 };
 
@@ -6489,7 +6496,7 @@ coopMenu = async function(){
   if(typeof db!=='undefined' && db && myId) opts.push({v:'online', html:'<span class="eb">🌐 Co-op online <small>(2 to 4 players: send friends the code)</small></span>'});
   opts.push({v:'forge', html:`<span class="eb">💎 Crystal Forge <small>(you have ${crysGet().have} Elemental Crystals)</small></span>`});
   if(L.ups.length || L.wins) opts.push({v:'reset', html:'<span class="eb">♻ Reset my permanent upgrades <small>(back to 0)</small></span>'});
-  const r=await pickOne('PvE dungeon', opts, {sub:`Two acts of branching dungeon maps. Act 1 ends with a corrupted hero; Act 2 with Malkorr, the Elemental Overlord. Solo enemies have less health.<br>🏅 <b>Your dungeon wins: ${L.wins}</b> · Permanent upgrades: ${esc(legacyText(L))}`}); if(!r) return;
+  const r=await pickOne('PvE dungeon', opts, {sub:`Three acts of branching dungeon maps. Act 1 ends with a corrupted hero; Act 2, deep in the overgrown caves, with the Verdant Hydra; Act 3, in the cracked depths, with Malkorr, the Elemental Overlord. Solo enemies have less health.<br>🏅 <b>Your dungeon wins: ${L.wins}</b> · Permanent upgrades: ${esc(legacyText(L))}`}); if(!r) return;
   if(r==='forge'){ await crystalForge(); return coopMenu(); }
   if(r==='reset'){ const ok=await pickOne('Reset your permanent upgrades?', [{v:'yes', html:'<span class="eb">♻ Yes, reset to 0</span>'}], {sub:`Are you sure? This removes all ${L.ups.length} dice upgrades and sets your dungeon wins back to 0. It can’t be undone.`}); if(ok==='yes'){ legacySet({wins:0, ups:[], claimed:L.claimed}); toast('Permanent upgrades reset.'); } return; }
   if(r==='solo'){ seenRoll={}; lastTurnKey=undefined; lastFlashN=undefined; lastPendOther=false; lastSxN=undefined; lastPhase=undefined; S=makeCoop([pickedHero,pickedHero],[null,null],'local',null,true); mySeat=null; coopView=0; render(); return; }
@@ -7079,7 +7086,7 @@ coopPickTarget = async function(seat){
 };
 const _pickOneCx = pickOne;
 pickOne = function(title, opts, o){
-  if(cxDropHeal!=null && /^Who do you want to heal/.test(title||'')){ const h=cxDropHeal; cxDropHeal=null; return Promise.resolve(h===viewSeat() ? 'me' : 'ally'); }
+  if(cxDropHeal!=null && /^Who do you want to heal/.test(title||'')){ const h=cxDropHeal; cxDropHeal=null; return Promise.resolve(h===viewSeat() ? 'me' : 'a'+h); }
   return _pickOneCx(title, opts, o);
 };
 window.addEventListener('resize', ()=>{ if(S && S.coop) render(); });
@@ -8544,7 +8551,7 @@ coopPrompt = function(S,v){ let h=_coopPrompt50(S,v);
   if(S && S.coop && !S.solo && PARTY(S)>2) h=h.replace(/Waiting for your partner/g,'Waiting for your allies').replace(/Your partner can revive you/g,'Any ally can revive you').replace(/Your partner is ready\./g,'Your allies are ready.').replace(/ If you and your partner disagree, fate decides\./g,' The most votes win; a tie is left to fate.').replace(/Both heroes fell/g,'Every hero fell');
   return h; };
 /* ---------- v0.51: Elemental Crystals: earned in the dungeon, kept between runs on this device ---------- */
-const CRYS_EARN = {minion:[0,1,2,2], elite:4, corrupt:8, malkorr:12};
+const CRYS_EARN = {minion:[0,1,2,2], elite:4, corrupt:8, verdant:10, malkorr:15};
 const CRYS_UPS = {
   vit:   {name:'Vitality',     icon:'❤', cost:[6,12,20], text:l=>`+${3*l} max health`},
   attune:{name:'Attunement',   icon:'✦', cost:[10,22],   text:l=>`start every fight with +${l} of your hero’s own element`},
@@ -8584,7 +8591,7 @@ runPacket = function(S,pk){ const A=S.p[pk.from];
 // earning: every fight won adds crystals to the run's tally (each device collects them once)
 const _fightWon51 = fightWon;
 fightWon = function(S){ const F=S.fight;
-  if(S.coop && F){ const n = F.kind==='boss' ? (F.boss==='corrupt' ? CRYS_EARN.corrupt : CRYS_EARN.malkorr) : F.kind==='elite' ? CRYS_EARN.elite : (CRYS_EARN.minion[F.tier||1]||1);
+  if(S.coop && F){ const n = F.boss==='verdant' ? CRYS_EARN.verdant : F.kind==='boss' ? (F.boss==='corrupt' ? CRYS_EARN.corrupt : CRYS_EARN.malkorr) : F.kind==='elite' ? CRYS_EARN.elite : (CRYS_EARN.minion[F.tier||1]||1);
     S.crysN=(S.crysN||0)+1; S.crysRun=(S.crysRun||0)+n; S.crysLast=n; S.crysLog=(S.crysLog||[]).concat([{n:S.crysN, amt:n}]).slice(-40);
     lg(S,`💎 +${n} Elemental Crystal${n>1?'s':''} (${S.crysRun} this run).`); }
   return _fightWon51(S); };
@@ -8742,11 +8749,11 @@ render = (function(base){ return function(){ const r=base.apply(this,arguments);
   return r; }; })(render);
 document.head.insertAdjacentHTML('beforeend', `<style id="arena52">
 /* v0.52 comic arena: speed-line burst behind the monsters, halftone dots toward the edges, inked panel frame */
-body.pve.ingame::before{ background:
+body.comic.pve.ingame::before{ background:
   radial-gradient(ellipse 38% 26% at 50% 20%, rgba(255,214,90,.30), transparent 70%),
   radial-gradient(ellipse 70% 50% at 50% 22%, rgba(214,74,190,.32), transparent 72%),
   radial-gradient(ellipse 120% 90% at 50% 22%, #3a2370 0%, #22134a 42%, #120a2a 72%, #07040f 100%) !important; }
-body.pve.ingame::after{ display:block !important; content:''; position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:1 !important;
+body.comic.pve.ingame::after{ display:block !important; content:''; position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:1 !important;
   background:
     radial-gradient(circle, rgba(255,90,190,.30) 0 1.7px, transparent 2.3px) 0 0/13px 13px,
     radial-gradient(circle, rgba(70,200,255,.22) 0 1.3px, transparent 1.9px) 6.5px 6.5px/13px 13px,
@@ -8754,17 +8761,17 @@ body.pve.ingame::after{ display:block !important; content:''; position:fixed; in
   -webkit-mask-image:radial-gradient(ellipse 75% 70% at 50% 24%, transparent 18%, rgba(0,0,0,.55) 42%, #000 80%); mask-image:radial-gradient(ellipse 75% 70% at 50% 24%, transparent 18%, rgba(0,0,0,.55) 42%, #000 80%);
   box-shadow:inset 0 0 0 7px #0b0618, inset 0 0 0 10px rgba(255,210,80,.18), inset 0 0 90px rgba(0,0,0,.65); }
 /* boss arena: fiery burst */
-body.arena.ingame::before{ background:
+body.comic.pve.arena.ingame::before{ background:
   radial-gradient(ellipse 40% 28% at 50% 20%, rgba(255,220,90,.38), transparent 70%),
   radial-gradient(ellipse 75% 55% at 50% 22%, rgba(255,90,40,.36), transparent 72%),
   radial-gradient(ellipse 120% 90% at 50% 22%, #5a1a22 0%, #2e0d18 45%, #12050a 75%, #060205 100%) !important; }
-body.arena.ingame::after{ background:
+body.comic.pve.arena.ingame::after{ background:
     radial-gradient(circle, rgba(255,140,40,.32) 0 1.7px, transparent 2.3px) 0 0/13px 13px,
     radial-gradient(circle, rgba(255,230,120,.20) 0 1.3px, transparent 1.9px) 6.5px 6.5px/13px 13px,
     repeating-conic-gradient(from 0deg at 50% 22%, rgba(255,200,120,.18) 0deg 1.2deg, transparent 1.2deg 4.4deg, rgba(255,200,120,.10) 4.4deg 5deg, transparent 5deg 9deg) !important; }
 /* the monster strip: halftone and action lines inside the torn panel */
-body.pve .enemyzone > *{ z-index:1; }
-body.pve .enemyzone::after{ content:''; position:absolute; inset:0; z-index:0; pointer-events:none; mix-blend-mode:screen;
+body.comic.pve .enemyzone > *{ z-index:1; }
+body.comic.pve .enemyzone::after{ content:''; position:absolute; inset:0; z-index:0; pointer-events:none; mix-blend-mode:screen;
   background:
     radial-gradient(circle, rgba(255,110,200,.22) 0 1.4px, transparent 2px) 0 0/10px 10px,
     repeating-conic-gradient(from 0deg at 50% 60%, rgba(255,255,255,.06) 0deg 1deg, transparent 1deg 6deg);
@@ -8794,6 +8801,813 @@ document.head.insertAdjacentHTML('beforeend', `<style id="end52">
 .epok{ position:relative; font-size:1.5rem !important; min-width:180px; padding:10px 28px !important; }
 .endpop .confetti{ position:fixed; inset:0; pointer-events:none; }
 </style>`);
+
+/* ---------- v0.53: act themes, quick actions by your dice, combat icon ---------- */
+document.head.insertAdjacentHTML('beforeend', `<style id="act53">
+/* ===== v0.53 act themes: Act 2 overgrown ivy caves, Act 3 cracked elemental depths ===== */
+body.pve.act2.ingame::before{ background:
+  radial-gradient(ellipse 60% 40% at 50% 18%, rgba(170,255,140,.18), transparent 70%),
+  repeating-linear-gradient(105deg, rgba(200,255,170,.05) 0 26px, transparent 26px 110px),
+  radial-gradient(ellipse 120% 90% at 50% 22%, #1f5a3a 0%, #123b26 45%, #08200f 75%, #030c06 100%) !important; }
+body.pve.act3.ingame::before{ background:
+  radial-gradient(ellipse 50% 32% at 50% 20%, rgba(255,140,60,.22), transparent 70%),
+  radial-gradient(ellipse 70% 50% at 50% 26%, rgba(90,200,255,.12), transparent 72%),
+  radial-gradient(ellipse 120% 90% at 50% 22%, #3a2a30 0%, #22161c 45%, #120a0e 75%, #060305 100%) !important; }
+body.pve.act2 .enemyzone{ background:
+  url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20240%2070%22%20preserveAspectRatio%3D%22none%22%3E%3Cpath%20d%3D%22M0%206%20Q30%2022%2060%208%20Q90%20-4%20120%2010%20Q150%2024%20180%208%20Q210%20-4%20240%206%22%20fill%3D%22none%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%229%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M0%206%20Q30%2022%2060%208%20Q90%20-4%20120%2010%20Q150%2024%20180%208%20Q210%20-4%20240%206%22%20fill%3D%22none%22%20stroke%3D%22%233f9a4a%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M40%2014%20Q46%2036%2038%2058%20M150%2018%20Q142%2034%20152%2050%20M205%208%20Q212%2022%20206%2034%22%20fill%3D%22none%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%226%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M40%2014%20Q46%2036%2038%2058%20M150%2018%20Q142%2034%20152%2050%20M205%208%20Q212%2022%20206%2034%22%20fill%3D%22none%22%20stroke%3D%22%2358b45a%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%2F%3E%3Cg%20transform%3D%22translate%2820%2014%29%20rotate%2840%29%20scale%280.32%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%2347c25a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%2878%206%29%20rotate%28-30%29%20scale%280.3%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%236ad06a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28100%2014%29%20rotate%28120%29%20scale%280.28%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%2347c25a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28132%2016%29%20rotate%2860%29%20scale%280.3%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%239be07a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28168%2014%29%20rotate%28-60%29%20scale%280.3%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%2347c25a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28228%208%29%20rotate%2820%29%20scale%280.3%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%236ad06a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%2840%2046%29%20rotate%2880%29%20scale%280.3%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%236ad06a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%2838%2060%29%20rotate%28160%29%20scale%280.26%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%2347c25a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28152%2046%29%20rotate%28-80%29%20scale%280.28%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%239be07a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28206%2032%29%20rotate%28100%29%20scale%280.26%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%2347c25a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") top 4px left 0/300px 84px repeat-x,
+  url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20240%2070%22%20preserveAspectRatio%3D%22none%22%3E%3Cpath%20d%3D%22M0%206%20Q30%2022%2060%208%20Q90%20-4%20120%2010%20Q150%2024%20180%208%20Q210%20-4%20240%206%22%20fill%3D%22none%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%229%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M0%206%20Q30%2022%2060%208%20Q90%20-4%20120%2010%20Q150%2024%20180%208%20Q210%20-4%20240%206%22%20fill%3D%22none%22%20stroke%3D%22%233f9a4a%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M40%2014%20Q46%2036%2038%2058%20M150%2018%20Q142%2034%20152%2050%20M205%208%20Q212%2022%20206%2034%22%20fill%3D%22none%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%226%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M40%2014%20Q46%2036%2038%2058%20M150%2018%20Q142%2034%20152%2050%20M205%208%20Q212%2022%20206%2034%22%20fill%3D%22none%22%20stroke%3D%22%2358b45a%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%2F%3E%3Cg%20transform%3D%22translate%2820%2014%29%20rotate%2840%29%20scale%280.32%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%2347c25a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%2878%206%29%20rotate%28-30%29%20scale%280.3%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%236ad06a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28100%2014%29%20rotate%28120%29%20scale%280.28%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%2347c25a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28132%2016%29%20rotate%2860%29%20scale%280.3%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%239be07a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28168%2014%29%20rotate%28-60%29%20scale%280.3%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%2347c25a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28228%208%29%20rotate%2820%29%20scale%280.3%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%236ad06a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%2840%2046%29%20rotate%2880%29%20scale%280.3%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%236ad06a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%2838%2060%29%20rotate%28160%29%20scale%280.26%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%2347c25a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28152%2046%29%20rotate%28-80%29%20scale%280.28%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%239be07a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28206%2032%29%20rotate%28100%29%20scale%280.26%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%2347c25a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") top 0 left 130px/460px 130px repeat-x,
+  url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20120%2040%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M0%200%20H120%20V10%20L112%2014%20L106%2034%20L100%2012%20L92%2016%20L86%2026%20L80%2011%20L70%2014%20L64%2038%20L58%2013%20L48%2015%20L42%2024%20L36%2010%20L28%2014%20L22%2030%20L16%2012%20L8%2015%20L4%2022%20L0%2010%20Z%27%20fill%3D%27%2523463d55%27%20stroke%3D%27%25231a1030%27%20stroke-width%3D%272%27/%3E%3Cpath%20d%3D%27M0%206%20H120%27%20stroke%3D%27%25235d5470%27%20stroke-width%3D%273%27/%3E%3C/svg%3E") top/240px 46px repeat-x,
+  url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20240%2030%22%20preserveAspectRatio%3D%22none%22%3E%3Cpath%20d%3D%22M0%2030%20V16%20Q10%206%2020%2014%20Q30%204%2042%2012%20Q54%202%2066%2012%20Q78%206%2088%2014%20Q100%202%20114%2012%20Q126%206%20136%2014%20Q150%202%20162%2012%20Q174%206%20186%2014%20Q198%204%20210%2012%20Q224%204%20240%2014%20V30Z%22%20fill%3D%22%232f7a3a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%223%22%2F%3E%3Cpath%20d%3D%22M10%2012%20Q14%208%2020%2010%20M58%208%20Q64%204%2070%208%20M120%209%20Q126%205%20132%209%20M180%209%20Q186%205%20192%209%22%20stroke%3D%22%239be07a%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fsvg%3E") bottom 8px left/240px 26px repeat-x,
+  url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20120%2030%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M0%2030%20V18%20L10%2012%20L18%2016%20L30%208%20L40%2014%20L52%2010%20L60%2016%20L72%209%20L84%2015%20L96%2010%20L108%2016%20L120%2012%20V30%20Z%27%20fill%3D%27%2523463d55%27%20stroke%3D%27%25231a1030%27%20stroke-width%3D%272%27/%3E%3Ccircle%20cx%3D%2726%27%20cy%3D%2722%27%20r%3D%273%27%20fill%3D%27%2523332b40%27/%3E%3Ccircle%20cx%3D%2778%27%20cy%3D%2724%27%20r%3D%272.5%27%20fill%3D%27%2523332b40%27/%3E%3C/svg%3E") bottom/240px 36px repeat-x,
+  repeating-linear-gradient(100deg, rgba(200,255,160,.06) 0 18px, transparent 18px 90px),
+  radial-gradient(ellipse at 50% 60%, #2f6b42 0%, #173d27 55%, #0a1f13 100%) !important; }
+body.pve.act3 .enemyzone{ background:
+  url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20320%20160%22%3E%3Cpath%20d%3D%22M10%2020%20L40%2034%20L36%2052%20L64%2060%20L60%2084%22%20fill%3D%22none%22%20stroke%3D%22%230a0608%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20opacity%3D%220.7%22%2F%3E%3Cpath%20d%3D%22M10%2020%20L40%2034%20L36%2052%20L64%2060%20L60%2084%22%20fill%3D%22none%22%20stroke%3D%22%23ff8a3d%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20opacity%3D%220.55%22%2F%3E%3Cpath%20d%3D%22M180%200%20L170%2026%20L196%2040%20L188%2066%20L214%2080%22%20fill%3D%22none%22%20stroke%3D%22%230a0608%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20opacity%3D%220.7%22%2F%3E%3Cpath%20d%3D%22M180%200%20L170%2026%20L196%2040%20L188%2066%20L214%2080%22%20fill%3D%22none%22%20stroke%3D%22%23ff8a3d%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20opacity%3D%220.55%22%2F%3E%3Cpath%20d%3D%22M260%20100%20L240%20118%20L252%20136%20L230%20160%22%20fill%3D%22none%22%20stroke%3D%22%230a0608%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20opacity%3D%220.7%22%2F%3E%3Cpath%20d%3D%22M260%20100%20L240%20118%20L252%20136%20L230%20160%22%20fill%3D%22none%22%20stroke%3D%22%23ff8a3d%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20opacity%3D%220.55%22%2F%3E%3Cpath%20d%3D%22M90%20120%20L120%20112%20L132%20132%20L160%20128%22%20fill%3D%22none%22%20stroke%3D%22%230a0608%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20opacity%3D%220.7%22%2F%3E%3Cpath%20d%3D%22M90%20120%20L120%20112%20L132%20132%20L160%20128%22%20fill%3D%22none%22%20stroke%3D%22%23ff8a3d%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20opacity%3D%220.55%22%2F%3E%3Cpath%20d%3D%22M300%2010%20L284%2030%20L296%2044%22%20fill%3D%22none%22%20stroke%3D%22%230a0608%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20opacity%3D%220.7%22%2F%3E%3Cpath%20d%3D%22M300%2010%20L284%2030%20L296%2044%22%20fill%3D%22none%22%20stroke%3D%22%235ac8ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20opacity%3D%220.55%22%2F%3E%3Cpath%20d%3D%22M20%20140%20L44%20128%20L50%20110%22%20fill%3D%22none%22%20stroke%3D%22%230a0608%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20opacity%3D%220.7%22%2F%3E%3Cpath%20d%3D%22M20%20140%20L44%20128%20L50%20110%22%20fill%3D%22none%22%20stroke%3D%22%235ac8ff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20opacity%3D%220.55%22%2F%3E%3C%2Fsvg%3E") 0 0/440px 220px repeat,
+  url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20120%2040%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M0%200%20H120%20V10%20L112%2014%20L106%2034%20L100%2012%20L92%2016%20L86%2026%20L80%2011%20L70%2014%20L64%2038%20L58%2013%20L48%2015%20L42%2024%20L36%2010%20L28%2014%20L22%2030%20L16%2012%20L8%2015%20L4%2022%20L0%2010%20Z%27%20fill%3D%27%2523463d55%27%20stroke%3D%27%25231a1030%27%20stroke-width%3D%272%27/%3E%3Cpath%20d%3D%27M0%206%20H120%27%20stroke%3D%27%25235d5470%27%20stroke-width%3D%273%27/%3E%3C/svg%3E") top/240px 46px repeat-x,
+  url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20120%2030%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M0%2030%20V18%20L10%2012%20L18%2016%20L30%208%20L40%2014%20L52%2010%20L60%2016%20L72%209%20L84%2015%20L96%2010%20L108%2016%20L120%2012%20V30%20Z%27%20fill%3D%27%2523463d55%27%20stroke%3D%27%25231a1030%27%20stroke-width%3D%272%27/%3E%3Ccircle%20cx%3D%2726%27%20cy%3D%2722%27%20r%3D%273%27%20fill%3D%27%2523332b40%27/%3E%3Ccircle%20cx%3D%2778%27%20cy%3D%2724%27%20r%3D%272.5%27%20fill%3D%27%2523332b40%27/%3E%3C/svg%3E") bottom/240px 36px repeat-x,
+  radial-gradient(ellipse at 50% 70%, rgba(255,120,40,.22), transparent 60%),
+  radial-gradient(ellipse at 50% 60%, #3a2b33 0%, #1f151b 55%, #0e090c 100%) !important; }
+/* rising elemental wisps in Act 3 */
+body.pve.act3 .enemyzone::before{ background:
+  url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20260%20260%22%3E%3Ccircle%20cx%3D%2230%22%20cy%3D%22220%22%20r%3D%2210.4%22%20fill%3D%22%23ff9a3d%22%20opacity%3D%22.18%22%2F%3E%3Ccircle%20cx%3D%2230%22%20cy%3D%22220%22%20r%3D%224%22%20fill%3D%22%23ff9a3d%22%2F%3E%3Ccircle%20cx%3D%2230%22%20cy%3D%22220%22%20r%3D%221.8%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%2290%22%20cy%3D%22140%22%20r%3D%227.800000000000001%22%20fill%3D%22%235ac8ff%22%20opacity%3D%22.18%22%2F%3E%3Ccircle%20cx%3D%2290%22%20cy%3D%22140%22%20r%3D%223%22%20fill%3D%22%235ac8ff%22%2F%3E%3Ccircle%20cx%3D%2290%22%20cy%3D%22140%22%20r%3D%221.35%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%22150%22%20cy%3D%22240%22%20r%3D%229.1%22%20fill%3D%22%23b07bff%22%20opacity%3D%22.18%22%2F%3E%3Ccircle%20cx%3D%22150%22%20cy%3D%22240%22%20r%3D%223.5%22%20fill%3D%22%23b07bff%22%2F%3E%3Ccircle%20cx%3D%22150%22%20cy%3D%22240%22%20r%3D%221.575%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%22210%22%20cy%3D%22170%22%20r%3D%2210.4%22%20fill%3D%22%2347c25a%22%20opacity%3D%22.18%22%2F%3E%3Ccircle%20cx%3D%22210%22%20cy%3D%22170%22%20r%3D%224%22%20fill%3D%22%2347c25a%22%2F%3E%3Ccircle%20cx%3D%22210%22%20cy%3D%22170%22%20r%3D%221.8%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%22240%22%20cy%3D%2260%22%20r%3D%227.800000000000001%22%20fill%3D%22%23ffd23d%22%20opacity%3D%22.18%22%2F%3E%3Ccircle%20cx%3D%22240%22%20cy%3D%2260%22%20r%3D%223%22%20fill%3D%22%23ffd23d%22%2F%3E%3Ccircle%20cx%3D%22240%22%20cy%3D%2260%22%20r%3D%221.35%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%2260%22%20cy%3D%2240%22%20r%3D%227.800000000000001%22%20fill%3D%22%23ff5a3d%22%20opacity%3D%22.18%22%2F%3E%3Ccircle%20cx%3D%2260%22%20cy%3D%2240%22%20r%3D%223%22%20fill%3D%22%23ff5a3d%22%2F%3E%3Ccircle%20cx%3D%2260%22%20cy%3D%2240%22%20r%3D%221.35%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%22130%22%20cy%3D%2290%22%20r%3D%226.5%22%20fill%3D%22%23bfeaff%22%20opacity%3D%22.18%22%2F%3E%3Ccircle%20cx%3D%22130%22%20cy%3D%2290%22%20r%3D%222.5%22%20fill%3D%22%23bfeaff%22%2F%3E%3Ccircle%20cx%3D%22130%22%20cy%3D%2290%22%20r%3D%221.125%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%22190%22%20cy%3D%2220%22%20r%3D%227.800000000000001%22%20fill%3D%22%23ff9a3d%22%20opacity%3D%22.18%22%2F%3E%3Ccircle%20cx%3D%22190%22%20cy%3D%2220%22%20r%3D%223%22%20fill%3D%22%23ff9a3d%22%2F%3E%3Ccircle%20cx%3D%22190%22%20cy%3D%2220%22%20r%3D%221.35%22%20fill%3D%22%23fff%22%2F%3E%3C%2Fsvg%3E") 0 0/260px 260px repeat,
+  radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0,0,0,.55) 100%) !important; animation:wisprise 9s linear infinite; }
+@keyframes wisprise{ from{ background-position:0 0, 0 0; } to{ background-position:30px -260px, 0 0; } }
+@media (prefers-reduced-motion: reduce){ body.pve.act3 .enemyzone::before{ animation:none; } }
+/* the Verdant Hydra: an overgrown green hydra */
+body.vboss .enemyzone .minion .mart img, body.vboss .enemyzone .minion .mart svg{ filter:hue-rotate(95deg) saturate(1.25) brightness(1.05); }
+.mnode .verdantimg{ filter:hue-rotate(95deg) saturate(1.3); }
+/* comic doodles of the elements around the edges (comic look only) */
+body.comic.pve.ingame::after{ background:
+    url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20240%20920%22%3E%3Cg%20opacity%3D%220.62%22%3E%3Cg%20transform%3D%22translate%2860%2090%29%20rotate%28-12%29%20scale%281.2%29%22%3E%3Cpath%20d%3D%22M0%2030%20Q-25%2028%20-22%205%20Q-20%20-10%20-8%20-17%20Q-10%20-5%200%20-2%20Q-3%20-20%2010%20-32%20Q10%20-15%2020%20-5%20Q27%208%2020%2020%20Q12%2030%200%2030Z%22%20fill%3D%22%23ff7a1f%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M0%2024%20Q-11%2022%20-10%2010%20Q-8%203%20-3%200%20Q0%208%205%205%20Q5%20-5%2010%20-10%20Q15%203%2012%2012%20Q10%2022%200%2024Z%22%20fill%3D%22%23ffe066%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28150%20250%29%20rotate%2810%29%20scale%281.0%29%22%3E%3Cpath%20d%3D%22M0%20-28%20Q20%200%2018%2012%20Q15%2028%200%2028%20Q-15%2028%20-18%2012%20Q-20%200%200%20-28Z%22%20fill%3D%22%233da5ff%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%2F%3E%3Cpath%20d%3D%22M-9%2010%20Q-9%202%20-4%20-6%22%20stroke%3D%22%23fff%22%20stroke-width%3D%224%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%2870%20420%29%20rotate%288%29%20scale%281.15%29%22%3E%3Cpath%20d%3D%22M8%20-32%20L-12%202%20L2%202%20L-10%2032%20L16%20-6%20L2%20-6%20L14%20-32Z%22%20fill%3D%22%23ffd23d%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28170%20560%29%20rotate%280%29%20scale%280.8%29%22%3E%3Cpolygon%20points%3D%220.0%2C-22.0%205.3%2C-7.3%2020.9%2C-6.8%208.6%2C2.8%2012.9%2C17.8%200.0%2C9.0%20-12.9%2C17.8%20-8.6%2C2.8%20-20.9%2C-6.8%20-5.3%2C-7.3%22%20fill%3D%22%23fff3b0%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%223.5%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%2860%20700%29%20rotate%28-20%29%20scale%281.1%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%2347c25a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28160%20830%29%20rotate%2810%29%20scale%280.7%29%22%3E%3Cpolygon%20points%3D%2226.0%2C0.0%2012.9%2C5.4%2018.4%2C18.4%205.4%2C12.9%200.0%2C26.0%20-5.4%2C12.9%20-18.4%2C18.4%20-12.9%2C5.4%20-26.0%2C0.0%20-12.9%2C-5.4%20-18.4%2C-18.4%20-5.4%2C-12.9%20-0.0%2C-26.0%205.4%2C-12.9%2018.4%2C-18.4%2012.9%2C-5.4%22%20fill%3D%22%23ff5ab4%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%223.5%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E") left 4px center/auto 96% no-repeat,
+    url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20240%20920%22%3E%3Cg%20opacity%3D%220.62%22%3E%3Cg%20transform%3D%22translate%2880%20110%29%20rotate%280%29%20scale%281.1%29%22%3E%3Cg%20transform%3D%22rotate%280%29%22%3E%3Cpath%20d%3D%22M0%20-26%20L0%2026%20M-7%20-18%20L0%20-11%20L7%20-18%20M-7%2018%20L0%2011%20L7%2018%22%20fill%3D%22none%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22rotate%2860%29%22%3E%3Cpath%20d%3D%22M0%20-26%20L0%2026%20M-7%20-18%20L0%20-11%20L7%20-18%20M-7%2018%20L0%2011%20L7%2018%22%20fill%3D%22none%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22rotate%28120%29%22%3E%3Cpath%20d%3D%22M0%20-26%20L0%2026%20M-7%20-18%20L0%20-11%20L7%20-18%20M-7%2018%20L0%2011%20L7%2018%22%20fill%3D%22none%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22rotate%280%29%22%3E%3Cpath%20d%3D%22M0%20-26%20L0%2026%20M-7%20-18%20L0%20-11%20L7%20-18%20M-7%2018%20L0%2011%20L7%2018%22%20fill%3D%22none%22%20stroke%3D%22%23bfeaff%22%20stroke-width%3D%223.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22rotate%2860%29%22%3E%3Cpath%20d%3D%22M0%20-26%20L0%2026%20M-7%20-18%20L0%20-11%20L7%20-18%20M-7%2018%20L0%2011%20L7%2018%22%20fill%3D%22none%22%20stroke%3D%22%23bfeaff%22%20stroke-width%3D%223.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22rotate%28120%29%22%3E%3Cpath%20d%3D%22M0%20-26%20L0%2026%20M-7%20-18%20L0%20-11%20L7%20-18%20M-7%2018%20L0%2011%20L7%2018%22%20fill%3D%22none%22%20stroke%3D%22%23bfeaff%22%20stroke-width%3D%223.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28190%20270%29%20rotate%28-10%29%20scale%281.0%29%22%3E%3Cpath%20d%3D%22M8%20-28%20Q-26%20-24%20-26%202%20Q-24%2028%208%2028%20Q-8%2016%20-8%200%20Q-8%20-16%208%20-28Z%22%20fill%3D%22%23b07bff%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%2890%20440%29%20rotate%2815%29%20scale%281.0%29%22%3E%3Cpath%20d%3D%22M16.4%20-4.5L23.6%20-4.6L23.6%204.6L16.4%204.5L15.5%207.1L21.0%2011.6L15.1%2018.7L9.7%2014.0L7.3%2015.4L8.6%2022.4L-0.4%2024.0L-1.6%2016.9L-4.3%2016.5L-7.8%2022.7L-15.7%2018.1L-12.1%2011.9L-13.9%209.8L-20.6%2012.4L-23.7%203.8L-16.9%201.4L-16.9%20-1.4L-23.7%20-3.8L-20.6%20-12.4L-13.9%20-9.8L-12.1%20-11.9L-15.7%20-18.1L-7.8%20-22.7L-4.3%20-16.5L-1.6%20-16.9L-0.4%20-24.0L8.6%20-22.4L7.3%20-15.4L9.7%20-14.0L15.1%20-18.7L21.0%20-11.6L15.5%20-7.1Z%22%20fill%3D%22%23b8c2d0%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20r%3D%227%22%20fill%3D%22%235b6576%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%223.5%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28185%20600%29%20rotate%28-8%29%20scale%281.0%29%22%3E%3Cpath%20d%3D%22M-15%20-24%20L15%20-24%20L15%20-19%20Q15%20-6%203%200%20Q15%206%2015%2019%20L15%2024%20L-15%2024%20L-15%2019%20Q-15%206%20-3%200%20Q-15%20-6%20-15%20-19Z%22%20fill%3D%22%23ffe6a8%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-10%2018%20Q0%208%2010%2018Z%22%20fill%3D%22%23e8b84a%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%2880%20740%29%20rotate%2815%29%20scale%280.9%29%22%3E%3Cpolygon%20points%3D%220.0%2C-22.0%205.3%2C-7.3%2020.9%2C-6.8%208.6%2C2.8%2012.9%2C17.8%200.0%2C9.0%20-12.9%2C17.8%20-8.6%2C2.8%20-20.9%2C-6.8%20-5.3%2C-7.3%22%20fill%3D%22%23bfeaff%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%223.5%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28180%20860%29%20rotate%288%29%20scale%280.8%29%22%3E%3Cpath%20d%3D%22M0%2030%20Q-25%2028%20-22%205%20Q-20%20-10%20-8%20-17%20Q-10%20-5%200%20-2%20Q-3%20-20%2010%20-32%20Q10%20-15%2020%20-5%20Q27%208%2020%2020%20Q12%2030%200%2030Z%22%20fill%3D%22%233da5ff%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M0%2024%20Q-11%2022%20-10%2010%20Q-8%203%20-3%200%20Q0%208%205%205%20Q5%20-5%2010%20-10%20Q15%203%2012%2012%20Q10%2022%200%2024Z%22%20fill%3D%22%23d8f3ff%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E") right 4px center/auto 96% no-repeat,
+    radial-gradient(circle, rgba(255,90,190,.30) 0 1.7px, transparent 2.3px) 0 0/13px 13px,
+    radial-gradient(circle, rgba(70,200,255,.22) 0 1.3px, transparent 1.9px) 6.5px 6.5px/13px 13px,
+    repeating-conic-gradient(from 0deg at 50% 22%, rgba(255,240,200,.16) 0deg 1.1deg, transparent 1.1deg 4.4deg, rgba(255,240,200,.09) 4.4deg 5deg, transparent 5deg 9deg) !important; }
+body.comic.pve.act2.ingame::before{ background:
+  radial-gradient(ellipse 38% 26% at 50% 20%, rgba(220,255,150,.28), transparent 70%),
+  radial-gradient(ellipse 70% 50% at 50% 22%, rgba(80,200,110,.30), transparent 72%),
+  radial-gradient(ellipse 120% 90% at 50% 22%, #24704a 0%, #154a2e 42%, #0a2a17 72%, #030c06 100%) !important; }
+body.comic.pve.act2.ingame::after{ background:
+    url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20240%20920%22%3E%3Cg%20opacity%3D%220.62%22%3E%3Cg%20transform%3D%22translate%2840%20150%29%20rotate%280%29%20scale%281.4%29%22%3E%3Cpath%20d%3D%22M-10%20-40%20Q10%20-20%20-6%200%20Q-20%2020%204%2040%22%20fill%3D%22none%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-10%20-40%20Q10%20-20%20-6%200%20Q-20%2020%204%2040%22%20fill%3D%22none%22%20stroke%3D%22%233f9a4a%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%2F%3E%3Cg%20transform%3D%22translate%284%20-22%29%20rotate%2830%29%20scale%28.45%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%2347c25a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28-14%2012%29%20rotate%28-140%29%20scale%28.4%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%236ad06a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28170%20330%29%20rotate%2830%29%20scale%281.0%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%236ad06a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%2860%20520%29%20rotate%2810%29%20scale%281.3%29%22%3E%3Cpath%20d%3D%22M-10%20-40%20Q10%20-20%20-6%200%20Q-20%2020%204%2040%22%20fill%3D%22none%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-10%20-40%20Q10%20-20%20-6%200%20Q-20%2020%204%2040%22%20fill%3D%22none%22%20stroke%3D%22%2358b45a%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%2F%3E%3Cg%20transform%3D%22translate%284%20-22%29%20rotate%2830%29%20scale%28.45%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%2347c25a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28-14%2012%29%20rotate%28-140%29%20scale%28.4%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%236ad06a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28165%20690%29%20rotate%28-40%29%20scale%280.9%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%2347c25a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%2870%20840%29%20rotate%280%29%20scale%280.8%29%22%3E%3Cpath%20d%3D%22M0%20-28%20Q20%200%2018%2012%20Q15%2028%200%2028%20Q-15%2028%20-18%2012%20Q-20%200%200%20-28Z%22%20fill%3D%22%237fd4a0%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%2F%3E%3Cpath%20d%3D%22M-9%2010%20Q-9%202%20-4%20-6%22%20stroke%3D%22%23fff%22%20stroke-width%3D%224%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E") left 4px center/auto 96% no-repeat,
+    url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20240%20920%22%3E%3Cg%20opacity%3D%220.62%22%3E%3Cg%20transform%3D%22translate%28200%20120%29%20rotate%28-10%29%20scale%281.4%29%22%3E%3Cpath%20d%3D%22M-10%20-40%20Q10%20-20%20-6%200%20Q-20%2020%204%2040%22%20fill%3D%22none%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-10%20-40%20Q10%20-20%20-6%200%20Q-20%2020%204%2040%22%20fill%3D%22none%22%20stroke%3D%22%2358b45a%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%2F%3E%3Cg%20transform%3D%22translate%284%20-22%29%20rotate%2830%29%20scale%28.45%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%2347c25a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28-14%2012%29%20rotate%28-140%29%20scale%28.4%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%236ad06a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%2880%20300%29%20rotate%28-30%29%20scale%281.0%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%2347c25a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28190%20500%29%20rotate%285%29%20scale%281.3%29%22%3E%3Cpath%20d%3D%22M-10%20-40%20Q10%20-20%20-6%200%20Q-20%2020%204%2040%22%20fill%3D%22none%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-10%20-40%20Q10%20-20%20-6%200%20Q-20%2020%204%2040%22%20fill%3D%22none%22%20stroke%3D%22%233f9a4a%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%2F%3E%3Cg%20transform%3D%22translate%284%20-22%29%20rotate%2830%29%20scale%28.45%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%2347c25a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28-14%2012%29%20rotate%28-140%29%20scale%28.4%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%236ad06a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%2890%20680%29%20rotate%2850%29%20scale%281.0%29%22%3E%3Cpath%20d%3D%22M-24%2022%20Q-28%20-18%2022%20-26%20Q26%2018%20-24%2022Z%22%20fill%3D%22%239be07a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-22%2020%20Q0%200%2018%20-22%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%222.5%22%20fill%3D%22none%22%2F%3E%3Cpath%20d%3D%22M-12%20-2%20Q-4%20-10%206%20-14%22%20stroke%3D%22%23c8ffb0%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28190%20850%29%20rotate%280%29%20scale%280.8%29%22%3E%3Cpolygon%20points%3D%220.0%2C-22.0%205.3%2C-7.3%2020.9%2C-6.8%208.6%2C2.8%2012.9%2C17.8%200.0%2C9.0%20-12.9%2C17.8%20-8.6%2C2.8%20-20.9%2C-6.8%20-5.3%2C-7.3%22%20fill%3D%22%23c8ffb0%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%223.5%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E") right 4px center/auto 96% no-repeat,
+    radial-gradient(circle, rgba(190,255,120,.26) 0 1.7px, transparent 2.3px) 0 0/13px 13px,
+    radial-gradient(circle, rgba(255,240,120,.16) 0 1.3px, transparent 1.9px) 6.5px 6.5px/13px 13px,
+    repeating-conic-gradient(from 0deg at 50% 22%, rgba(230,255,200,.15) 0deg 1.1deg, transparent 1.1deg 4.4deg, rgba(230,255,200,.08) 4.4deg 5deg, transparent 5deg 9deg) !important; }
+body.comic.pve.act3.ingame::before{ background:
+  radial-gradient(ellipse 38% 26% at 50% 20%, rgba(255,170,90,.30), transparent 70%),
+  radial-gradient(ellipse 70% 50% at 50% 22%, rgba(120,90,255,.26), transparent 72%),
+  radial-gradient(ellipse 120% 90% at 50% 22%, #3b2a3a 0%, #241725 42%, #120b14 72%, #050207 100%) !important; }
+body.comic.pve.act3.ingame::after{ background:
+    url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20240%20920%22%3E%3Cg%20opacity%3D%220.62%22%3E%3Cg%20transform%3D%22translate%2860%20120%29%20rotate%2810%29%20scale%281.3%29%22%3E%3Cpath%20d%3D%22M-30%20-20%20L-12%20-6%20L-16%206%20L2%2010%20L0%2024%20L14%2018%20L30%2028%22%20fill%3D%22none%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%228%22%20stroke-linejoin%3D%22round%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-30%20-20%20L-12%20-6%20L-16%206%20L2%2010%20L0%2024%20L14%2018%20L30%2028%22%20fill%3D%22none%22%20stroke%3D%22%23ff7a1f%22%20stroke-width%3D%223%22%20stroke-linejoin%3D%22round%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28170%20290%29%20rotate%280%29%20scale%281.0%29%22%3E%3Ccircle%20r%3D%2216%22%20fill%3D%22%23ff9a3d%22%20opacity%3D%22.35%22%2F%3E%3Cpath%20d%3D%22M0%20-14%20Q12%20-4%206%208%20Q0%2016%20-6%208%20Q-12%20-2%200%20-14Z%22%20fill%3D%22%23ff9a3d%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%223%22%2F%3E%3Ccircle%20cx%3D%22-2%22%20cy%3D%222%22%20r%3D%223%22%20fill%3D%22%23fff%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%2860%20470%29%20rotate%280%29%20scale%280.9%29%22%3E%3Ccircle%20r%3D%2216%22%20fill%3D%22%235ac8ff%22%20opacity%3D%22.35%22%2F%3E%3Cpath%20d%3D%22M0%20-14%20Q12%20-4%206%208%20Q0%2016%20-6%208%20Q-12%20-2%200%20-14Z%22%20fill%3D%22%235ac8ff%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%223%22%2F%3E%3Ccircle%20cx%3D%22-2%22%20cy%3D%222%22%20r%3D%223%22%20fill%3D%22%23fff%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28160%20650%29%20rotate%28-30%29%20scale%281.2%29%22%3E%3Cpath%20d%3D%22M-30%20-20%20L-12%20-6%20L-16%206%20L2%2010%20L0%2024%20L14%2018%20L30%2028%22%20fill%3D%22none%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%228%22%20stroke-linejoin%3D%22round%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-30%20-20%20L-12%20-6%20L-16%206%20L2%2010%20L0%2024%20L14%2018%20L30%2028%22%20fill%3D%22none%22%20stroke%3D%22%235ac8ff%22%20stroke-width%3D%223%22%20stroke-linejoin%3D%22round%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%2870%20820%29%20rotate%280%29%20scale%281.0%29%22%3E%3Ccircle%20r%3D%2216%22%20fill%3D%22%23b07bff%22%20opacity%3D%22.35%22%2F%3E%3Cpath%20d%3D%22M0%20-14%20Q12%20-4%206%208%20Q0%2016%20-6%208%20Q-12%20-2%200%20-14Z%22%20fill%3D%22%23b07bff%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%223%22%2F%3E%3Ccircle%20cx%3D%22-2%22%20cy%3D%222%22%20r%3D%223%22%20fill%3D%22%23fff%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E") left 4px center/auto 96% no-repeat,
+    url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20240%20920%22%3E%3Cg%20opacity%3D%220.62%22%3E%3Cg%20transform%3D%22translate%2880%20140%29%20rotate%280%29%20scale%281.0%29%22%3E%3Ccircle%20r%3D%2216%22%20fill%3D%22%2347c25a%22%20opacity%3D%22.35%22%2F%3E%3Cpath%20d%3D%22M0%20-14%20Q12%20-4%206%208%20Q0%2016%20-6%208%20Q-12%20-2%200%20-14Z%22%20fill%3D%22%2347c25a%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%223%22%2F%3E%3Ccircle%20cx%3D%22-2%22%20cy%3D%222%22%20r%3D%223%22%20fill%3D%22%23fff%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28190%20320%29%20rotate%2840%29%20scale%281.3%29%22%3E%3Cpath%20d%3D%22M-30%20-20%20L-12%20-6%20L-16%206%20L2%2010%20L0%2024%20L14%2018%20L30%2028%22%20fill%3D%22none%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%228%22%20stroke-linejoin%3D%22round%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-30%20-20%20L-12%20-6%20L-16%206%20L2%2010%20L0%2024%20L14%2018%20L30%2028%22%20fill%3D%22none%22%20stroke%3D%22%23b07bff%22%20stroke-width%3D%223%22%20stroke-linejoin%3D%22round%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%2890%20520%29%20rotate%280%29%20scale%280.9%29%22%3E%3Ccircle%20r%3D%2216%22%20fill%3D%22%23ffd23d%22%20opacity%3D%22.35%22%2F%3E%3Cpath%20d%3D%22M0%20-14%20Q12%20-4%206%208%20Q0%2016%20-6%208%20Q-12%20-2%200%20-14Z%22%20fill%3D%22%23ffd23d%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%223%22%2F%3E%3Ccircle%20cx%3D%22-2%22%20cy%3D%222%22%20r%3D%223%22%20fill%3D%22%23fff%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%28180%20700%29%20rotate%28-10%29%20scale%281.2%29%22%3E%3Cpath%20d%3D%22M-30%20-20%20L-12%20-6%20L-16%206%20L2%2010%20L0%2024%20L14%2018%20L30%2028%22%20fill%3D%22none%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%228%22%20stroke-linejoin%3D%22round%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M-30%20-20%20L-12%20-6%20L-16%206%20L2%2010%20L0%2024%20L14%2018%20L30%2028%22%20fill%3D%22none%22%20stroke%3D%22%23ff7a1f%22%20stroke-width%3D%223%22%20stroke-linejoin%3D%22round%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate%2890%20860%29%20rotate%280%29%20scale%281.0%29%22%3E%3Ccircle%20r%3D%2216%22%20fill%3D%22%23ff5a3d%22%20opacity%3D%22.35%22%2F%3E%3Cpath%20d%3D%22M0%20-14%20Q12%20-4%206%208%20Q0%2016%20-6%208%20Q-12%20-2%200%20-14Z%22%20fill%3D%22%23ff5a3d%22%20stroke%3D%22%231a1030%22%20stroke-width%3D%223%22%2F%3E%3Ccircle%20cx%3D%22-2%22%20cy%3D%222%22%20r%3D%223%22%20fill%3D%22%23fff%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E") right 4px center/auto 96% no-repeat,
+    radial-gradient(circle, rgba(255,150,70,.26) 0 1.7px, transparent 2.3px) 0 0/13px 13px,
+    radial-gradient(circle, rgba(90,200,255,.20) 0 1.3px, transparent 1.9px) 6.5px 6.5px/13px 13px,
+    repeating-conic-gradient(from 0deg at 50% 22%, rgba(255,220,180,.15) 0deg 1.1deg, transparent 1.1deg 4.4deg, rgba(255,220,180,.08) 4.4deg 5deg, transparent 5deg 9deg) !important; }
+/* the boss arena (Malkorr) keeps its fiery look on top of the act colours */
+body.comic.pve.arena.ingame::before{ background:
+  radial-gradient(ellipse 40% 28% at 50% 20%, rgba(255,220,90,.38), transparent 70%),
+  radial-gradient(ellipse 75% 55% at 50% 22%, rgba(255,90,40,.36), transparent 72%),
+  radial-gradient(ellipse 120% 90% at 50% 22%, #5a1a22 0%, #2e0d18 45%, #12050a 75%, #060205 100%) !important; }
+/* ===== your quick actions sit next to your dice ===== */
+.cxwrap .cxcenter > .xacts{ display:none !important; }
+.cxwrap .cxside .sellbtn{ display:none !important; }
+.cxme .dicerow{ align-items:center; }
+.cxprocs{ display:flex; gap:4px; margin-left:auto; flex:none; }
+.cxproc{ width:38px; height:30px; padding:1px 0 0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0; font:inherit; color:#1a1030; background:#fff; border:2px solid #1a1030; border-radius:9px; box-shadow:0 2px 0 #1a1030; cursor:pointer; line-height:1; }
+.cxproc .pi, .cxproc .pi svg{ width:18px; height:18px; display:block; }
+.cxproc .pl{ font-size:.5rem; font-weight:800; letter-spacing:.02em; text-transform:uppercase; margin-top:1px; }
+.cxproc.ready{ background:#fff3b0; box-shadow:0 0 0 2px #ffc400, 0 2px 0 #1a1030; }
+.cxproc.ready:hover{ transform:translateY(-1px); }
+.cxproc:disabled{ opacity:.45; cursor:default; box-shadow:none; filter:grayscale(.7); }
+/* hand cards never cover your hero panel or its buttons */
+.cxwrap .cxmid{ z-index:auto !important; }
+.cxwrap .cxleft{ position:relative; z-index:6; }
+.cxwrap .cxcenter{ z-index:2; }
+.cxwrap .cxbot:has(.cxpop){ z-index:20 !important; }
+/* phase icons: a clear crossed-swords badge for combat */
+.pbicon .phsvg{ width:100%; height:100%; display:block; }
+.phi .phsvg{ width:1.2em; height:1.2em; display:inline-block; vertical-align:-4px; }
+</style>`);
+PH_ICON.combat = `<svg class="phsvg" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 2 L38 20 L56 12 L46 28 L62 34 L44 40 L52 58 L34 46 L28 62 L24 44 L6 52 L16 36 L2 28 L20 24 L12 8 L28 18Z" fill="#ff5a3d" stroke="#1a1030" stroke-width="3" stroke-linejoin="round"/><g stroke="#1a1030" stroke-width="3" stroke-linejoin="round"><path d="M14 14 L19 12 L44 37 L40 41 L15 19Z" fill="#eef2f7"/><path d="M50 14 L45 12 L20 37 L24 41 L49 19Z" fill="#eef2f7"/><path d="M36 41 L44 33 L47 36 L39 44Z M28 41 L20 33 L17 36 L25 44Z" fill="#ffc400"/><path d="M42 42 L48 48 M22 42 L16 48" stroke-width="5" stroke-linecap="round"/></g><path d="M18 14 L40 36 M46 14 L24 36" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+const SELL_ICON = `<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="9" y="5" width="18" height="25" rx="3" fill="#fff6dc" stroke="#1a1030" stroke-width="2.6" transform="rotate(-10 18 17)"/><path d="M22 26 A9 9 0 1 0 35 22" fill="none" stroke="#1a1030" stroke-width="5" stroke-linecap="round"/><path d="M22 26 A9 9 0 1 0 35 22" fill="none" stroke="#47c25a" stroke-width="2.6" stroke-linecap="round"/><path d="M31 17 L36 23 L29 25Z" fill="#47c25a" stroke="#1a1030" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
+function cxProcsHTML(S,v){
+  const box=document.createElement('div'); box.innerHTML=actStrip47(S,v);
+  const mini=[...box.querySelectorAll('.xact')].map(b=>{ const k=b.dataset.act, lbl=k==='brace'?'Brace':'Reroll', ok=!b.disabled, tip=(b.querySelector('b')?.textContent||lbl)+': '+(b.querySelector('small')?.textContent||'');
+    return `<button type="button" class="cxproc ${ok?'ready':''}" data-act="${k}" ${ok?'':'disabled'} title="${esc(tip)}" aria-label="${esc(tip)}"><span class="pi">${b.querySelector('.xico')?.innerHTML||''}</span><span class="pl">${lbl}</span></button>`; });
+  const P=S.p[v], canSell = TURN(S,v) && canAct(v) && isMyTurnFree(S,v) && !(S.phase==='income'&&STEP(S,v)==='roll') && P.hand.length;
+  if(canSell) mini.push(`<button type="button" class="cxproc ready" data-act="sell" title="Discard a card for resources" aria-label="Discard a card for resources"><span class="pi">${SELL_ICON}</span><span class="pl">Discard</span></button>`);
+  return mini.length ? `<span class="cxprocs">${mini.join('')}</span>` : '';
+}
+render = (function(base){ return function(){ const r=base.apply(this,arguments);
+  try{ const pve=!!(S && S.coop), act=pve ? (S.act||1) : 0;
+    ['act1','act2','act3'].forEach(c=>document.body.classList.toggle(c, pve && c==='act'+act));
+    document.body.classList.toggle('vboss', !!(pve && S.fight && S.fight.boss==='verdant' && ['income','main1','combat','main2','enemy'].includes(S.phase)));
+    const row=document.querySelector('.cxwrap .cxme .dicerow');
+    if(row && S && S.status==='playing' && !row.querySelector('.cxprocs')){ const v=viewSeat(); if(S.p[v] && !S.p[v].down) row.insertAdjacentHTML('beforeend', cxProcsHTML(S,v)); }
+  }catch(e){}
+  return r; }; })(render);
+/* ---------- v0.54: picture buttons (show, don't tell), comic shop page, 5 new shop items ---------- */
+// extra comic props for the picture buttons (same ink style as the card art)
+Object.assign(CP, {
+  phone:(c='#2a2f4a')=>`<rect x="-13" y="-25" width="26" height="50" rx="5" fill="${c}" ${CS(3.5)}/><rect x="-9" y="-19" width="18" height="34" rx="2" fill="#7fd4ff"/><circle cx="-2" cy="-8" r="4.5" fill="#ff5a3d" ${CS(1.5)}/><rect x="-6" y="3" width="12" height="6" rx="1.5" fill="#ffd23d" ${CS(1.5)}/><circle cy="20" r="2.4" fill="#9aa7b8"/>${HL('M-6 -16 L-2 -16',2,'#fff',.8)}`,
+  hand:(c='#4f8cff',flip=0)=>`<g ${flip?'transform="scale(-1,1)"':''}><rect x="-62" y="-11" width="46" height="24" rx="6" fill="${c}" ${CS(3)}/><rect x="-22" y="-14" width="9" height="30" rx="3" fill="#fff" ${CS(2.5)}/><path d="M-14 -12 Q8 -17 18 -7 Q23 3 15 13 Q0 18 -14 14Z" fill="#f2c49a" ${CS(3)}/><path d="M4 -10 Q14 -10 16 -3 M5 0 Q15 0 17 5 M3 9 Q11 11 13 12" fill="none" ${CS(1.8)}/><path d="M-5 -12 Q1 -25 10 -21 Q12 -15 4 -9" fill="#f2c49a" ${CS(2.5)}/></g>`,
+  openhand:(c='#ff5a3d',flip=0)=>`<g ${flip?'transform="scale(-1,1)"':''}><rect x="-62" y="-11" width="46" height="24" rx="6" fill="${c}" ${CS(3)}/><rect x="-22" y="-14" width="9" height="30" rx="3" fill="#fff" ${CS(2.5)}/><path d="M-14 -10 L4 -12 L22 -22 Q27 -20 24 -15 L10 -7 L28 -10 Q32 -6 27 -3 L10 0 L26 3 Q29 8 24 9 L8 7 L20 13 Q21 18 15 17 L-2 13 L-14 14Z" fill="#f2c49a" ${CS(2.6)}/><path d="M-4 -12 Q-2 -24 6 -26 Q10 -22 6 -14" fill="#f2c49a" ${CS(2.4)}/></g>`,
+  monitor:(c='#3a3f6e')=>`<path d="M-9 22 L9 22 L13 31 L-13 31Z" fill="#5b6576" ${CS(3)}/><rect x="-36" y="-30" width="72" height="52" rx="7" fill="${c}" ${CS(3.5)}/><rect x="-29" y="-23" width="58" height="38" rx="3" fill="#0e1430"/><path d="M-20 -13 L-6 -7 L-7 -1 L-21 -5Z M20 -13 L6 -7 L7 -1 L21 -5Z" fill="#ff3b3b"/><rect x="-13" y="4" width="26" height="7" rx="1.5" fill="#ff3b3b" opacity=".85"/><path d="M-7 4 V11 M0 4 V11 M7 4 V11" stroke="#0e1430" stroke-width="1.6"/><path d="M0 -30 V-38" ${CS(3)}/><circle cy="-40" r="4" fill="#ffd23d" ${CS(2.5)}/>`,
+  pad:(c='#9aa7b8')=>`<path d="M-26 -10 Q-36 -12 -38 4 Q-40 22 -27 19 L-14 11 L14 11 L27 19 Q40 22 38 4 Q36 -12 26 -10Z" fill="${c}" ${CS(3.5)}/><path d="M-24 0 H-12 M-18 -6 V6" stroke="${CART_INK}" stroke-width="4" stroke-linecap="round"/><circle cx="16" cy="-3" r="3.5" fill="#ff5a3d" ${CS(1.8)}/><circle cx="24" cy="3" r="3.5" fill="#47c25a" ${CS(1.8)}/>`,
+  vs:(c='#ffd23d')=>`${CP.boom(c,'#ff3b2f')}<text y="8" text-anchor="middle" font-family="Bangers,BangersX,Impact,sans-serif" font-size="24" fill="#fff" stroke="${CART_INK}" stroke-width="2.5" paint-order="stroke">VS</text>`,
+  arch:(c='#7a6a60')=>`<path d="M-52 42 L-52 -10 Q-52 -52 0 -52 Q52 -52 52 -10 L52 42Z" fill="${c}" ${CS(3.5)}/><path d="M-33 42 L-33 -6 Q-33 -33 0 -33 Q33 -33 33 -6 L33 42Z" fill="#120a1e" ${CS(3)}/>${[-150,-120,-90,-60,-30].map(a=>{const r=Math.PI*a/180; return `<path d="M${(33*Math.cos(r)).toFixed(1)} ${(-6+33*Math.sin(r)).toFixed(1)} L${(52*Math.cos(r)).toFixed(1)} ${(-10+52*Math.sin(r)).toFixed(1)}" ${CS(2.2)}/>`;}).join('')}<path d="M-52 14 H-33 M33 14 H52 M-52 30 H-33 M33 30 H52" ${CS(2.2)}/><g fill="#ffd23d"><circle cx="-12" cy="0" r="2.6"/><circle cx="-4" cy="0" r="2.6"/><circle cx="8" cy="18" r="2.2"/><circle cx="15" cy="18" r="2.2"/></g>`,
+  torch:(c='#7a5233')=>`<rect x="-3" y="-4" width="6" height="26" rx="2" fill="${c}" ${CS(2.5)}/><path d="M0 -6 Q-10 -12 -4 -24 Q0 -16 2 -22 Q10 -12 0 -6Z" fill="#ff7a1f" ${CS(2.2)}/><path d="M0 -8 Q-4 -12 -1 -17 Q2 -13 3 -15 Q5 -11 0 -8Z" fill="#ffe066"/>`,
+  globe:(c='#3da5ff')=>`<circle r="26" fill="${c}" ${CS(3.5)}/><path d="M-12 -18 Q-2 -22 4 -14 Q0 -6 -10 -8 Q-18 -10 -12 -18Z M6 2 Q18 -2 20 8 Q14 18 6 14 Q0 8 6 2Z M-20 6 Q-14 4 -12 12 Q-16 16 -20 12Z" fill="#47c25a" ${CS(2)}/><ellipse rx="26" ry="9" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="1.6"/><ellipse rx="10" ry="26" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="1.6"/>`,
+  person:(c='#ff5a3d')=>`<path d="M-15 22 Q-15 2 0 2 Q15 2 15 22Z" fill="${c}" ${CS(3)}/><circle cy="-10" r="10" fill="#f2c49a" ${CS(3)}/><path d="M-10 -12 Q-8 -22 0 -21 Q9 -22 10 -12 Q4 -16 -10 -12Z" fill="#5a3a2a" ${CS(2)}/>`,
+  hero:(c='#4f8cff')=>`<path d="M-12 -2 Q-22 18 -18 26 L18 26 Q22 18 12 -2Z" fill="${c}" ${CS(3)}/><path d="M-9 26 L-9 10 L9 10 L9 26" fill="#2a2f4a" ${CS(2.5)}/><circle cy="-12" r="9" fill="#f2c49a" ${CS(3)}/><path d="M-9 -14 Q-6 -24 2 -22 Q10 -22 9 -13 Z" fill="#ffd23d" ${CS(2)}/><path d="M14 0 L32 -26" stroke="${CART_INK}" stroke-width="7" stroke-linecap="round"/><path d="M14 0 L32 -26" stroke="#e6ebf2" stroke-width="3" stroke-linecap="round"/><path d="M10 -2 L18 4" stroke="#c9a24a" stroke-width="5" stroke-linecap="round"/>`,
+  laptop:(c='#3a3f6e')=>`<rect x="-30" y="-24" width="60" height="38" rx="4" fill="${c}" ${CS(3.5)}/><rect x="-25" y="-19" width="50" height="28" rx="2" fill="#7fd4ff"/><circle cx="-8" cy="-6" r="5" fill="#ff5a3d" ${CS(1.5)}/><circle cx="8" cy="-6" r="5" fill="#47c25a" ${CS(1.5)}/><path d="M-38 14 L38 14 L32 22 L-32 22Z" fill="#9aa7b8" ${CS(3)}/>`,
+  cycle:(c='#47c25a')=>`<path d="M-20 4 A20 20 0 1 1 6 19" fill="none" stroke="${CART_INK}" stroke-width="9" stroke-linecap="round"/><path d="M-20 4 A20 20 0 1 1 6 19" fill="none" stroke="${c}" stroke-width="4.5" stroke-linecap="round"/><path d="M-30 -4 L-20 12 L-10 -2Z" fill="${c}" ${CS(2.5)}/>`
+});
+let picN=0;
+const pic = spec => `<svg class="picsvg" viewBox="0 0 200 110" aria-hidden="true">${cscene('pc'+(++picN), spec)}</svg>`;
+const ptile = (art, title, sub, tip, cls) => `<span class="ptile ${cls||''}" title="${esc(tip||sub||title)}"><span class="ppic">${art}</span><b class="ptt">${title}</b>${sub?`<small class="pts">${sub}</small>`:''}</span>`;
+const PICS = {
+  online:  ()=>pic(['sky',null,['fx:rays',100,55,'#fff',.35],['globe',100,56,1.3],['person',36,70,.9,0,'#ff5a3d'],['person',164,70,.9,0,'#4f8cff'],['fx:arc',50,46,150,46,'#ffd23d']]),
+  pass:    ()=>pic(['warm',null,['fx:rays',100,56,'#fff',.3],['hand',72,72,1,0,'#4f8cff'],['phone',92,52,1,-12],['openhand',150,62,1,0,'#ff5a3d',1],['fx:speed',128,40,180,3,22,'#fff'],['arrow',122,26,.55,10,'#ffd23d']]),
+  ai:      ()=>pic(['storm',null,['fx:rays',100,56,'#fff',.15],['pad',44,66,1,-10],['monitor',148,56,1.05],['vs',96,50,.85],['spark',20,22,.5,0,'#ffd23d'],['spark',186,94,.45]]),
+  dungeon: ()=>pic(['night','floor',['fx:stars','#fff',10,3],['arch',100,62,1],['torch',32,62,1],['torch',168,62,1],['flame',84,58,.45],['drop',100,72,.4,0,'#5ac8ff'],['bolt',116,56,.4],['sprout',96,46,.38],['fx:glow',100,60,26,'#b37bff',.35]]),
+  solo:    ()=>pic(['dusk','floor',['fx:rays',100,60,'#fff',.2],['hero',100,64,1.4,0,'#4f8cff'],['spark',150,30,.5,0,'#ffd23d']]),
+  coop:    ()=>pic(['warm','floor',['laptop',100,64,1.2],['person',40,74,.9,0,'#ff5a3d'],['person',160,74,.9,0,'#4f8cff'],['person',70,82,.7,0,'#47c25a'],['person',130,82,.7,0,'#b07bff']]),
+  coopnet: ()=>pic(['sky',null,['globe',100,58,1.15],['person',34,72,.8,0,'#ff5a3d'],['person',166,72,.8,0,'#4f8cff'],['person',62,36,.6,0,'#47c25a'],['person',138,36,.6,0,'#b07bff'],['fx:arc',40,58,160,58,'#ffd23d']]),
+  forge:   ()=>pic(['forge','floor',['anvil',100,82,1.2],['gem',100,46,1.1,0,'#b07bff'],['hammer',150,40,.9,-35],['spark',62,40,.6,0,'#ffe066'],['spark',140,74,.5,0,'#ffe066'],['fx:embers','#ffe066',8,4]]),
+  reset:   ()=>pic(['steel',null,['cycle',100,56,1.3]]),
+  party: n => pic(['warm','floor'].concat(Array.from({length:n},(_,i)=>['person',100+(i-(n-1)/2)*38,72,1,0,['#ff5a3d','#4f8cff','#47c25a','#b07bff'][i]]))),
+  vit:     ()=>pic(['heal',null,['fx:rays',100,56,'#fff',.5],['heart',100,58,1.5],['fx:plus',150,30,1.2]]),
+  attune:  ()=>pic(['cosmic',null,['fx:circles',100,56,28,'#fff'],['star',100,58,1.5,0,'#ffd23d'],['orb',46,34,.4,0,'#ff7a1f'],['orb',156,84,.4,0,'#5ac8ff']]),
+  edge:    ()=>pic(['ember',null,['fx:speed',150,56,0,4,70],['sword',100,56,1.4,60],['crystal',62,40,.6,0,'#d07dff']]),
+  prism:   ()=>pic(['cosmic',null,['prism',100,60,1.3],['orb',46,40,.4,0,'#ff7a1f'],['orb',154,40,.4,0,'#5ac8ff'],['orb',100,22,.4,0,'#5bd05a']]),
+  sight:   ()=>pic(['gold',null,['card',84,60,1.2,-10],['eye',132,48,.7,0,'#6b4bd6']])
+};
+// ---- dungeon menu: picture buttons ----
+coopMenu = async function(){
+  const L=legacyGet(), C=crysGet(), online=(typeof db!=='undefined' && db && myId);
+  const opts=[
+    {v:'solo',  html:ptile(PICS.solo(),'Solo','One hero','Play the dungeon alone. Monsters have less health.')},
+    {v:'local', html:ptile(PICS.coop(),'Co-op here','2–4 players, one screen','Two to four players share this screen and take turns controlling their heroes.')}];
+  if(online) opts.push({v:'online', html:ptile(PICS.coopnet(),'Co-op online','2–4 players, send a code','Create a run and send friends the code. It starts when everyone has joined.')});
+  opts.push({v:'forge', html:ptile(PICS.forge(),'Crystal Forge',`💎 ${C.have}`,'Spend Elemental Crystals on permanent unlocks for your heroes.','forge')});
+  if(L.ups.length || L.wins) opts.push({v:'reset', html:ptile(PICS.reset(),'Reset upgrades','','Set your permanent dice upgrades and dungeon wins back to 0.','small')});
+  const r=await pickOne('🏰 PvE dungeon', opts, {sub:`Three acts: the dungeon, the overgrown caves, the cracked depths. 🏅 Wins: <b>${L.wins}</b> · 💎 Crystals: <b>${C.have}</b>`});
+  if(!r) return;
+  if(r==='forge'){ await crystalForge(); return coopMenu(); }
+  if(r==='reset'){ const ok=await pickOne('Reset your permanent upgrades?', [{v:'yes', html:'<span class="eb">♻ Yes, reset to 0</span>'}], {sub:`This removes all ${L.ups.length} dice upgrades and sets your dungeon wins back to 0. It can’t be undone.`}); if(ok==='yes'){ legacySet({wins:0, ups:[], claimed:L.claimed}); toast('Permanent upgrades reset.'); } return; }
+  if(r==='solo'){ seenRoll={}; lastTurnKey=undefined; lastFlashN=undefined; lastPendOther=false; lastSxN=undefined; lastPhase=undefined; S=makeCoop([pickedHero,pickedHero],[null,null],'local',null,true); mySeat=null; coopView=0; render(); return; }
+  if(r==='local'){ const n=await partySizePick('Co-op on this device'); if(!n) return; const party=[pickedHero];
+    for(let k=1;k<n;k++){ const keys=Object.keys(HEROES).filter(h=>!party.includes(h));
+      const h=await pickOne(`Player ${k+1}: pick a hero`, keys.map(x=>({v:x, html:ptile(`<img class="picface" src="${IMG[x+'_card']||IMG[x+'_face']}" alt="">`, HEROES[x].name, '', HEROES[x].name, 'hero')})), {sub:`So far: ${party.map((x,i)=>'P'+(i+1)+' '+HEROES[x].name).join(', ')}.`}); if(!h) return; party.push(h); }
+    startCoopParty(party); return; }
+  if(r==='online'){ const n=await partySizePick('Co-op online'); if(n) createOnline(true, n); }
+};
+partySizePick = async function(title){
+  const r=await pickOne(title+': how many heroes?', [2,3,4].map(n=>({v:String(n), html:ptile(PICS.party(n), n+' players', n>2?'tougher monsters':'', n>2?`${n} heroes: monsters get more health and hit harder, so it stays a fair fight.`:'Two heroes.')})));
+  return r ? +r : 0;
+};
+// ---- the Crystal Forge as a picture board ----
+crystalForge = function(){
+  return new Promise(res=>{
+    let hero=pickedHero;
+    const draw=()=>{ const C=crysGet(), U=C.ups[hero]||{};
+      const heroes=Object.keys(HEROES).map(k=>{ const n=Object.values(C.ups[k]||{}).reduce((a,b)=>a+b,0);
+        return `<button type="button" class="cfhero ${k===hero?'on':''}" data-h="${k}" title="${esc(HEROES[k].name)}${n?` · ${n} unlock${n>1?'s':''}`:''}"><img src="${IMG[k+'_face']||IMG[k+'_card']}" alt="${esc(HEROES[k].name)}">${n?`<i>${n}</i>`:''}</button>`; }).join('');
+      const tiles=Object.entries(CRYS_UPS).map(([k,u])=>{ const lv=U[k]||0, max=u.cost.length, cost=u.cost[lv], full=lv>=max, can=!full && C.have>=cost;
+        const pips=Array.from({length:max},(_,i)=>`<i class="${i<lv?'on':''}"></i>`).join('');
+        return `<button type="button" class="cftile ${full?'full':can?'can':'no'}" data-k="${k}" ${full||!can?'aria-disabled="true"':''} title="${esc(u.name+': '+(full?u.text(lv)+' (maxed)':u.text(lv+1)))}">
+          <span class="ppic">${PICS[k]()}</span><b class="ptt">${u.name}</b><span class="cfpips">${pips}</span>
+          <span class="cfcost">${full?'✓ MAX':`💎 ${cost}`}</span><small class="pts">${full?u.text(lv):u.text(lv+1)}</small></button>`; }).join('');
+      const m=openModal(`<h3>💎 Crystal Forge <span class="goldtag">💎 ${C.have}</span></h3><p class="msub">Crystals drop from every dungeon fight you win. Unlocks belong to one hero.</p>
+        <div class="cfheroes">${heroes}</div><div class="cfgrid">${tiles}</div><div class="mfoot"><button type="button" class="btn" data-x>Done</button></div>`);
+      m.onclick=e=>{ const b=e.target.closest('button'); if(!b) return;
+        if(b.hasAttribute('data-x')){ modalResolve=null; hideModal(); res(); return; }
+        if(b.dataset.h){ hero=b.dataset.h; draw(); return; }
+        if(b.dataset.k){ const k=b.dataset.k, u=CRYS_UPS[k], C2=crysGet(), U2=C2.ups[hero]||{}, lv=U2[k]||0, cost=u.cost[lv];
+          if(lv>=u.cost.length) return; if(C2.have<cost){ toast(`You need ${cost} 💎 (you have ${C2.have}).`); return; }
+          C2.have-=cost; C2.ups[hero]=Object.assign({}, U2, {[k]:lv+1}); crysSet(C2); toast(`💎 ${HEROES[hero].name}: ${u.name} ${['I','II','III'][lv]} unlocked!`); draw(); }
+      };
+    };
+    modalResolve=()=>res(); draw();
+  });
+};
+// ---- 5 new shop items ----
+Object.assign(ITEM_SVG, {
+  phoenix:'<path d="M70 10 Q40 20 30 50 Q24 70 32 90 Q40 70 52 62 Q60 76 76 72 Q64 62 70 50 Q86 52 90 40 Q76 40 74 30 Q86 22 70 10Z" fill="#ff7a1f" stroke="#1a1030" stroke-width="6" stroke-linejoin="round"/><path d="M62 22 Q46 36 40 60" fill="none" stroke="#ffe066" stroke-width="5" stroke-linecap="round"/><path d="M32 90 L22 98" stroke="#1a1030" stroke-width="6" stroke-linecap="round"/>',
+  whetstone:'<rect x="14" y="60" width="72" height="22" rx="6" fill="#8a8079" stroke="#1a1030" stroke-width="6"/><path d="M30 56 L78 10 L86 18 L38 64Z" fill="#e6ebf2" stroke="#1a1030" stroke-width="6" stroke-linejoin="round"/><path d="M24 50 L42 68" stroke="#c9a24a" stroke-width="9" stroke-linecap="round"/><path d="M60 40 L66 34 M70 30 L74 26" stroke="#ffe066" stroke-width="5" stroke-linecap="round"/>',
+  tonic:'<rect x="40" y="6" width="20" height="14" rx="3" fill="#a0784a" stroke="#1a1030" stroke-width="5"/><path d="M42 20 H58 V32 C76 38 82 54 78 70 C74 88 26 88 22 70 C18 54 24 38 42 32Z" fill="#5ac8ff" stroke="#1a1030" stroke-width="6"/><path d="M50 44 L66 50 Q66 70 50 78 Q34 70 34 50Z" fill="#fff" stroke="#1a1030" stroke-width="4"/>',
+  mana:'<path d="M50 6 L74 34 L50 94 L26 34Z" fill="#b07bff" stroke="#1a1030" stroke-width="6" stroke-linejoin="round"/><path d="M26 34 H74 M50 6 L42 34 L50 94 M50 6 L58 34" stroke="#1a1030" stroke-width="3" fill="none"/><path d="M38 28 L44 16" stroke="#fff" stroke-width="5" stroke-linecap="round"/>',
+  thunder:'<circle cx="46" cy="58" r="30" fill="#3a3f6e" stroke="#1a1030" stroke-width="6"/><path d="M62 30 L74 14" stroke="#1a1030" stroke-width="6"/><path d="M74 14 L84 8 M74 14 L86 16 M74 14 L80 4" stroke="#ffd23d" stroke-width="4" stroke-linecap="round"/><path d="M50 40 L38 60 L48 60 L40 80 L58 54 L48 54 L56 40Z" fill="#ffd23d" stroke="#1a1030" stroke-width="3" stroke-linejoin="round"/>',
+  // pictures for the older merchant wares
+  draught:'<path d="M40 10 H60 V34 C78 40 84 56 80 70 C76 86 24 86 20 70 C16 56 22 40 40 34Z" fill="#47c25a" stroke="#1a1030" stroke-width="6"/><rect x="36" y="4" width="28" height="10" rx="3" fill="#a0784a" stroke="#1a1030" stroke-width="4"/><path d="M44 52 H56 V46 H62 V58 H56 V64 H44 V58 H38 V46 H44Z" fill="#fff" stroke="#1a1030" stroke-width="3"/>',
+  pouch:'<path d="M38 26 Q14 44 16 66 Q18 88 50 88 Q82 88 84 66 Q86 44 62 26Z" fill="#a0703a" stroke="#1a1030" stroke-width="6"/><path d="M36 26 L30 14 L70 14 L64 26Z" fill="#a0703a" stroke="#1a1030" stroke-width="5"/><circle cx="36" cy="62" r="9" fill="#ff7a1f" stroke="#1a1030" stroke-width="4"/><circle cx="56" cy="70" r="9" fill="#3da5ff" stroke="#1a1030" stroke-width="4"/><circle cx="62" cy="50" r="9" fill="#47c25a" stroke="#1a1030" stroke-width="4"/>',
+  scroll:'<rect x="22" y="20" width="56" height="62" fill="#f6e2b0" stroke="#1a1030" stroke-width="6"/><rect x="14" y="10" width="72" height="14" rx="7" fill="#d9b673" stroke="#1a1030" stroke-width="5"/><rect x="14" y="78" width="72" height="14" rx="7" fill="#d9b673" stroke="#1a1030" stroke-width="5"/><path d="M50 36 L54 48 L66 48 L56 56 L60 68 L50 60 L40 68 L44 56 L34 48 L46 48Z" fill="#6b4bd6" stroke="#1a1030" stroke-width="3" stroke-linejoin="round"/>',
+  gearbox:'<path d="M50 8 L86 30 V70 L50 92 L14 70 V30Z" fill="#6b4bd6" stroke="#1a1030" stroke-width="6" stroke-linejoin="round"/><path d="M50 26 L68 38 V62 L50 74 L32 62 V38Z" fill="#c9a7ff" stroke="#1a1030" stroke-width="4"/><path d="M50 36 V64 M38 44 L62 56 M62 44 L38 56" stroke="#1a1030" stroke-width="4" stroke-linecap="round"/>'
+});
+Object.assign(ITEMS, {
+  phoenix:  {name:'Phoenix Feather', short:'Saves you once from being knocked out', t:'Works on its own: the first time you would be knocked out, the feather burns and you stay up with 8 health.', passive:1},
+  whetstone:{name:'Whetstone',       short:'+1 damage on every attack this fight · one use', t:'One use: sharpen up. Every attack you make deals +1 damage for the rest of this fight.', once:1},
+  tonic:    {name:'Bulwark Tonic',   short:'Gain 8 shield · one use', t:'Drink it to gain 8 shield right away. Used up.', once:1},
+  mana:     {name:'Mana Crystal',    short:'+1 of your element · once per turn', t:'Once per turn: gain 1 of your hero’s own element.', perTurn:1},
+  thunder:  {name:'Thunder Bomb',    short:'5 damage to every enemy · one use', t:'One use: throw it to deal 5 damage to every enemy. Then it’s gone.', once:1}
+});
+EVENTS.merchant.shop = EVENTS.merchant.shop.concat([
+  {k:'item:phoenix', l:'Phoenix Feather', cost:45, icon:'phoenix'},
+  {k:'item:whetstone', l:'Whetstone', cost:30, icon:'whetstone'},
+  {k:'item:tonic', l:'Bulwark Tonic', cost:20, icon:'tonic'},
+  {k:'item:mana', l:'Mana Crystal', cost:40, icon:'mana'},
+  {k:'item:thunder', l:'Thunder Bomb', cost:35, icon:'thunder'}
+]);
+const SHOP_PIC = {heal:'draught', res:'pouch', card:'scroll', gear:'gearbox'};
+const SHOP_TIP = {heal:'Healing draught: heal 15 right away.', res:'Essence pouch: +2 of every resource.', card:'A random spell-scroll card goes into your deck.', gear:'Elite gear: a random rune (for an ability), setting (for a core stone) or charm (for you).'};
+itemBlock = (function(base){ return function(S,v,i){ const k=(S.p[v].items||[])[i]; if(k==='phoenix') return 'Works on its own'; const r=base(S,v,i); if(r) return r;
+  return null; }; })(itemBlock);
+act.useItem = (function(base){ return (i)=>{ const k0=S && (S.p[ACTOR()].items||[])[i]; if(!['whetstone','tonic','mana','thunder'].includes(k0)) return base(i); return guard(async()=>{
+  const seat=ACTOR(), P=S.p[seat], k=(P.items||[])[i];
+  if(!['whetstone','tonic','mana','thunder'].includes(k) || itemBlock(S,seat,i)) return;
+  const T=clone(S), TP=T.p[seat], it=ITEMS[k];
+  TP.st.items=Object.assign({}, TP.st.items||{}); TP.st.items[k]=1;
+  if(k==='whetstone'){ TP.might=1; lg(T,`🗡 {${seat}} sharpens up: +1 damage on every attack this fight.`); }
+  else if(k==='tonic'){ TP.shield+=8; lg(T,`🛡 {${seat}} drinks a Bulwark Tonic: +8 shield.`); }
+  else if(k==='mana'){ addRes(TP,heroEl(T,seat),1); lg(T,`💠 {${seat}}'s Mana Crystal gives 1 ${EL_NAME[heroEl(T,seat)]}.`); }
+  else if(k==='thunder'){ lg(T,`💣 {${seat}} throws a Thunder Bomb!`); T.q.unshift(...expand(T,seat,[['coreAll',5]],{},'L','Thunder Bomb')); }
+  if(it.once) TP.items.splice(i,1);
+  sfx(T,'instant'); flash(T,`${it.name}!`); advance(T);
+  await commitA(T,seat,'use '+it.name);
+}); }; })(act.useItem);
+// Phoenix Feather: catches you before you are knocked out
+coopCheck = (function(base){ return function(S){ if(S && S.coop && S.status==='playing') HS(S).forEach(i=>{ const P=S.p[i]; if(P && !P.absent && !P.down && P.hp<=0 && (P.items||[]).includes('phoenix')){ P.items.splice(P.items.indexOf('phoenix'),1); P.hp=8; lg(S,`🔥 {${i}}'s Phoenix Feather bursts into flame: back up with 8 health!`); flash(S,'🔥 Phoenix Feather!'); } }); return base(S); }; })(coopCheck);
+// ---- the shop as a comic-book page, and event choices as picture panels ----
+coopPrompt = (function(base){ return function(S,v){ let h=base(S,v); const EV=S.event;
+  if(S.phase!=='event' || !EV || EV.done[v]) return h;
+  const D=EVENTS[EV.key];
+  if(D.shop && EV.key==='merchant'){
+    const sold=EV.sold||[], gold=S.gold||0;
+    const panels=D.shop.map((o,idx)=>{ const isSold = sold.includes(o.k) || (o.k==='gear' && sold.includes('gear'+v)); const can=!isSold && gold>=o.cost;
+      const ik = o.icon || SHOP_PIC[o.k] || 'gearbox', it=o.k.startsWith('item:') ? ITEMS[o.k.slice(5)] : null;
+      const name = it ? it.name : ({heal:'Healing Draught',res:'Essence Pouch',card:'Spell Scroll',gear:'Elite Gear'})[o.k] || o.l.replace(/^\S+\s/,'').replace(/:.*$/,''), tip = it ? `${it.name}: ${it.t}` : (SHOP_TIP[o.k]||o.l);
+      return `<button type="button" class="shoppanel ${idx===0?'big':''} ${isSold?'sold':can?'':'poor'}" data-act="eventpick" data-c="${o.k}" ${isSold||!can?'disabled':''} title="${esc(tip)}">
+        <span class="spic">${itemIcon(ik)}</span><span class="scap">${esc(name)}</span><span class="sprice">🪙 ${o.cost}</span>${isSold?'<span class="sstamp">SOLD</span>':''}</button>`; }).join('');
+    return `<div class="rewardbox eventbox shoppage"><div class="shophead"><span class="shopttl">🧙 Wandering Merchant</span><span class="shopbubble">“Rare wares for brave travellers!”</span><span class="goldtag">🪙 ${gold}</span></div>
+      <div class="shopgrid">${panels}</div><button class="btn skipreward" data-act="eventpick" data-c="">✔ Done shopping</button></div>`;
+  }
+  // other events: big picture panels from each choice's icon
+  return h.replace(/<button class="btn([^"]*)" data-act="eventpick" data-c="([^"]+)"([^>]*)>([\s\S]*?)<\/button>/g, (m,ib,c,attrs,inner)=>{
+    let icon='', label=inner;
+    const im=inner.match(/^(<svg[\s\S]*?<\/svg>)([\s\S]*)$/); if(im){ icon=im[1]; label=im[2]; }
+    else { const em=inner.match(/^(\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic}|\p{Emoji_Modifier})*|[★⚒⚔☠♻✨])\s*([\s\S]*)$/u); if(em){ icon=`<span class="evemoji">${em[1]}</span>`; label=em[2]; } }
+    if(!icon) return m;
+    const parts=label.split(/:\s*/); const ttl=parts.shift(), rest=parts.join(': ');
+    const tip=label.replace(/<[^>]+>/g,'');
+    return `<button class="evtile" data-act="eventpick" data-c="${c}"${attrs} title="${esc(tip)}"><span class="evpic">${icon}</span><b>${ttl}</b>${rest?`<small>${rest}</small>`:''}</button>`; });
+}; })(coopPrompt);
+// ---- lobby: picture buttons ----
+renderLobby = (function(base){ return async function(){ const r=await base.apply(this,arguments);
+  try{ const blk=[...document.querySelectorAll('#app .lrow')].filter(x=>x.querySelector('[data-act="local"],[data-act="ai"],[data-act="coop"]'));
+    if(blk.length){ const online=!!(db && myId);
+      const tiles=`<div class="modetiles">
+        <button type="button" class="modetile" data-act="local" title="Two players share this device and pass it back and forth.">${PICS.pass()}<b>Pass &amp; play</b><small>Two players, one device</small></button>
+        <button type="button" class="modetile" data-act="ai" title="Play a practice duel against the computer.">${PICS.ai()}<b>Vs the computer</b><small>Practice duel</small></button>
+        <button type="button" class="modetile" data-act="coop" title="Solo or co-op dungeon runs against monsters, elites and bosses.">${PICS.dungeon()}<b>Dungeon</b><small>Solo or co-op</small></button>
+        ${online?`<button type="button" class="modetile" data-act="create" title="Create an online duel and send a friend the code.">${PICS.online()}<b>Duel online</b><small>Send a friend the code</small></button>`:''}</div>`;
+      blk[0].insertAdjacentHTML('beforebegin', tiles); blk.forEach(x=>x.remove()); } }catch(e){}
+  return r; }; })(renderLobby);
+document.head.insertAdjacentHTML('beforeend', `<style id="ui54">
+/* picture tiles inside pop-ups */
+.mbox:has(.ptile), .mbox:has(.cfgrid){ width:min(820px,100%); }
+.mopts:has(.ptile){ display:grid; grid-template-columns:repeat(auto-fill,minmax(168px,1fr)); gap:12px; }
+.mopt:has(.ptile){ padding:7px; border-radius:16px; box-shadow:4px 5px 0 #1a1030; transition:transform .12s; }
+.mopt:has(.ptile):hover{ transform:translateY(-3px) rotate(-1deg); }
+.ptile{ display:flex; flex-direction:column; align-items:center; gap:3px; text-align:center; }
+.ppic{ display:block; width:100%; }
+.ppic svg, .ppic .picface{ display:block; width:100%; height:auto; aspect-ratio:200/110; object-fit:cover; object-position:50% 20%; border:3px solid #1a1030; border-radius:10px; box-sizing:border-box; }
+.ptile.hero .ppic .picface{ aspect-ratio:1/1; }
+.ptt{ font-family:var(--display); font-weight:400; font-size:1.25rem; letter-spacing:.03em; line-height:1; transform:skewX(-6deg); }
+.pts{ font-size:.75rem; font-weight:700; color:#5a3fd0; line-height:1.15; }
+.ptile.small .ptt{ font-size:.95rem; } .ptile.small .ppic{ width:60%; }
+.mopt:has(.ptile.forge){ background:#f1e6ff; }
+/* lobby mode tiles */
+.modetiles{ display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin:10px 0 6px; }
+.modetile{ font:inherit; color:#1a1030; background:#fff; border:4px solid #1a1030; border-width:3px 5px 6px 3px; border-radius:14px 20px 12px 22px / 20px 12px 22px 14px; box-shadow:6px 6px 0 #1a1030; padding:8px 8px 10px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:4px; transition:transform .12s, box-shadow .12s; }
+.modetile:hover{ transform:translateY(-4px) rotate(-1.2deg); box-shadow:8px 10px 0 #1a1030; }
+.modetile svg{ width:100%; height:auto; border:3px solid #1a1030; border-radius:10px; display:block; }
+.modetile b{ font-family:var(--display); font-weight:400; font-size:1.5rem; letter-spacing:.03em; line-height:1; transform:skewX(-6deg); margin-top:4px; }
+.modetile small{ font-weight:700; color:#5a3fd0; }
+.modetile:nth-child(1){ background:#fff3b0; } .modetile:nth-child(2){ background:#dcecff; } .modetile:nth-child(3){ background:#efe2ff; } .modetile:nth-child(4){ background:#ddf5e1; }
+/* comic lobby background */
+body.comic:not(.ingame){ background:
+  radial-gradient(circle, rgba(255,60,140,.16) 0 1.4px, transparent 2px) 0 0/12px 12px,
+  radial-gradient(circle, rgba(0,160,255,.12) 0 1.2px, transparent 1.8px) 6px 6px/12px 12px,
+  repeating-conic-gradient(from 0deg at 50% 0%, rgba(255,196,0,.18) 0 4deg, transparent 4deg 10deg),
+  var(--page) !important; background-attachment:fixed !important; }
+/* crystal forge board */
+.cfheroes{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin:6px 0 10px; }
+.cfhero{ position:relative; width:64px; height:64px; padding:0; border:3px solid #1a1030; border-radius:50%; overflow:hidden; background:#fff; cursor:pointer; box-shadow:0 3px 0 #1a1030; }
+.cfhero img{ width:100%; height:100%; object-fit:cover; object-position:50% 18%; display:block; }
+.cfhero.on{ box-shadow:0 0 0 4px #ffc400, 0 3px 0 #1a1030; transform:scale(1.08); }
+.cfhero i{ position:absolute; right:-2px; bottom:-2px; font-style:normal; font-family:var(--display); background:#b07bff; color:#fff; border:2px solid #1a1030; border-radius:99px; padding:0 5px; font-size:.8rem; }
+.cfgrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:12px; }
+.cftile{ font:inherit; color:#1a1030; background:#fff; border:3px solid #1a1030; border-radius:14px; box-shadow:4px 5px 0 #1a1030; padding:6px 6px 8px; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; text-align:center; position:relative; }
+.cftile.can{ background:#fff3b0; } .cftile.can:hover{ transform:translateY(-3px) rotate(1deg); }
+.cftile.no{ opacity:.6; filter:grayscale(.5); cursor:default; } .cftile.full{ background:#ddf5e1; cursor:default; }
+.cfpips{ display:flex; gap:4px; } .cfpips i{ width:12px; height:12px; border-radius:50%; border:2px solid #1a1030; background:#fff; } .cfpips i.on{ background:#b07bff; }
+.cfcost{ font-family:var(--display); font-size:1.05rem; background:#1a1030; color:#fff; border-radius:99px; padding:1px 10px; letter-spacing:.03em; }
+/* the shop: a comic-book page */
+.shoppage{ max-width:1080px; margin:0 auto; }
+.shophead{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
+.shopttl{ font-family:var(--display); font-size:1.7rem; letter-spacing:.03em; background:#ffc400; border:3px solid #1a1030; padding:2px 12px; transform:rotate(-2deg); box-shadow:4px 4px 0 #1a1030; }
+.shopbubble{ position:relative; background:#fff; border:3px solid #1a1030; border-radius:18px; padding:4px 12px; font-weight:700; font-style:italic; }
+.shopgrid{ display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); grid-auto-rows:118px; gap:8px; background:#1a1030; padding:8px; border-radius:6px; }
+.shoppanel{ position:relative; overflow:hidden; font:inherit; color:#1a1030; border:0; border-radius:3px; cursor:pointer; padding:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background:radial-gradient(circle, rgba(26,16,48,.13) 0 1.2px, transparent 1.7px) 0 0/8px 8px, linear-gradient(160deg,#fff7d6,#ffd98a); }
+.shoppanel:nth-child(3n+2){ background:radial-gradient(circle, rgba(26,16,48,.13) 0 1.2px, transparent 1.7px) 0 0/8px 8px, linear-gradient(160deg,#e3f2ff,#9fd0ff); }
+.shoppanel:nth-child(3n){ background:radial-gradient(circle, rgba(26,16,48,.13) 0 1.2px, transparent 1.7px) 0 0/8px 8px, linear-gradient(160deg,#f1e6ff,#c9a7ff); }
+.shoppanel.big{ grid-column:span 2; grid-row:span 2; }
+.shoppanel:nth-child(7){ grid-column:span 2; }
+.shoppanel .spic .itemico{ width:62px; height:62px; transition:transform .15s; }
+.shoppanel.big .spic .itemico{ width:120px; height:120px; }
+.shoppanel:hover:not([disabled]) .spic .itemico{ transform:scale(1.12) rotate(-6deg); }
+.scap{ position:absolute; left:4px; top:4px; background:#fff; border:2px solid #1a1030; padding:1px 6px; font-family:var(--display); font-size:.8rem; letter-spacing:.02em; line-height:1.05; max-width:calc(100% - 14px); white-space:normal; text-align:left; transform:rotate(-1.5deg); }
+.shoppanel.big .scap{ font-size:1.05rem; }
+.sprice{ position:absolute; right:4px; bottom:4px; background:#ffc400; border:2px solid #1a1030; border-radius:99px; padding:0 7px; font-family:var(--display); font-size:.95rem; transform:rotate(-4deg); }
+.shoppanel.poor{ filter:grayscale(.7); opacity:.65; cursor:default; }
+.shoppanel.sold{ filter:grayscale(.85); opacity:.6; cursor:default; }
+.sstamp{ position:absolute; inset:auto; top:40%; font-family:var(--display); font-size:1.4rem; color:#e0243b; border:3px solid #e0243b; padding:0 8px; transform:rotate(-14deg); background:rgba(255,255,255,.7); }
+@media (max-width:900px){ .shopgrid{ grid-template-columns:repeat(3,minmax(0,1fr)); } .shoppanel:nth-child(7){ grid-column:auto; } }
+/* event choices as picture panels */
+.rewardopts:has(.evtile){ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; }
+.evtile{ font:inherit; color:#1a1030; background:radial-gradient(circle, rgba(26,16,48,.1) 0 1.2px, transparent 1.7px) 0 0/8px 8px, #fffaf0; border:3px solid #1a1030; border-radius:14px; box-shadow:4px 5px 0 #1a1030; padding:8px 10px 10px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:3px; text-align:center; }
+.evtile:hover:not([disabled]){ transform:translateY(-3px) rotate(-1deg); }
+.evtile[disabled]{ opacity:.55; filter:grayscale(.6); cursor:default; }
+.evpic{ display:grid; place-items:center; width:74px; height:74px; border-radius:50%; background:#ffc400; border:3px solid #1a1030; box-shadow:inset 0 -6px 0 rgba(0,0,0,.12); }
+.evpic .itemico{ width:52px; height:52px; } .evemoji{ font-size:2.4rem; line-height:1; font-family:system-ui,'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji',sans-serif; }
+.evtile b{ font-family:var(--display); font-weight:400; font-size:1.15rem; letter-spacing:.03em; line-height:1.05; }
+.evtile small{ font-weight:700; color:#5a3fd0; font-size:.78rem; line-height:1.2; }
+</style>`);
+
+/* ---------- v0.55: faster dungeon turns ---------- */
+// 1) One "Your turn" phase in the dungeon: Main 1, Combat and Main 2 merge. Play cards and use abilities in any order, then one Ready.
+const PVE55 = {oneTurn:true};
+const oneTurn = S => !!(S && S.coop && PVE55.oneTurn);
+coopIncomeDone = (function(base){ return function(S){ const b=S.phase; base(S);
+  if(oneTurn(S) && b==='income' && S.phase==='main1'){ if(S.log[S.log.length-1]==='Heroes move to Main 1.') S.log.pop(); S.phase='combat'; lg(S,'Heroes take their turn.'); enterCombatTimers(S, HS(S).filter(i=>!S.p[i].absent && !S.p[i].down)); } }; })(coopIncomeDone);
+coopReady = (function(base){ return function(T,seat){ const b=T.phase; base(T,seat);
+  if(oneTurn(T) && b==='combat'){ T.log=T.log.filter(m=>m!=='Heroes move to Main 2.').map(m=>m.endsWith(' is ready to leave Combat.') ? m.replace(' is ready to leave Combat.',' ends their turn.') : m); if(T.phase==='main2') startEnemyTurn(T); } }; })(coopReady);
+// old saves that were in Main 1 / Main 2 still work: those phases simply continue as before
+cardBlockReason = (function(base){ return function(S,seat,hi){ const r=base(S,seat,hi);
+  if(r==='Play in a main phase' && oneTurn(S) && S.phase==='combat'){ const ph=S.phase; S.phase='main1'; try{ return base(S,seat,hi); } finally{ S.phase=ph; } }
+  return r; }; })(cardBlockReason);
+const _phaseNameTurn = PHASE_NAME.combat;
+coopHTML = (function(base){ return function(v){ let h=base(v); if(oneTurn(S) && S.phase==='combat') h=h.replace(/Round (\d+) · Combat/, 'Round $1 · Your turn'); return h; }; })(coopHTML);
+coopPrompt = (function(base){ return function(S,v){ let h=base(S,v);
+  if(oneTurn(S) && S.phase==='combat'){
+    h=h.replace('Use your hero abilities (each once per combat).','Play cards and use your abilities (each once per turn), in any order.')
+       .replace('Ready: Main 2','Ready: End turn').replace('To Main 2','End Turn')
+       .replace(/finish Combat…/,'finish their turn…').replace(/ready to leave Combat/,'ready');
+    h=h.replace('data-act="next"><span class="pbicon" aria-hidden="true">'+PH_ICON.main2, 'data-act="next"><span class="pbicon" aria-hidden="true">'+PH_ICON.end);
+  }
+  return h; }; })(coopPrompt);
+// 2) Quick defend: when a monster hits you, block automatically with your best resources (no pop-up).
+let quickDef = (()=>{ try{ return localStorage.getItem('ewQuickDef')==='on'; }catch(e){ return false; } })();
+function setQuickDef(on){ quickDef=!!on; try{ localStorage.setItem('ewQuickDef', quickDef?'on':'off'); }catch(e){} }
+function quickBlocks(S,seat,pk){
+  const P=S.p[seat], avail={...P.res}, blocks=[], max=(typeof DEFMAX==='function')?DEFMAX():2;
+  const keys=Object.keys(P.res).sort((x,y)=>(beats(y,pk.el)-beats(x,pk.el)) || (P.res[y]-P.res[x]));
+  let need=pk.blk-(pk.blocked||0);
+  for(const k of keys){ while(blocks.length<max && need>0 && avail[k]>0){ blocks.push(k); avail[k]--; need-=beats(k,pk.el)?2:1; } }
+  return blocks;
+}
+function needsChoice(S,seat){ const P=S.p[seat];
+  return P.hand.some(id=>DEFEND_OK.has(CARDLIST[id].name) && canPay(P,CARDLIST[id].cost)) || hasCore(P,'Water Stone') || (hasCore(P,'Glacier Core') && P.dice.some(d=>d.fz)); }
+answerPrompt = (function(base){ return async function(){
+  const pi=pendingInput(S);
+  if(pi && pi.k==='defend' && S.coop && quickDef && canAct(pi.actor) && !needsChoice(S,pi.actor)){
+    return guard(async()=>{ const p2=pendingInput(S); if(!p2 || p2.k!=='defend') return; const seat=p2.actor, blocks=quickBlocks(S,seat,p2.pk);
+      const T=clone(S); applyDefend(T,seat,{blocks,card:null,redirect:false});
+      const bl=blocks.reduce((s,k)=>s+(beats(k,p2.pk.el)?2:1),0);
+      await commitA(T,seat,null); autoBlockFx(seat, Math.min(bl,p2.pk.blk), blocks, p2.pk); });
+  }
+  return base.apply(this,arguments); }; })(answerPrompt);
+volSlidersHTML = (function(base){ return function(){ return base().replace(/<\/div>$/, `<label class="volrow comicrow" title="In the dungeon, block monster hits automatically with your best resources instead of a pop-up. You still get the pop-up when you hold a defense card or core."><span>🛡 Quick defend</span><input type="checkbox" ${quickDef?'checked':''} onchange="setQuickDef(this.checked)" aria-label="Quick defend" style="width:20px;height:20px;justify-self:start"><output></output></label></div>`); }; })(volSlidersHTML);
+
+
+/* ---------- v0.56: auto-block is off by default, toggle it from the defend pop-up, and see it happen ---------- */
+function autoBlockFx(seat, n, blocks, pk){
+  try{
+    const host = document.querySelector(`.cxme[data-cxhero="${seat}"]`) || document.querySelector(`.cxally[data-cxhero="${seat}"]`) || document.querySelector(`.ppanel[data-seat="${seat}"]`) || document.querySelector('.cxme') || document.body;
+    const r = host.getBoundingClientRect();
+    const o=document.createElement('div'); o.className='abfx'+(n>0?'':' none');
+    o.style.left=(r.left+r.width/2)+'px'; o.style.top=(r.top+Math.min(r.height/2,140))+'px';
+    o.innerHTML=`<div class="abburst"></div><div class="abshield"><svg viewBox="0 0 100 110" aria-hidden="true"><path d="M50 6 L90 20 Q90 70 50 104 Q10 70 10 20Z" fill="#4f8cff" stroke="#1a1030" stroke-width="7" stroke-linejoin="round"/><path d="M50 20 L76 29 Q76 64 50 88 Q24 64 24 29Z" fill="none" stroke="#ffd23d" stroke-width="5"/></svg><b>${n>0?'−'+n:'0'}</b></div>
+      <div class="abtxt">${n>0?'AUTO-BLOCK!':'AUTO-BLOCK: NO RESOURCES'}</div><div class="abpips">${blocks.map(k=>pip(k)).join('')}</div><div class="absub">Auto defend is on · ⚙ to turn off</div>`;
+    document.body.appendChild(o);
+    host.classList.remove('abglow'); void host.offsetWidth; host.classList.add('abglow'); setTimeout(()=>host.classList.remove('abglow'),1600);
+    try{ playSfx('deflect'); }catch(e){}
+    setTimeout(()=>o.remove(), 2300);
+  }catch(e){}
+}
+// a toggle inside every dungeon defend pop-up
+let defendToggleOn=false, defendPk=null, defendSeat=null;
+const _openModal56 = openModal;
+openModal = function(html){
+  if(defendToggleOn && S && S.coop) html = html + `<label class="abtoggle" title="Block every monster hit automatically with your best resources. You can switch it back off here or in the ⚙ / Volume menu."><input type="checkbox" data-abtoggle ${quickDef?'checked':''}> 🛡 <b>Auto defend</b> <small>block automatically from now on</small></label>`;
+  return _openModal56(html);
+};
+defendDialog = (function(base){ return function(seat, pk){ defendToggleOn=true; defendPk=pk; defendSeat=seat;
+  const p=base(seat,pk); p.then(()=>{ defendToggleOn=false; }, ()=>{ defendToggleOn=false; }); return p; }; })(defendDialog);
+document.addEventListener('change', e=>{ const t=e.target.closest && e.target.closest('[data-abtoggle]'); if(!t) return;
+  setQuickDef(t.checked); toast(t.checked ? '🛡 Auto defend ON: hits are blocked for you from now on.' : 'Auto defend off: you choose your blocks.');
+  // switching it on mid-pop-up blocks this hit right away (unless you hold a defense card or core to decide on)
+  if(t.checked && S && defendSeat!=null && !needsChoice(S,defendSeat)){ const pi=pendingInput(S); if(pi && pi.k==='defend' && pi.actor===defendSeat){
+    const seat=defendSeat, pk=pi.pk, blocks=quickBlocks(S,seat,pk), bl=blocks.reduce((s,k)=>s+(beats(k,pk.el)?2:1),0);
+    if(modalResolve){ const r=modalResolve; modalResolve=null; hideModal(); r({blocks, card:null, redirect:false}); setTimeout(()=>autoBlockFx(seat, Math.min(bl,pk.blk), blocks, pk), 250); } } }
+});
+document.head.insertAdjacentHTML('beforeend', `<style id="ab56">
+.abtoggle{ display:flex; align-items:center; gap:8px; margin-top:10px; padding:8px 12px; background:#eef4ff; border:3px solid #1a1030; border-radius:12px; font-weight:700; cursor:pointer; box-shadow:0 3px 0 #1a1030; }
+.abtoggle input{ width:22px; height:22px; accent-color:#4f8cff; } .abtoggle small{ color:#5a3fd0; font-weight:700; }
+.abfx{ position:fixed; z-index:9500; transform:translate(-50%,-50%); pointer-events:none; display:flex; flex-direction:column; align-items:center; gap:4px; animation:abpop 2.3s cubic-bezier(.2,1.5,.4,1) forwards; }
+.abburst{ position:absolute; left:50%; top:46px; width:230px; height:230px; transform:translate(-50%,-50%); background:repeating-conic-gradient(from 0deg, rgba(79,140,255,.55) 0 10deg, transparent 10deg 22deg); border-radius:50%; animation:abspin 2.3s linear forwards;
+  -webkit-mask:radial-gradient(circle, #000 30%, transparent 70%); mask:radial-gradient(circle, #000 30%, transparent 70%); }
+.abshield{ position:relative; width:96px; height:106px; filter:drop-shadow(4px 5px 0 #1a1030); animation:abslam .5s cubic-bezier(.2,1.8,.4,1); }
+.abshield svg{ width:100%; height:100%; display:block; }
+.abshield b{ position:absolute; inset:0; display:grid; place-items:center; padding-bottom:10px; font-family:var(--display,Bangers,Impact,sans-serif); font-weight:400; font-size:2.4rem; color:#fff; -webkit-text-stroke:2px #1a1030; paint-order:stroke fill; }
+.abtxt{ position:relative; font-family:var(--display,Bangers,Impact,sans-serif); font-size:2.1rem; letter-spacing:.04em; color:#fff; -webkit-text-stroke:2.5px #1a1030; paint-order:stroke fill; text-shadow:4px 4px 0 #1a1030; transform:rotate(-4deg); white-space:nowrap; background:#4f8cff; padding:0 14px; border:3px solid #1a1030; border-radius:10px; }
+.abfx.none .abtxt{ background:#9aa7b8; font-size:1.5rem; }
+.abpips{ display:flex; gap:4px; } .abpips .pip{ width:30px; height:30px; filter:drop-shadow(0 2px 0 #1a1030); animation:abslam .5s .15s both cubic-bezier(.2,1.8,.4,1); }
+.absub{ position:relative; font-weight:800; font-size:.78rem; color:#1a1030; background:#fff; border:2px solid #1a1030; border-radius:99px; padding:1px 10px; }
+@keyframes abpop{ 0%{ opacity:0; transform:translate(-50%,-50%) scale(.3); } 12%{ opacity:1; transform:translate(-50%,-50%) scale(1.08); } 20%{ transform:translate(-50%,-50%) scale(1); } 82%{ opacity:1; transform:translate(-50%,-56%) scale(1); } 100%{ opacity:0; transform:translate(-50%,-70%) scale(.9); } }
+@keyframes abspin{ to{ transform:translate(-50%,-50%) rotate(90deg); } }
+@keyframes abslam{ from{ transform:scale(2.2) rotate(-12deg); opacity:0; } }
+.abglow{ animation:abglow 1.6s ease-out; border-radius:14px; }
+@keyframes abglow{ 0%,40%{ box-shadow:0 0 0 6px #4f8cff, 0 0 30px 10px rgba(79,140,255,.8); } 100%{ box-shadow:0 0 0 0 rgba(79,140,255,0); } }
+@media (prefers-reduced-motion: reduce){ .abfx,.abburst,.abshield,.abpips .pip,.abglow{ animation-duration:.01s !important; } .abfx{ animation:none; } }
+</style>`);
+
+/* ---------- v0.57: pictures for every non-fight encounter ---------- */
+Object.assign(CP, {
+  fountain:(c='#9aa7b8')=>`<path d="M-44 30 L44 30 L38 14 L-38 14Z" fill="${c}" ${CS(3.5)}/><ellipse cy="14" rx="38" ry="6" fill="#5ac8ff" ${CS(3)}/>${HL('M-26 12 Q-10 9 6 12',2.5)}
+    <rect x="-5" y="-14" width="10" height="28" fill="${c}" ${CS(3)}/><path d="M-20 -14 L20 -14 L16 -22 L-16 -22Z" fill="${c}" ${CS(3)}/><ellipse cy="-22" rx="16" ry="3.5" fill="#5ac8ff" ${CS(2.5)}/>
+    <path d="M0 -24 Q-3 -36 0 -42 Q3 -36 0 -24" fill="#bfeaff" ${CS(2)}/><path d="M-14 -22 Q-30 -20 -32 8 M14 -22 Q30 -20 32 8" fill="none" stroke="${CART_INK}" stroke-width="6" stroke-linecap="round"/><path d="M-14 -22 Q-30 -20 -32 8 M14 -22 Q30 -20 32 8" fill="none" stroke="#7fd4ff" stroke-width="3" stroke-linecap="round"/>`,
+  well:(c='#8a8079')=>`<path d="M-30 4 L30 4 L30 30 L-30 30Z" fill="${c}" ${CS(3.5)}/><path d="M-30 14 H30 M-14 4 V14 M10 4 V14 M-4 14 V30 M20 14 V30 M-22 14 V30" stroke="${CART_INK}" stroke-width="2"/><ellipse cy="4" rx="30" ry="6" fill="#1a2a6b" ${CS(3)}/>${HL('M-16 4 Q0 1 16 4',2,'#9ad7ff',.8)}
+    <path d="M-26 4 V-30 M26 4 V-30" ${CS(5)}/><path d="M-26 4 V-30 M26 4 V-30" stroke="#7a5233" stroke-width="2.5"/><path d="M-36 -26 L0 -44 L36 -26Z" fill="#c0577a" ${CS(3.5)}/><path d="M-22 -18 H22" ${CS(3)}/><path d="M0 -18 V-6" stroke="${CART_INK}" stroke-width="1.6"/><rect x="-5" y="-6" width="10" height="8" rx="1.5" fill="#9aa7b8" ${CS(2)}/>`,
+  wizard:(c='#6b4bd6')=>`<path d="M-22 40 Q-24 6 0 2 Q24 6 22 40Z" fill="${c}" ${CS(3.5)}/><path d="M-4 40 L-4 12 M4 40 L4 12" stroke="#ffd23d" stroke-width="2"/>
+    <path d="M-18 10 Q-36 8 -50 -6" fill="none" stroke="${CART_INK}" stroke-width="12" stroke-linecap="round"/><path d="M-18 10 Q-36 8 -50 -6" fill="none" stroke="${c}" stroke-width="7" stroke-linecap="round"/><circle cx="-52" cy="-8" r="5" fill="#f2c49a" ${CS(2.5)}/>
+    <path d="M18 10 Q36 8 50 -6" fill="none" stroke="${CART_INK}" stroke-width="12" stroke-linecap="round"/><path d="M18 10 Q36 8 50 -6" fill="none" stroke="${c}" stroke-width="7" stroke-linecap="round"/><circle cx="52" cy="-8" r="5" fill="#f2c49a" ${CS(2.5)}/>
+    <circle cy="-8" r="11" fill="#f2c49a" ${CS(3)}/><path d="M-10 -6 Q-12 16 0 22 Q12 16 10 -6 Q0 0 -10 -6Z" fill="#f4f0e8" ${CS(2.5)}/><circle cx="-4" cy="-10" r="1.8" fill="${CART_INK}"/><circle cx="4" cy="-10" r="1.8" fill="${CART_INK}"/>
+    <path d="M-18 -14 L18 -14 L4 -46 Q0 -50 -4 -44Z" fill="${c}" ${CS(3)}/><path d="M-20 -14 H20" ${CS(4)}/><path d="M-4 -30 L-1 -26 L-5 -24" stroke="#ffd23d" stroke-width="2" fill="none"/>`,
+  cube:(c='#9ad7ff')=>`<path d="M0 -26 L24 -14 L0 -2 L-24 -14Z" fill="#fff" ${CS(3.5)}/><path d="M-24 -14 L0 -2 L0 26 L-24 14Z" fill="${c}" ${CS(3.5)}/><path d="M24 -14 L0 -2 L0 26 L24 14Z" fill="#6b4bd6" ${CS(3.5)}/>
+    <circle cx="-12" cy="6" r="4" fill="#ff7a1f" ${CS(1.5)}/><circle cx="12" cy="6" r="4" fill="#47c25a" ${CS(1.5)}/><circle cy="-14" r="4" fill="#3da5ff" ${CS(1.5)}/>`,
+  shrine:(c='#d9b673')=>`<path d="M-34 30 H34 V22 H-34Z" fill="#8a8079" ${CS(3)}/><rect x="-26" y="-10" width="8" height="32" fill="${c}" ${CS(3)}/><rect x="18" y="-10" width="8" height="32" fill="${c}" ${CS(3)}/><path d="M-36 -10 L0 -30 L36 -10Z" fill="#47c25a" ${CS(3.5)}/><path d="M-30 -10 H30" ${CS(3)}/>`,
+  shelf:(c='#7a5233')=>`<rect x="-34" y="-30" width="68" height="60" fill="${c}" ${CS(3.5)}/><path d="M-34 -10 H34 M-34 10 H34" ${CS(3)}/>${[[-28,-28,'#ff5a3d'],[-20,-28,'#3da5ff'],[-12,-26,'#47c25a'],[0,-28,'#ffd23d'],[10,-27,'#b07bff'],[20,-28,'#ff7ac0'],[-26,-8,'#b07bff'],[-16,-8,'#ffd23d'],[-4,-6,'#3da5ff'],[8,-8,'#ff5a3d'],[22,-8,'#47c25a'],[-26,12,'#47c25a'],[-14,12,'#ff7ac0'],[2,12,'#ff5a3d'],[16,12,'#3da5ff']].map(([x,y,col])=>`<rect x="${x}" y="${y}" width="7" height="${18-(y%3)}" fill="${col}" ${CS(1.6)}/>`).join('')}`,
+  altar:(c='#8a8079')=>`<path d="M-30 30 L-24 4 L24 4 L30 30Z" fill="${c}" ${CS(3.5)}/><rect x="-34" y="-4" width="68" height="10" rx="2" fill="#a8a29a" ${CS(3)}/><path d="M-16 14 L-10 20 M6 12 L12 22" stroke="${CART_INK}" stroke-width="2"/>`,
+  table:(c='#2f7a3a')=>`<ellipse rx="44" ry="12" fill="${c}" ${CS(3.5)}/><path d="M-36 6 L-30 30 M36 6 L30 30" ${CS(4)}/><ellipse rx="34" ry="8" fill="none" stroke="#ffd23d" stroke-opacity=".5" stroke-width="2"/>`,
+  chains:(c='#5b6576')=>`${[-30,-18,-6,6,18,30].map((x,i)=>`<ellipse cx="${x}" cy="${i%2?2:-2}" rx="${i%2?5:8}" ry="${i%2?8:5}" fill="none" stroke="${CART_INK}" stroke-width="6"/><ellipse cx="${x}" cy="${i%2?2:-2}" rx="${i%2?5:8}" ry="${i%2?8:5}" fill="none" stroke="${c}" stroke-width="3"/>`).join('')}`,
+  leyline:(c='#5ac8ff')=>`<path d="M-100 10 Q-50 -10 0 6 Q50 22 100 0" fill="none" stroke="${CART_INK}" stroke-width="18" stroke-linecap="round"/><path d="M-100 10 Q-50 -10 0 6 Q50 22 100 0" fill="none" stroke="${c}" stroke-width="12" stroke-linecap="round"/><path d="M-100 10 Q-50 -10 0 6 Q50 22 100 0" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-dasharray="10 14"/>`
+});
+const EVPIC = {
+  spring:  ()=>pic(['sky','grass',['fx:rays',100,40,'#fff',.35],['fountain',100,66,1.25],['coin',36,30,.6],['drop',166,30,.5],['fx:speed',40,48,90,2,10,'#ffd23d']]),
+  wishwell:()=>pic(['night','grass',['fx:stars','#fff',14,6],['well',100,62,1.25],['coin',152,26,.7,15],['fx:speed',150,40,120,2,14,'#ffd23d'],['star',50,26,.45]]),
+  shrine:  ()=>pic(['heal','grass',['fx:rays',100,50,'#fff',.5],['shrine',100,64,1.3],['heart',100,48,.45],['fx:plus',40,30,1],['fx:plus',160,34,.8]]),
+  library: ()=>pic(['dusk','floor',['shelf',70,62,1.1],['candle',140,74,.8],['scroll',150,40,.6,15],['book',118,30,.5,-10],['spark',170,70,.4,0,'#ffd23d']]),
+  cache:   ()=>pic(['night','rock',['chest',100,72,1.1,0,'#a0703a'],['coin',60,86,.55],['coin',140,88,.5],['gem',140,42,.5,0,'#5ac8ff'],['fx:rays',100,60,'#ffd23d',.25]]),
+  merchant:()=>pic(['warm','floor',['fx:rays',100,40,'#fff',.35],['wizard',100,64,1.15],['bag',30,84,.6],['potion',172,84,.55],['coin',60,30,.4],['coin',140,26,.4]]),
+  gambler: ()=>pic(['night','floor',['table',100,78,1.3],['card',80,64,.6,-15],['card',100,62,.6],['card',120,64,.6,15,'#fff6dc','#ff3b3b'],['die',60,82,.4,-10,6],['coin',148,82,.45],['person',100,34,1,0,'#3a2470']]),
+  tribute: ()=>pic(['dusk','rock',['altar',100,72,1.2],['orb',80,54,.32,0,'#ff7a1f'],['orb',100,50,.32,0,'#3da5ff'],['orb',120,54,.32,0,'#47c25a'],['fx:rays',100,40,'#ffd23d',.3],['sword',100,24,.6,90]]),
+  cursed:  ()=>pic(['void','floor',['chest',100,72,1.1,0,'#3a2a42'],['chains',100,72,1.3],['skull',100,36,.5],['fx:fog',88,'#b07bff',.5]]),
+  echo:    ()=>pic(['night','dark',['fx:glow',100,54,40,'#d9ccff',.35],['ghost',100,54,1.3,0,'#d9ccff'],['sword',150,56,.8,25],['fx:speed',60,54,180,3,20,'#d9ccff']]),
+  mirror:  ()=>pic(['cosmic',null,['mirror',100,56,1.5],['person',100,62,.7,0,'#ff5a3d'],['fx:shards',100,56,'#d8f3ff',6]]),
+  blood:   ()=>pic(['dusk','dark',['altar',100,74,1.2],['goblet',100,50,.8],['drop',60,40,.4,0,'#d42a4a'],['drop',140,44,.35,0,'#d42a4a'],['die',150,82,.4,20,3]]),
+  diceforge:()=>pic(['forge','floor',['anvil',100,82,1.1],['die',100,52,.8,10,6],['hammer',150,40,.9,-35],['spark',62,40,.6,0,'#ffe066'],['fx:embers','#ffe066',8,5]]),
+  corefind:()=>pic(['cosmic','rock',['fx:rays',100,56,'#fff',.25],['gem',100,58,1.3,0,'#b07bff'],['die',44,80,.5,-10,4],['fx:circles',100,58,30,'#fff']]),
+  leyline: ()=>pic(['storm','dark',['leyline',100,60,1],['cube',100,52,1.1],['spark',60,40,.5,0,'#9ad7ff'],['spark',150,70,.5,0,'#9ad7ff'],['fx:glow',100,52,30,'#9ad7ff',.35]]),
+  deckrefresh:()=>pic(['gold',null,['card',80,58,1.1,-12],['card',120,58,1.1,12],['cycle',100,58,.8,0,'#6b4bd6']]),
+  forge:   ()=>pic(['forge','floor',['anvil',100,82,1.1],['card',100,48,.9,8],['hammer',150,40,.9,-35],['spark',62,40,.6,0,'#ffe066']]),
+  reward:  ()=>pic(['gold',null,['fx:rays',100,56,'#fff',.5],['card',100,58,1.2],['star',50,30,.5],['star',152,34,.4]]),
+  gear:    ()=>pic(['cosmic',null,['fx:rays',100,56,'#fff',.3],['rune',100,56,1.2,0,'#c9a7ff'],['gem',100,56,.6,0,'#b07bff']])
+};
+const _evArt = h => `<div class="evart">${h}</div>`;
+coopPrompt = (function(base){ return function(S,v){ let h=base(S,v); if(!S || !S.coop) return h;
+  try{
+    let k=null;
+    if(S.phase==='event' && S.event && !S.event.done[v]) k=S.event.key;
+    else if(['corefind','leyline','deckrefresh','forge'].includes(S.phase)) k=S.phase;
+    else if(S.phase==='reward' && S.reward && !S.reward.done[v]) k = S.reward.kind==='gear' ? 'gear' : 'reward';
+    if(!k || !EVPIC[k]) return h;
+    if(k==='merchant' && h.includes('shoppage')) return h.replace('<div class="shophead">', `<div class="shophead"><span class="shopkeep">${EVPIC.merchant()}</span>`);
+    return h.replace(/^(\s*<div class="rewardbox[^"]*")>/, (m,a)=>`${a.replace('rewardbox','rewardbox hasart')}>${_evArt(EVPIC[k]())}`);
+  }catch(e){ return h; }
+}; })(coopPrompt);
+document.head.insertAdjacentHTML('beforeend', `<style id="evart57">
+.rewardbox.hasart{ display:grid; grid-template-columns:minmax(150px,240px) 1fr; column-gap:14px; align-items:start; }
+.rewardbox.hasart > .evart{ grid-row:1 / span 9; }
+.rewardbox.hasart > :not(.evart){ grid-column:2; }
+.rewardbox.hasart > .skipreward, .rewardbox.hasart > .btn{ justify-self:start; }
+.evart svg{ display:block; width:100%; height:auto; border:3px solid #1a1030; border-radius:12px; box-shadow:4px 5px 0 #1a1030; transform:rotate(-1.5deg); }
+.shopkeep{ order:-1; width:230px; flex:none; }
+.shopkeep svg{ display:block; width:100%; height:auto; border:3px solid #1a1030; border-radius:10px; box-shadow:4px 4px 0 #1a1030; transform:rotate(-2deg); }
+.shophead .shopbubble{ margin-left:-4px; }
+@media (max-width:700px){ .rewardbox.hasart{ grid-template-columns:1fr; } .rewardbox.hasart > .evart{ grid-row:auto; max-width:260px; } .rewardbox.hasart > :not(.evart){ grid-column:1; } }
+/* only the monster's art lights up when you aim at it (not its intent bubble) */
+body.aiming .minion{ outline:none !important; }
+body.aiming .minion .mbody{ outline:3px dashed rgba(255,196,0,.8); outline-offset:3px; border-radius:14px; }
+body.aiming .minion.aimhover{ outline:none !important; box-shadow:none !important; transform:none !important; }
+body.aiming .minion.aimhover .mbody{ filter:drop-shadow(0 0 0 #ffc400) drop-shadow(0 0 10px #ffc400) drop-shadow(0 0 4px #ffc400) !important; transform:scale(1.05); }
+.cxen .minion.cxtgt{ animation:none !important; }
+.cxen .minion.cxtgt .mbody{ animation:cxpulse 1s ease-in-out infinite; }
+/* comic action lines on the enemy intent bubbles */
+.cxen .minion .mthought, .enemyzone .mthought{ background-image:repeating-linear-gradient(115deg, rgba(26,16,48,.07) 0 2px, transparent 2px 9px) !important; }
+.cxen .minion .mthought::before{ display:block !important; content:''; position:absolute; right:-16px; top:50%; width:16px; height:34px; transform:translateY(-50%); background:
+  linear-gradient(#1a1030,#1a1030) 0 0/14px 3px no-repeat, linear-gradient(#1a1030,#1a1030) 4px 50%/12px 3px no-repeat, linear-gradient(#1a1030,#1a1030) 0 100%/14px 3px no-repeat; border:0 !important; }
+.cxen .minion .mthought .intent .irow, .cxen .minion .mthought .inum{ position:relative; }
+</style>`);
+
+/* =====================================================================
+   v0.58: heat levels, the Smoke-Shrouded Stranger's boons, monster combos, hero level-ups,
+   gear set bonuses, card shop, sealed vaults, rescued allies, item trading, achievements, run summary
+   ===================================================================== */
+// ---------- art ----------
+Object.assign(CP, {
+  stranger:(c='#3a2470')=>`<path d="M-26 40 Q-30 -4 0 -18 Q30 -4 26 40Z" fill="${c}" ${CS(3.5)}/><path d="M-16 -6 Q-18 -30 0 -36 Q18 -30 16 -6 Q8 -12 0 -12 Q-8 -12 -16 -6Z" fill="${c}" ${CS(3)}/>
+    <ellipse cy="-12" rx="10" ry="9" fill="#0b0618"/><circle cx="-4" cy="-13" r="2.6" fill="#7fe8ff"/><circle cx="4" cy="-13" r="2.6" fill="#7fe8ff"/>
+    <path d="M-6 6 Q-20 0 -30 10 M6 6 Q20 0 30 10" fill="none" ${CS(5)}/><circle cx="-31" cy="11" r="5" fill="#ff7a1f" ${CS(2)}/><circle cx="31" cy="11" r="5" fill="#5ac8ff" ${CS(2)}/>`,
+  door:(c='#5b6576')=>`<path d="M-30 34 L-30 -14 Q-30 -40 0 -40 Q30 -40 30 -14 L30 34Z" fill="${c}" ${CS(3.5)}/><path d="M-22 34 L-22 -12 Q-22 -32 0 -32 Q22 -32 22 -12 L22 34Z" fill="#3a3f4e" ${CS(2.5)}/>
+    ${[-16,-8,0,8,16].map(x=>`<path d="M${x} -26 V32" stroke="${CART_INK}" stroke-width="2"/>`).join('')}<circle cy="6" r="9" fill="#c9a24a" ${CS(3)}/><rect x="-2" y="4" width="4" height="9" fill="${CART_INK}"/><circle cy="5" r="2.5" fill="${CART_INK}"/>`,
+  key:(c='#ffd23d')=>`<circle cx="-14" r="10" fill="none" stroke="${CART_INK}" stroke-width="8"/><circle cx="-14" r="10" fill="none" stroke="${c}" stroke-width="4"/><path d="M-4 0 H24 M14 0 V8 M22 0 V6" fill="none" stroke="${CART_INK}" stroke-width="8" stroke-linecap="round"/><path d="M-4 0 H24 M14 0 V8 M22 0 V6" fill="none" stroke="${c}" stroke-width="4" stroke-linecap="round"/>`,
+  bars:(c='#9aa7b8')=>`<rect x="-34" y="-34" width="68" height="70" rx="4" fill="none" ${CS(4)}/>${[-24,-12,0,12,24].map(x=>`<path d="M${x} -34 V36" stroke="${CART_INK}" stroke-width="7"/><path d="M${x} -34 V36" stroke="${c}" stroke-width="3"/>`).join('')}<path d="M-34 -34 H34 M-34 36 H34" stroke="${CART_INK}" stroke-width="7"/><path d="M-34 -34 H34 M-34 36 H34" stroke="${c}" stroke-width="3"/>`
+});
+Object.assign(EVPIC, {
+  stranger:()=>pic(['void',null,['fx:glow',100,52,46,'#b37bff',.4],['fx:embers','#d6b8ff',14,4],['stranger',100,52,1.2],['fx:fog',86,'#9a88c8',.65],['smoke',40,94,.75,0,'#6a5a8a'],['smoke',160,94,.75,0,'#6a5a8a'],['flame',34,30,.4],['drop',166,30,.4],['bolt',62,16,.3],['sprout',140,16,.35]]),
+  cardshop:()=>pic(['warm','floor',['wizard',62,64,1],['card',128,54,.8,-12],['card',150,56,.8,4,'#fff6dc','#ff5a3d'],['card',172,58,.8,16,'#fff6dc','#2b9a40'],['coin',120,90,.4]]),
+  vault:   ()=>pic(['night','rock',['door',100,62,1.2],['key',156,30,.7,-20],['fx:glow',100,60,30,'#ffd23d',.25],['coin',40,86,.45],['gem',160,84,.4,0,'#5ac8ff']]),
+  prisoner:()=>pic(['dusk','floor',['hero',100,64,1.1,0,'#47c25a'],['bars',100,58,1],['key',160,84,.6,10],['torch',30,56,1]]),
+  heat:    ()=>pic(['ember','rock',['flame',100,56,1.6],['fx:embers','#ffe066',12,9]])
+});
+// ---------- 1) heat levels ----------
+const HEAT_TXT=['','Monsters have 15% more health','Heroes start with 5 less max health','Monsters hit 1 harder','Monsters have another 15% more health','Monsters +10% health and hit 1 harder again'];
+const heatOf = S => (S && S.coop && S.heat) || 0;
+const heatHp = h => 1 + (h>=1?.15:0) + (h>=4?.15:0) + (h>=5?.1:0);
+const heatDmg = h => (h>=3?1:0) + (h>=5?1:0);
+pHp = (function(base){ return S => base(S) * heatHp(heatOf(S)); })(pHp);
+pDmg = (function(base){ return S => base(S) + heatDmg(heatOf(S)); })(pDmg);
+function heatMax(){ return crysGet().heatMax||0; }
+async function heatPick(){
+  window.__nextHeat=0; const mx=heatMax(); if(!mx) return true;
+  const r=await pickOne('🔥 Choose the heat', Array.from({length:mx+1},(_,h)=>({v:String(h), html:ptile(pic(['ember','rock'].concat(h?Array.from({length:h},(_,i)=>['flame',100+(i-(h-1)/2)*30,60,.9]):[['fx:rays',100,56,'#fff',.3],['sun',100,56,1,0,'#ffd23d']])), h?'Heat '+h:'Normal', h?`💎 ×${(1+.25*h).toFixed(2)}`:'no twist', h?HEAT_TXT.slice(1,h+1).join(' · '):'The normal dungeon.')})), {sub:'Each heat level adds one more twist and pays more Elemental Crystals. Beat Malkorr on the highest heat to unlock the next.'});
+  if(r==null) return false; window.__nextHeat=+r; return true;
+}
+// ---------- run start: heat + the Smoke-Shrouded Stranger ----------
+const BOONS = {
+  gold:  {icon:'🪙', l:'A purse of 40 gold for the party'},
+  item:  {icon:'🎁', l:'A random item'},
+  gear:  {icon:'🔮', l:'A piece of elite gear (rune, setting or charm)'},
+  vigor: {icon:'❤', l:'+6 max health'},
+  gild:  {icon:'💎', l:'Gild one of your dice: +1 resource every roll'},
+  card:  {icon:'📜', l:'A powerful dungeon card for your deck'},
+  key:   {icon:'🗝', l:'A Skeleton Key (opens sealed vaults)'}
+};
+makeCoop = (function(base){ return function(heroes, players, mode, code, solo){ const S0=base(heroes, players, mode, code, solo);
+  S0.heat = window.__nextHeat||0; S0.stats={dmg:{}, best:{n:0}, items:{}, combos:0, revives:0, goldSpent:0, fights:0};
+  if(S0.heat>=2) HS(S0).forEach(i=>{ const P=S0.p[i]; if(P.absent) return; P.maxhp=maxHp(P)-5; P.hp=Math.min(P.hp,P.maxhp); });
+  if(S0.heat) lg(S0,`🔥 Heat ${S0.heat}: ${HEAT_TXT.slice(1,S0.heat+1).join(' · ')}.`);
+  startEvent(S0,'stranger');
+  return S0; }; })(makeCoop);
+// ---------- 11) secret vault key ----------
+Object.assign(ITEM_SVG, { key:'<circle cx="32" cy="50" r="18" fill="none" stroke="#1a1030" stroke-width="12"/><circle cx="32" cy="50" r="18" fill="none" stroke="#ffd23d" stroke-width="6"/><path d="M50 50 H88 M74 50 V64 M86 50 V60" fill="none" stroke="#1a1030" stroke-width="12" stroke-linecap="round"/><path d="M50 50 H88 M74 50 V64 M86 50 V60" fill="none" stroke="#ffd23d" stroke-width="6" stroke-linecap="round"/>' });
+ITEMS.key = {name:'Skeleton Key', short:'Opens one sealed vault', t:'Keep it: when you find a Sealed Vault, it opens the door for the treasure inside. Then it is used up.', passive:1};
+EVENTS.merchant.shop = EVENTS.merchant.shop.concat([{k:'item:key', l:'Skeleton Key', cost:25, icon:'key'}]);
+itemBlock = (function(base){ return function(S,v,i){ return (S.p[v].items||[])[i]==='key' ? 'Opens a sealed vault' : base(S,v,i); }; })(itemBlock);
+// ---------- new events ----------
+Object.assign(EVENTS, {
+  stranger:{icon:'🌫', title:'The Smoke-Shrouded Stranger', text:'A hooded figure wreathed in elemental smoke steps out of the dark. “Every hero needs a head start. Choose… one.”', dyn:'boon'},
+  cardshop:{icon:'🃏', title:'The Card Peddler', text:'“Cards for your kind only, friend. Each 30 gold, or 10 to see a fresh spread.”', dyn:'cards58'},
+  vault:   {icon:'🚪', title:'A Sealed Vault', text:'An iron door, locked tight. Something glitters behind it.', dyn:'vault'},
+  prisoner:{icon:'⛓', title:'A Caged Hero', text:'A hero hangs in a rusted cage. “Get me out of here and I’ll fight beside you!”', opts:[{k:'free', l:'🗝 Break the lock: they fight with you next fight'},{k:'thanks', l:'🪙 Leave them some gold for later: +15 gold back'}]}
+});
+EVENT_KEYS.push('cardshop','vault','prisoner');
+dynOpts = (function(base){ return function(T,seat,kind){
+  const P=T.p[seat];
+  if(kind==='boon') return shuffle(Object.keys(BOONS)).slice(0,3).map(k=>({k:'boon:'+k, l:`${BOONS[k].icon} ${BOONS[k].l}`}));
+  if(kind==='vault'){ const has=(P.items||[]).includes('key');
+    return [{k:'vopen', l:`🗝 Open it with your Skeleton Key: gear, 30 gold and 4 crystals`, no:has?0:1}, {k:'vforce', l:'💪 Force the door: take 5 damage, 50% chance of 20 gold and 2 crystals'}]; }
+  if(kind==='cards58'){ const grp='cx_'+HEROES[T.heroes[seat]].grp; const pool=CARDLIST.map((c,id)=>id).filter(id=>CARDLIST[id].grp===grp); return shuffle(pool).slice(0,3).map(id=>({k:'buy:'+id, l:CARDLIST[id].name})); }
+  return base(T,seat,kind); }; })(dynOpts);
+function crysAward(T,n){ T.crysN=(T.crysN||0)+1; T.crysRun=(T.crysRun||0)+n; T.crysLog=(T.crysLog||[]).concat([{n:T.crysN, amt:n}]).slice(-40); }
+coopPickEvent = (function(base){ return function(T,seat,choice){
+  const EV=T.event; if(!EV || EV.done[seat]) return base(T,seat,choice);
+  const P=T.p[seat], key=EV.key, done=()=>{ EV.done[seat]=1; if(allDone(T,EV)){ T.event=null; advancePath(T); } };
+  if(choice==null || choice==='') return base(T,seat,choice);
+  if(key==='stranger' && String(choice).startsWith('boon:')){ const b=choice.slice(5);
+    if(b==='gold'){ T.gold=(T.gold||0)+40; lg(T,`🌫 The stranger tosses {${seat}} a purse: +40 gold.`); }
+    else if(b==='item'){ giveItem(T,seat,['potion','reroll','censer','frost','mirror','whetstone','tonic','mana','thunder','phoenix'][rnd(10)]); }
+    else if(b==='gear'){ giveGear(T,seat,randomGear(T,seat)); }
+    else if(b==='vigor'){ P.maxhp=maxHp(P)+6; P.hp+=6; lg(T,`🌫 {${seat}} feels stronger: +6 max health.`); }
+    else if(b==='gild'){ const d=P.dice[rnd(P.dice.length)]; d.fp=Object.assign({},d.fp||{}); [1,2,3,4,5,6].forEach(f=>d.fp[f]=(d.fp[f]||0)+1); lg(T,`🌫 One of {${seat}}'s dice turns to gold: +1 resource every roll.`); }
+    else if(b==='card'){ const grp='cx_'+HEROES[T.heroes[seat]].grp, pool=CARDLIST.map((c,id)=>id).filter(id=>CARDLIST[id].grp===grp); const id=pool[rnd(pool.length)]; P.deck.splice(rnd(P.deck.length+1),0,id); lg(T,`🌫 The stranger slips {${seat}} a card: ${CARDLIST[id].name}.`); }
+    else if(b==='key'){ giveItem(T,seat,'key'); }
+    done(); return; }
+  if(key==='cardshop'){
+    if(String(choice).startsWith('buy:')){ const id=+choice.slice(4); EV.sold=EV.sold||[]; if(EV.sold.includes(seat+':'+id) || (T.gold||0)<30 || !(EV.dyn[seat]||[]).some(o=>o.k===choice)) return;
+      T.gold-=30; EV.sold.push(seat+':'+id); P.deck.splice(rnd(P.deck.length+1),0,id); lg(T,`🃏 {${seat}} buys ${CARDLIST[id].name} (−30 gold).`); return; }
+    if(choice==='reroll58'){ if((T.gold||0)<10) return; T.gold-=10; EV.dyn[seat]=dynOpts(T,seat,'cards58'); lg(T,`🃏 {${seat}} pays 10 gold for a fresh spread.`); return; }
+  }
+  if(key==='vault'){
+    if(choice==='vopen'){ const i=(P.items||[]).indexOf('key'); if(i<0) return; P.items.splice(i,1); giveGear(T,seat,randomGear(T,seat)); T.gold=(T.gold||0)+30; crysAward(T,4); lg(T,`🚪 {${seat}} opens the vault: elite gear, 30 gold and 4 Elemental Crystals!`); flash(T,'🚪 The vault opens!'); done(); return; }
+    if(choice==='vforce'){ P.hp=Math.max(1,P.hp-5); if(rnd(2)){ T.gold=(T.gold||0)+20; crysAward(T,2); lg(T,`💪 {${seat}} forces the door (−5 health) and grabs 20 gold and 2 crystals!`); } else lg(T,`💪 {${seat}} slams the door (−5 health)… it holds.`); done(); return; }
+  }
+  if(key==='prisoner'){
+    if(choice==='free'){ const pool=Object.keys(HEROES).filter(h=>!HS(T).some(i=>T.heroes[i]===h)); T.allyNext = pool.length ? pool[rnd(pool.length)] : 'dark'; lg(T,`⛓ {${seat}} breaks the lock! ${HEROES[T.allyNext].name} will fight beside you next fight.`); flash(T,`⛓ ${HEROES[T.allyNext].name} joins you!`); HS(T).forEach(i=>{ EV.done[i]=1; }); T.event=null; advancePath(T); return; }
+    if(choice==='thanks'){ T.gold=(T.gold||0)+15; lg(T,`🪙 The prisoner presses 15 gold into {${seat}}'s hand.`); done(); return; }
+  }
+  return base(T,seat,choice); }; })(coopPickEvent);
+// ---------- 12) a rescued ally fights with you for one fight ----------
+setupFight = (function(base){ return function(S,spec){ const r=base(S,spec);
+  if(S.coop){ if(S.allyNext && S.fight){ S.fight.ally={hero:S.allyNext, n:3+(S.act||1)}; S.allyNext=null; lg(S,`⛓ ${HEROES[S.fight.ally.hero].name} fights beside you this battle!`); }
+    S.stats=S.stats||{dmg:{}, best:{n:0}, items:{}, combos:0, revives:0, goldSpent:0, fights:0};
+    // 9) gear set bonuses at the start of each fight
+    HLIVE(S).forEach(i=>{ const sb=setBonus(S.p[i]); if(sb.set){ S.p[i].shield+=3; } if(sb.charm){ addRes(S.p[i],HEROES[S.heroes[i]].el,2); } if(sb.set||sb.charm) lg(S,`✨ {${i}}'s gear set bonus: ${[sb.set?'+3 shield':'',sb.charm?'+2 of their element':''].filter(Boolean).join(', ')}.`); });
+    updateCombos(S); }
+  return r; }; })(setupFight);
+coopStep = (function(base){ return function(S,st){ const isEnd=st && st.k==='eend'; const r=base(S,st);
+  if(isEnd && S.coop && S.status==='playing' && S.fight && S.fight.ally){ const a=S.fight.ally, E=S.p[2];
+    const alive=E.cores.map((c,i)=>i).filter(i=>E.cores[i].m && !E.cores[i].m.optional && E.cores[i].hp>0);
+    if(alive.length){ const i=alive.reduce((b,i)=>E.cores[i].hp<E.cores[b].hp?i:b, alive[0]); damageCore(S,2,i,a.n,`${HEROES[a.hero].name} (ally)`,null,HEROES[a.hero].el); }
+    else if(E.boss) heroDamage(S,2,a.n,null,`${HEROES[a.hero].name} (ally)`,HEROES[a.hero].el);
+    const low=aliveHeroes(S).reduce((b,i)=>b==null||S.p[i].hp<S.p[b].hp?i:b,null); if(low!=null){ S.p[low].shield+=2; }
+    lg(S,`⛓ ${HEROES[a.hero].name} strikes for ${a.n} and shields {${low}} for 2.`); try{ coopSettle(S); }catch(e){} }
+  return r; }; })(coopStep);
+coopEnemyHTML = (function(base){ return function(S){ const h=base(S), a=S.fight && S.fight.ally; if(!a) return h;
+  return h.replace('<div class="enemyzone">',`<div class="enemyzone"><div class="allychip" title="A rescued hero fights with you this fight. After each enemy turn they hit the weakest enemy for ${a.n} and give the most hurt hero 2 shield."><img src="${IMG[a.hero+'_face']}" alt=""><b>${esc(HEROES[a.hero].name)}</b> fights with you · ⚔ ${a.n} each enemy turn</div>`); }; })(coopEnemyHTML);
+// ---------- 6) monster combos ----------
+const MON_COMBOS=[['warden','berserker','Shield Wall'],['mender','splitter','Endless Ooze'],['saboteur','thief','Sticky Fingers'],['volt','tempest','Storm Front'],['frost','weaver','Deep Freeze'],['ember','magma','Firestorm'],['cultist','plague','Dark Ritual'],['hollow','stormwraith','Haunting'],['kirin','griffin','Sky Riders'],['spider','bloom','Overgrowth'],['obsidian','behemoth','Tectonic'],['sand','guard','Bulwark'],['mimic','abyss','Hungry Dark'],['paladin','ironbark','Frozen Grove']];
+function updateCombos(S){ if(!S || !S.coop || !S.p[2]) return; const E=S.p[2], live=k=>E.cores.some(c=>c.m && c.m.key===k && c.hp>0);
+  E.cores.forEach(c=>{ if(!c.m) return; const pr=MON_COMBOS.find(p=>p[0]===c.m.key||p[1]===c.m.key); const on=!!(pr && c.hp>0 && live(pr[0]===c.m.key?pr[1]:pr[0]));
+    if(on && !c.m.comboOn){ c.m.comboOn=pr[2]; c.m.bonus=(c.m.bonus||0)+2; } else if(!on && c.m.comboOn){ c.m.comboOn=null; c.m.bonus=(c.m.bonus||0)-2; } }); }
+coopCheck = (function(base){ return function(S){ const r=base(S); try{ updateCombos(S); }catch(e){} return r; }; })(coopCheck);
+intentText = (function(base){ return function(S,c){ const h=base(S,c); return c.m && c.m.comboOn ? `<span class="combotag" title="${esc(c.m.comboOn)}: this monster and its partner hit +2 harder while both are alive.">💥 COMBO! ${esc(c.m.comboOn)} +2</span>`+h : h; }; })(intentText);
+// ---------- 8) hero level-ups ----------
+fightWon = (function(base){ return function(S){ const n0=S.crysN||0; const r=base(S);
+  if(S.coop){ S.stats=S.stats||{dmg:{}, best:{n:0}, items:{}, combos:0, revives:0, goldSpent:0, fights:0}; S.stats.fights++;
+    const h=heatOf(S); if(h && (S.crysN||0)>n0){ const e=S.crysLog[S.crysLog.length-1], add=Math.round(e.amt*.25*h); e.amt+=add; S.crysRun+=add; }
+    if(S.status==='playing' && S.stats.fights%3===0){ HLIVE(S).forEach(i=>{ S.p[i].lvlPend=(S.p[i].lvlPend||0)+1; }); lg(S,'⬆ LEVEL UP! Every hero can upgrade one ability.'); flash(S,'⬆ LEVEL UP!'); }
+  }
+  return r; }; })(fightWon);
+abilsOf = (function(base){ return function(S,seat){ const L=base(S,seat), P=S && S.p && S.p[seat]; if(!P || !S.coop || !P.lvl) return L;
+  return L.map(a=>{ const u=P.lvl[a.n]; if(!u) return a; const b=Object.assign({},a); if(u.cheap && b.cost.length>1){ b.cost=b.cost.slice(0,Math.max(1,b.cost.length-u.cheap)); b.lvl='cheap'; } if(u.dmg) b.lvl=(b.lvl?b.lvl+'+':'')+'dmg'; b.t=b.t+` ⬆${u.dmg?' +'+u.dmg+' dmg':''}${u.cheap?' cheaper':''}`; return b; }); }; })(abilsOf);
+expand = (function(base){ return function(S,seat,fx,ctx,el,src){ const steps=base(S,seat,fx,ctx,el,src), P=S.p&&S.p[seat];
+  if(S.coop && P && seat!==2){ let add=0; if(P.lvl && P.lvl[src] && P.lvl[src].dmg) add+=P.lvl[src].dmg; if(P.gear && P.gear.runes && P.gear.runes[src] && setBonus(P).rune) add+=1;
+    if(add){ const pk=steps.find(x=>x.k==='packet'); if(pk) pk.blk+=add; } }
+  return steps; }; })(expand);
+act.levelUp = ()=>guard(async()=>{ const seat=ACTOR(), P=S.p[seat]; if(!S.coop || !(P.lvlPend>0)) return; const v0=S.ver;
+  const L=abilsOf(S,seat);
+  const ai=await pickOne('⬆ Level up: pick an ability to upgrade', L.map((a,i)=>({v:String(i), html:`<span class="eb lvopt"><b>${esc(a.n)}</b> ${a.cost.map(k=>k==='A'?wildPip():pip(k)).join('')}<br><small>${esc(a.t)}</small></span>`})), {sub:'Each level-up improves one ability for the rest of the run.'});
+  if(ai==null || boardChanged(v0)) return; const a=L[+ai], dmg=a.fx.some(o=>o[0]==='dmg'), opts=[];
+  if(dmg) opts.push({v:'dmg', html:ptile(pic(['ember',null,['fx:speed',150,56,0,4,70],['sword',100,56,1.3,60]]),'+1 damage','every time you use it','It deals 1 more damage for the rest of the run.')});
+  if(a.cost.length>1) opts.push({v:'cheap', html:ptile(pic(['sand',null,['coin',80,56,1.1],['fx:speed',130,56,0,3,40],['arrow',140,56,.6,180,'#47c25a']]),'Cheaper','costs 1 less','Remove one resource from its cost for the rest of the run.')});
+  if(!opts.length){ toast('That ability can’t be upgraded further.'); return; }
+  const u=opts.length===1 ? opts[0].v : await pickOne(`⬆ Upgrade ${esc(a.n)}`, opts); if(!u || boardChanged(v0)) return;
+  const T=clone(S), TP=T.p[seat]; TP.lvl=Object.assign({},TP.lvl||{}); TP.lvl[a.n]=Object.assign({},TP.lvl[a.n]||{}); TP.lvl[a.n][u]=(TP.lvl[a.n][u]||0)+1; TP.lvlPend--;
+  lg(T,`⬆ {${seat}} upgrades ${a.n}: ${u==='dmg'?'+1 damage':'costs 1 less'}.`); flash(T,`⬆ ${a.n} upgraded!`); sfx(T,'deflect');
+  await commitA(T,seat,null); });
+// ---------- 9) gear set bonuses ----------
+function setBonus(P){ const G=P && P.gear; if(!G) return {};
+  const runes=Object.keys(G.runes||{}).length, sets=(P.cores||[]).filter(c=>c.set).length+(G.loose||[]).filter(k=>GEAR[k]&&GEAR[k].type==='set').length, charms=(G.charms||[]).length;
+  return {rune:runes>=2, set:sets>=2, charm:charms>=2}; }
+heroExtraStatus = (function(base){ return function(S,seat){ const out=base(S,seat), P=S.p[seat]; if(S.coop && P){ const sb=setBonus(P);
+  if(sb.rune) out.push('✨ Runebound set: runed abilities +1 damage'); if(sb.set) out.push('✨ Fortified set: +3 shield each fight'); if(sb.charm) out.push('✨ Charmed set: +2 of your element each fight');
+  if(P.lvlPend>0) out.push(`⬆ ${P.lvlPend} level-up${P.lvlPend>1?'s':''} ready`); } return out; }; })(heroExtraStatus);
+// ---------- 15) give items to allies ----------
+act.giveItem = ()=>guard(async()=>{ const seat=ACTOR(), P=S.p[seat], v0=S.ver; if(!S.coop || S.solo || !(P.items||[]).length) return;
+  const it=await pickOne('🎁 Give which item?', P.items.map((k,i)=>({v:String(i), html:`<span class="eb">${itemIcon(k)} <b>${esc(ITEMS[k].name)}</b> <small>${esc(ITEMS[k].short)}</small></span>`}))); if(it==null || boardChanged(v0)) return;
+  const al=alliesOf(S,seat); const to = al.length===1 ? al[0] : await pickOne('🎁 Give it to…', al.map(i=>({v:String(i), label:seatLabel(i)}))); if(to==null || boardChanged(v0)) return;
+  const T=clone(S), k=T.p[seat].items.splice(+it,1)[0]; T.p[+to].items=(T.p[+to].items||[]).concat([k]).slice(-6); lg(T,`🎁 {${seat}} gives the ${ITEMS[k].name} to {${+to}}.`); await commitA(T,seat,null); });
+// ---------- 18) run statistics ----------
+damageCore = (function(base){ return function(S,seat,idx,n,src,by,el){ const c=S.p[seat]&&S.p[seat].cores[idx], h0=c?c.hp:0; const r=base(S,seat,idx,n,src,by,el);
+  if(S.coop && seat===2 && by!=null && by!==2 && c){ const d=Math.max(0,h0-Math.max(0,c.hp)); trackHit(S,by,d,src); } return r; }; })(damageCore);
+heroDamage = (function(base){ return function(S,seat,n,from,src,el){ const P=S.p[seat], h0=P?P.hp:0; const r=base(S,seat,n,from,src,el);
+  if(S.coop && seat===2 && from!=null && from!==2 && P && P.boss){ trackHit(S,from,Math.max(0,h0-P.hp),src); } return r; }; })(heroDamage);
+function trackHit(S,by,d,src){ if(d<=0) return; const st=S.stats=S.stats||{dmg:{}, best:{n:0}, items:{}, combos:0, revives:0, goldSpent:0, fights:0}; st.dmg[by]=(st.dmg[by]||0)+d; if(d>st.best.n) st.best={n:d, seat:by, src:src||''}; }
+commitA = (function(base){ return async function(T,seat,label){
+  if(T && T.coop && S){ const st=T.stats=T.stats||{dmg:{}, best:{n:0}, items:{}, combos:0, revives:0, goldSpent:0, fights:0};
+    if((S.gold||0)>(T.gold||0)) st.goldSpent+=(S.gold||0)-(T.gold||0);
+    if(label && label.startsWith('use ')){ const nm=label.slice(4); st.items[nm]=(st.items[nm]||0)+1; }
+    if(label==='ultimate') st.combos++; if(label==='revive') st.revives++; }
+  return base(T,seat,label); }; })(commitA);
+function runSummaryHTML(S){ const st=S.stats||{dmg:{}, best:{n:0}, items:{}}; const L=HLIVE(S);
+  const tot=L.map(i=>st.dmg[i]||0), mx=Math.max(1,...tot), mvp=L.reduce((b,i)=>(st.dmg[i]||0)>(st.dmg[b]||0)?i:b, L[0]);
+  const item=Object.entries(st.items||{}).sort((a,b)=>b[1]-a[1])[0];
+  const bars=L.map(i=>`<div class="rsrow"><img src="${IMG[S.heroes[i]+'_face']}" alt=""><span class="rsbar"><i style="width:${Math.round(100*(st.dmg[i]||0)/mx)}%"></i></span><b>${st.dmg[i]||0}</b></div>`).join('');
+  return `<div class="runsum">
+    <div class="rspanel big"><h4>Damage dealt</h4>${bars}</div>
+    <div class="rspanel"><h4>Biggest hit</h4><div class="rsbig">💥 ${st.best.n||0}</div><small>${st.best.n?esc(seatLabel(st.best.seat))+(st.best.src?' · '+esc(st.best.src):''):'—'}</small></div>
+    <div class="rspanel"><h4>MVP</h4>${L.length?`<img class="rsmvp" src="${IMG[S.heroes[mvp]+'_face']}" alt=""><small>${esc(HEROES[S.heroes[mvp]].name)}</small>`:''}</div>
+    <div class="rspanel"><h4>Item MVP</h4><div class="rsbig">${item?esc(item[0]):'—'}</div><small>${item?'used '+item[1]+'×':'no items used'}</small></div>
+    <div class="rspanel"><h4>The run</h4><small>⚔ ${st.fights||0} fights · Act ${S.act||1}<br>🪙 ${st.goldSpent||0} gold spent · ✨ ${st.combos||0} combos<br>💚 ${st.revives||0} revives${heatOf(S)?` · 🔥 Heat ${heatOf(S)}`:''}</small></div>
+  </div>`; }
+endPopup = (function(base){ return function(win,title,sub,extra){ if(S && S.coop) extra=(extra||'')+runSummaryHTML(S); return base(win,title,sub,extra); }; })(endPopup);
+// ---------- 17) achievements (on this device) ----------
+const ACH = [
+  {k:'slayer', i:'👑', n:'Overlord Slayer', t:'Beat Malkorr.', ok:S=>S.coopWin},
+  {k:'lone', i:'🗡', n:'Lone Wolf', t:'Beat Malkorr solo.', ok:S=>S.coopWin && S.solo},
+  {k:'party', i:'🧙', n:'Full Party', t:'Beat Malkorr with 4 heroes.', ok:S=>S.coopWin && PARTY(S)>=4},
+  {k:'verdant', i:'🌿', n:'Weed Killer', t:'Beat the Verdant Hydra.', ok:S=>(S.act||1)>=3},
+  {k:'act2', i:'🗺', n:'Deeper Down', t:'Reach Act 2.', ok:S=>(S.act||1)>=2},
+  {k:'heat', i:'🔥', n:'Feel the Heat', t:'Beat Malkorr on Heat 1 or higher.', ok:S=>S.coopWin && heatOf(S)>=1},
+  {k:'heat5', i:'🌋', n:'Inferno', t:'Beat Malkorr on Heat 5.', ok:S=>S.coopWin && heatOf(S)>=5},
+  {k:'hay', i:'💥', n:'Haymaker', t:'Deal 15 or more damage in one hit.', ok:S=>S.stats && S.stats.best && S.stats.best.n>=15},
+  {k:'combo', i:'✨', n:'Better Together', t:'Unleash a combo ultimate.', ok:S=>S.stats && S.stats.combos>0},
+  {k:'medic', i:'💚', n:'No One Left Behind', t:'Revive an ally.', ok:S=>S.stats && S.stats.revives>0},
+  {k:'spender', i:'🪙', n:'Big Spender', t:'Spend 150 gold in one run.', ok:S=>S.stats && S.stats.goldSpent>=150},
+  {k:'rescue', i:'⛓', n:'Jailbreak', t:'Free a caged hero.', ok:S=>!!(S.allyNext || (S.fight && S.fight.ally))}
+];
+function achGet(){ try{ return JSON.parse(localStorage.getItem('ewAch')||'[]'); }catch(e){ return []; } }
+function achSet(a){ try{ localStorage.setItem('ewAch', JSON.stringify(a)); }catch(e){} }
+function achCheck(){ if(!S || !S.coop) return; const have=achGet(); let changed=false;
+  if(S.coopWin && !window.__heatDone58){ window.__heatDone58=1; const C=crysGet(); if(heatOf(S)>=(C.heatMax||0) && (C.heatMax||0)<5){ C.heatMax=heatOf(S)+1; crysSet(C); toast(`🔥 Heat ${C.heatMax} unlocked! Pick it from the dungeon menu.`); } }
+  if(!S.coopWin) window.__heatDone58=0;
+  ACH.forEach(a=>{ if(!have.includes(a.k)){ let ok=false; try{ ok=a.ok(S); }catch(e){} if(ok){ have.push(a.k); changed=true; achToast(a); } } });
+  if(changed){ achSet(have); applyFrame(); } }
+function achToast(a){ const o=document.createElement('div'); o.className='achpop'; o.innerHTML=`<span class="achico">${a.i}</span><span><small>ACHIEVEMENT UNLOCKED!</small><b>${esc(a.n)}</b><em>${esc(a.t)}</em></span>`; document.body.appendChild(o); setTimeout(()=>o.remove(), 4200); try{ playSfx('fanfare'); }catch(e){} }
+function frameTier(){ const n=achGet().length; return n>=9?'frame-elem':n>=6?'frame-gold':n>=3?'frame-silver':''; }
+function applyFrame(){ ['frame-silver','frame-gold','frame-elem'].forEach(c=>document.body.classList.remove(c)); const f=frameTier(); if(f) document.body.classList.add(f); }
+applyFrame();
+render = (function(base){ return function(){ const r=base.apply(this,arguments); try{ achCheck(); levelUpButton(); tradeButton(); }catch(e){} return r; }; })(render);
+function achBoard(){ const have=achGet();
+  return openModal(`<h3>🏅 Achievements <span class="goldtag">${have.length} / ${ACH.length}</span></h3><p class="msub">Unlock 3 for a silver hero frame, 6 for gold, 9 for an elemental frame.</p>
+    <div class="achgrid">${ACH.map(a=>`<div class="achtile ${have.includes(a.k)?'on':''}" title="${esc(a.t)}"><span class="achico">${a.i}</span><b>${esc(a.n)}</b><small>${esc(a.t)}</small></div>`).join('')}</div>
+    <div class="mfoot"><button type="button" class="btn" data-x>Close</button></div>`).onclick=e=>{ if(e.target.closest('[data-x]')) hideModal(); }; }
+// ---------- buttons injected into the hero panel / encounters ----------
+function levelUpButton(){ if(!S || !S.coop || S.status!=='playing') return; const v=viewSeat(), P=S.p[v]; if(!P || !(P.lvlPend>0) || !canAct(v) || pendingInput(S)) return;
+  const host=document.querySelector('.cxwrap .cxme') || document.querySelector('.ally.me'); if(!host || host.querySelector('.lvlbtn')) return;
+  host.classList.add('haslvl'); host.insertAdjacentHTML('afterbegin', `<button type="button" class="lvlbtn" data-act="levelup" title="Upgrade one of your abilities for the rest of the run: +1 damage or 1 cheaper.">⬆ LEVEL UP!${P.lvlPend>1?' ×'+P.lvlPend:''}</button>`); }
+function tradeButton(){ if(!S || !S.coop || S.solo || S.status!=='playing') return; const v=viewSeat(), P=S.p[v];
+  if(!P || !(P.items||[]).length || !canAct(v) || !['event','corefind','leyline','reward','deckrefresh','forge','pathchoice'].includes(S.phase)) return;
+  const box=document.querySelector('.rewardbox'); if(!box || box.querySelector('.givebtn')) return;
+  box.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost givebtn" data-act="giveitem" title="Hand one of your items to an ally.">🎁 Give an item to an ally</button>`); }
+document.addEventListener('click', e=>{ const b=e.target.closest('[data-act="levelup"],[data-act="giveitem"],[data-act="achboard"]'); if(!b) return; e.stopPropagation();
+  if(b.dataset.act==='levelup') act.levelUp(); else if(b.dataset.act==='giveitem') act.giveItem(); else achBoard(); }, true);
+// ---------- card shop rendering, and the dungeon menu gets heat + achievements ----------
+coopPrompt = (function(base){ return function(S,v){ let h=base(S,v); const EV=S.event;
+  if(S.phase==='event' && EV && EV.key==='cardshop' && !EV.done[v]){ const gold=S.gold||0, sold=EV.sold||[];
+    const cards=(EV.dyn[v]||[]).map(o=>{ const id=+o.k.slice(4), s=sold.includes(v+':'+id); return `<div class="cshopcard ${s?'sold':''}">${miniCard(id,'')}<button class="btn sm" data-act="eventpick" data-c="${o.k}" ${s||gold<30?'disabled':''}>${s?'SOLD':'🪙 30'}</button></div>`; }).join('');
+    h=`<div class="rewardbox hasart eventbox">${_evArt(EVPIC.cardshop())}<h3>🃏 The Card Peddler <span class="goldtag">🪙 ${gold}</span></h3><p class="msub">Dungeon cards for your hero only. 30 gold each, or 10 to see a fresh spread.</p>
+      <div class="cshop">${cards}</div><div class="lrow"><button class="btn ghost" data-act="eventpick" data-c="reroll58" ${gold<10?'disabled':''} title="Pay 10 gold to see 3 new cards.">🔄 New spread · 🪙 10</button><button class="btn skipreward" data-act="eventpick" data-c="">✔ Done</button></div></div>`; }
+  return h; }; })(coopPrompt);
+const _coopMenu58 = coopMenu;
+coopMenu = async function(){
+  const L=legacyGet(), C=crysGet(), online=(typeof db!=='undefined' && db && myId), have=achGet().length;
+  const opts=[
+    {v:'solo',  html:ptile(PICS.solo(),'Solo','One hero','Play the dungeon alone. Monsters have less health.')},
+    {v:'local', html:ptile(PICS.coop(),'Co-op here','2–4 players, one screen','Two to four players share this screen.')}];
+  if(online) opts.push({v:'online', html:ptile(PICS.coopnet(),'Co-op online','2–4 players, send a code','Create a run and send friends the code.')});
+  opts.push({v:'forge', html:ptile(PICS.forge(),'Crystal Forge',`💎 ${C.have}`,'Spend Elemental Crystals on permanent unlocks.','forge')});
+  opts.push({v:'ach', html:ptile(pic(['sand',null,['fx:rays',100,56,'#fff',.5],['star',100,56,1.5],['star',50,36,.5],['star',150,36,.5]]),'Achievements',`${have} / ${ACH.length}`,'See your badges. They unlock fancier hero frames.')});
+  if(L.ups.length || L.wins) opts.push({v:'reset', html:ptile(PICS.reset(),'Reset upgrades','','Set your permanent dice upgrades and dungeon wins back to 0.','small')});
+  const hm=heatMax();
+  const r=await pickOne('🏰 PvE dungeon', opts, {sub:`Three acts: the dungeon, the overgrown caves, the cracked depths. 🏅 Wins: <b>${L.wins}</b> · 💎 Crystals: <b>${C.have}</b>${hm?` · 🔥 Heat unlocked: <b>${hm}</b>`:''}`});
+  if(!r) return;
+  if(r==='forge'){ await crystalForge(); return coopMenu(); }
+  if(r==='ach'){ achBoard(); return; }
+  if(r==='reset'){ const ok=await pickOne('Reset your permanent upgrades?', [{v:'yes', html:'<span class="eb">♻ Yes, reset to 0</span>'}], {sub:`This removes all ${L.ups.length} dice upgrades and sets your dungeon wins back to 0. It can’t be undone.`}); if(ok==='yes'){ legacySet({wins:0, ups:[], claimed:L.claimed}); toast('Permanent upgrades reset.'); } return; }
+  if(!(await heatPick())) return;
+  if(r==='solo'){ seenRoll={}; lastTurnKey=undefined; lastFlashN=undefined; lastPendOther=false; lastSxN=undefined; lastPhase=undefined; S=makeCoop([pickedHero,pickedHero],[null,null],'local',null,true); mySeat=null; coopView=0; render(); return; }
+  if(r==='local'){ const n=await partySizePick('Co-op on this device'); if(!n) return; const party=[pickedHero];
+    for(let k=1;k<n;k++){ const keys=Object.keys(HEROES).filter(h=>!party.includes(h));
+      const h=await pickOne(`Player ${k+1}: pick a hero`, keys.map(x=>({v:x, html:ptile(`<img class="picface" src="${IMG[x+'_card']||IMG[x+'_face']}" alt="">`, HEROES[x].name, '', HEROES[x].name, 'hero')}))); if(!h) return; party.push(h); }
+    startCoopParty(party); return; }
+  if(r==='online'){ const n=await partySizePick('Co-op online'); if(n) createOnline(true, n); }
+};
+document.head.insertAdjacentHTML('beforeend', `<style id="v58">
+.combotag{ display:inline-block; margin:0 0 3px; font-family:var(--display); font-size:.85rem; letter-spacing:.03em; color:#fff; background:#ff3b2f; border:2px solid #1a1030; border-radius:6px; padding:0 6px; transform:rotate(-3deg); box-shadow:2px 2px 0 #1a1030; animation:combowob 1.2s ease-in-out infinite; }
+@keyframes combowob{ 50%{ transform:rotate(2deg) scale(1.06); } }
+.allychip{ position:absolute; left:10px; top:6px; z-index:5; display:flex; align-items:center; gap:6px; background:#ddf5e1; color:#1a1030; border:3px solid #1a1030; border-radius:99px; padding:2px 10px 2px 2px; font-weight:700; font-size:.8rem; box-shadow:3px 3px 0 #1a1030; }
+.allychip img{ width:30px; height:30px; border-radius:50%; border:2px solid #1a1030; object-fit:cover; object-position:50% 18%; }
+.haslvl{ position:relative; } .lvlbtn{ position:absolute; z-index:7; right:10px; top:-14px; padding:1px 12px; font-family:var(--display); font-size:1.05rem; letter-spacing:.04em; color:#1a1030; background:linear-gradient(90deg,#ffe14d,#ffb000); border:3px solid #1a1030; border-radius:12px; box-shadow:0 4px 0 #1a1030; cursor:pointer; animation:lvlpulse 1.1s ease-in-out infinite; }
+@keyframes lvlpulse{ 50%{ transform:scale(1.04); box-shadow:0 4px 0 #1a1030, 0 0 18px 4px rgba(255,200,0,.8); } }
+.lvopt{ display:block; text-align:left; } .lvopt small{ font-weight:600; color:#4a3f6b; }
+.givebtn{ margin-top:8px; }
+.cshop{ display:flex; gap:12px; flex-wrap:wrap; margin:6px 0 8px; }
+.cshopcard{ display:flex; flex-direction:column; align-items:center; gap:6px; } .cshopcard .mcard{ width:150px; } .cshopcard.sold{ opacity:.55; filter:grayscale(.7); }
+.runsum{ position:relative; display:grid; grid-template-columns:repeat(4,1fr); gap:6px; background:#1a1030; padding:6px; border-radius:6px; margin:4px 0 12px; text-align:center; }
+.runsum *{ color:#1a1030; -webkit-text-stroke:0 !important; text-shadow:none !important; } .runsum .rspanel h4{ color:#5a3fd0; } .runsum .rspanel small{ color:#4a3f6b; }
+.rspanel{ background:radial-gradient(circle, rgba(26,16,48,.12) 0 1.1px, transparent 1.6px) 0 0/8px 8px, #fffaf0; border-radius:3px; padding:4px 6px 6px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; }
+.rspanel.big{ grid-column:span 4; align-items:stretch; } .rspanel h4{ margin:0; font-family:var(--display); font-weight:400; font-size:1rem; letter-spacing:.03em; color:#5a3fd0; }
+.rsrow{ display:grid; grid-template-columns:26px 1fr 34px; align-items:center; gap:6px; } .rsrow img{ width:26px; height:26px; border-radius:50%; border:2px solid #1a1030; object-fit:cover; object-position:50% 18%; }
+.rsbar{ height:12px; border:2px solid #1a1030; border-radius:6px; background:#fff; overflow:hidden; } .rsbar i{ display:block; height:100%; background:linear-gradient(90deg,#ff5a3d,#ffc400); }
+.rsrow b, .rsbig{ font-family:var(--display); font-weight:400; font-size:1.2rem; } .rspanel small{ font-weight:700; font-size:.72rem; color:#4a3f6b; line-height:1.3; }
+.rsmvp{ width:46px; height:46px; border-radius:50%; border:3px solid #1a1030; object-fit:cover; object-position:50% 18%; box-shadow:0 0 0 3px #ffc400; }
+.achpop{ position:fixed; left:50%; top:80px; transform:translateX(-50%); z-index:9600; display:flex; align-items:center; gap:10px; background:#ffc400; color:#1a1030; border:4px solid #1a1030; border-radius:14px; padding:8px 16px; box-shadow:6px 6px 0 #1a1030; animation:achin 4.2s ease forwards; }
+.achpop .achico{ font-size:2.2rem; } .achpop small{ display:block; font-family:var(--display); letter-spacing:.06em; } .achpop b{ display:block; font-family:var(--display); font-weight:400; font-size:1.5rem; line-height:1; } .achpop em{ font-style:normal; font-weight:700; font-size:.8rem; }
+@keyframes achin{ 0%{ transform:translate(-50%,-140px); } 10%,85%{ transform:translate(-50%,0); } 100%{ transform:translate(-50%,-140px); } }
+.achgrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; }
+.achtile{ display:flex; flex-direction:column; align-items:center; text-align:center; gap:2px; padding:8px; border:3px solid #1a1030; border-radius:12px; background:#eee; filter:grayscale(1); opacity:.55; }
+.achtile.on{ background:#fff3b0; filter:none; opacity:1; box-shadow:3px 3px 0 #1a1030; } .achtile .achico{ font-size:1.8rem; } .achtile b{ font-family:var(--display); font-weight:400; font-size:1.05rem; } .achtile small{ font-size:.72rem; font-weight:700; color:#4a3f6b; }
+body.frame-silver .pbanner, body.frame-silver .cxme .pbanner{ box-shadow:inset 0 0 0 3px #d8e0ea, 0 0 0 3px #9aa7b8 !important; }
+body.frame-gold .pbanner, body.frame-gold .cxme .pbanner{ box-shadow:inset 0 0 0 3px #ffe9a0, 0 0 0 4px #ffc400, 0 0 14px rgba(255,196,0,.7) !important; }
+body.frame-elem .pbanner, body.frame-elem .cxme .pbanner{ box-shadow:inset 0 0 0 3px #fff, 0 0 0 4px transparent !important; outline:4px solid; outline-offset:0; animation:elemframe 4s linear infinite; }
+@keyframes elemframe{ 0%{ outline-color:#ff5a3d; } 25%{ outline-color:#3da5ff; } 50%{ outline-color:#47c25a; } 75%{ outline-color:#ffd23d; } 100%{ outline-color:#ff5a3d; } }
+</style>`);
+
 /* ---------- version ---------- */
 VERSION_HISTORY.unshift({v:'0.41', date:'October 2026', notes:[
   'After a normal fight you can take a card OR 1 of every resource.',
@@ -8933,6 +9747,47 @@ VERSION_HISTORY.unshift({v:'0.52', date:'October 2026', notes:[
   'Freezing works on dungeon monsters now: each freeze on a monster lowers its next attack by 1, then it thaws at the end of the enemy turn. Ice Queen abilities and cards that freeze enemy dice freeze the monster you hit (or the toughest one).',
   'Big YOU WON!!!! and YOU LOST pop-ups at the end of a dungeon run and of a versus game, with a fanfare or a sad trombone, and an OK button back to the lobby. A dungeon win also lets you pick your permanent upgrade right in the pop-up.',
   'New comic-book arena behind dungeon fights: a speed-line burst behind the monsters, halftone dots toward the edges and an inked frame (fiery for the bosses).'
+]});
+VERSION_HISTORY.unshift({v:'0.53', date:'October 2026', notes:[
+  'The dungeon now has 3 acts. Act 2 is new: overgrown, ivy-choked caves (vines and moss hang around the monsters) ending with the Verdant Hydra, an overgrown, tougher hydra. Malkorr moved to Act 3: cracked depths with glowing cracks and elemental wisps drifting up out of the cave.',
+  'Each act hits harder than the last (Act 3 monsters +2 damage and more health). Beating the Verdant Hydra heals you halfway, gives a gear reward, 80 gold and 10 Elemental Crystals; Malkorr now gives 15.',
+  'Reroll, Brace and Discard-a-card-for-resources are now small buttons right next to your dice under your hero, where the rest of your actions are. Hovering a card in your hand no longer covers them.',
+  'A clearer Combat icon: crossed swords on a red burst.',
+  'Turning off the Comic look also turns off the comic arena background. With it on, comic doodles of the elements (flames, drops, leaves, bolts, snowflakes, gears and more) line the edges, with leaves in Act 2 and cracks and wisps in Act 3.'
+]});
+VERSION_HISTORY.unshift({v:'0.54', date:'October 2026', notes:[
+  'The main menu shows instead of tells: big comic picture buttons for Pass & play (a phone passing between hands), Vs the computer (a gamepad against an angry robot screen), the Dungeon (an entrance glowing with elements) and Duel online. The lobby has a comic background too.',
+  'Every step after that is a picture button as well: Solo / Co-op / Crystal Forge, how many players, and hero picks (with the hero art).',
+  'The Crystal Forge is a picture board: tap a hero face, then tap an unlock tile (with its level pips and crystal price).',
+  'The Wandering Merchant’s shop is a comic-book page of item panels with price tags and SOLD stamps. Event choices are picture panels too. Hover anything for the full details.',
+  'Five new shop items: Phoenix Feather (stops you being knocked out once: back up with 8 health), Whetstone (+1 damage on every attack this fight), Bulwark Tonic (+8 shield), Mana Crystal (+1 of your element once per turn) and Thunder Bomb (5 damage to every enemy).'
+]});
+VERSION_HISTORY.unshift({v:'0.55', date:'October 2026', notes:[
+  'Faster dungeon turns: Main 1, Combat and Main 2 are now one “Your turn” phase in the dungeon. Play cards and use abilities in any order (each ability still once per turn), then press End Turn once. Versus is unchanged.',
+  'Quick defend (switch it in the Volume popup or the ⚙ menu): when a monster hits you, you block automatically with your best resources instead of getting a pop-up. You still get the pop-up when you hold a defense card (Defensive Shield, Shadow Step, Ice Wall, Mirror Veil) or a Water Stone / Glacier Core, so you never lose a real choice.',
+  'A round is now Roll → Collect → End Turn, and the enemy turn plays straight through.'
+]});
+VERSION_HISTORY.unshift({v:'0.56', date:'October 2026', notes:[
+  'Auto defend is now off by default. Every dungeon defend pop-up has a 🛡 Auto defend checkbox: tick it to block this hit and every later one automatically (it is also in the Volume / ⚙ menu).',
+  'When auto defend blocks a hit you see it: a big blue shield slams onto your hero with AUTO-BLOCK!, the damage it stopped and the resources it spent, and your hero panel flashes blue.'
+]});
+VERSION_HISTORY.unshift({v:'0.57', date:'October 2026', notes:[
+  'Every non-fight encounter has its own comic picture: the Elemental Spring (a fountain), the Wishing Well (with a coin flying in), the Healing Shrine, the Forgotten Library, the Hidden Cache, the Gambler’s Table, the Altar of Tribute, the chained Cursed Chest, the Echo of a Fallen Hero, the Mirror of Excess, the Blood Altar, the Dice Forge, the core stone, the ley line (an elemental cube stuck in a glowing ley line), the deck refresh, the card forge and the rewards.',
+  'The Wandering Merchant stands at the top of his shop, arms spread out over his wares.',
+  'Aiming at a monster now lights up only the monster itself, not its intent bubble.',
+  'Monster intent bubbles get comic action lines.'
+]});
+VERSION_HISTORY.unshift({v:'0.58', date:'October 2026', notes:[
+  'Heat levels: beat Malkorr to unlock Heat 1, then each win unlocks the next (up to 5). Each heat adds one twist (tougher monsters, less hero health, harder hits) and pays more Elemental Crystals.',
+  'The Smoke-Shrouded Stranger greets every run and offers each hero 1 of 3 boons: gold, an item, elite gear, max health, a gilded die, a dungeon card or a Skeleton Key.',
+  'Monster combos: some monster pairs hit +2 harder while both are alive. Their intent shows a COMBO! tag.',
+  'Hero level-ups: every 3 fights won, each hero gets a LEVEL UP! button to make one ability deal +1 damage or cost 1 less.',
+  'Gear set bonuses: 2 runes give runed abilities +1 damage, 2 settings give 3 shield each fight, 2 charms give 2 of your element each fight.',
+  'New encounters: the Card Peddler (buy dungeon cards for your hero, or pay for a new spread), the Sealed Vault (open it with a Skeleton Key or force the door) and the Caged Hero (free them and they fight beside you next fight).',
+  'New item: Skeleton Key, sold by the merchant.',
+  'Co-op heroes can give items to each other at shops, events and rest stops.',
+  'Achievements: 12 badges. Unlock 3, 6 or 9 for silver, gold or elemental hero frames.',
+  'Every run ends with a comic-page recap: damage per hero, biggest hit, MVP, item MVP and run stats.'
 ]});
 
 </script>
