@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neon Requiem Tactics</title>
+<style>
+:root{
+  --bg:#07060d; --panel:#120f22; --panel2:#1b1633; --line:#3a2f6b;
+  --txt:#e9e4ff; --dim:#9a90c8; --cy:#28f0ff; --mg:#ff2bd6; --yl:#ffe14d; --gr:#52ff9a; --rd:#ff4d6d;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font:14px/1.4 "Segoe UI",system-ui,sans-serif;overflow:hidden}
+button{font:inherit;color:var(--txt);background:var(--panel2);border:1px solid var(--line);padding:8px 12px;border-radius:6px;cursor:pointer}
+button:hover:not(:disabled){border-color:var(--cy);box-shadow:0 0 8px var(--cy)}
+button:disabled{opacity:.4;cursor:default}
+button.pri{border-color:var(--mg);background:#2a0f33}
+input,select{font:inherit;color:var(--txt);background:#0c0a18;border:1px solid var(--line);border-radius:6px;padding:8px;width:100%}
+h1,h2,h3{margin:.2em 0;font-weight:700;letter-spacing:.05em}
+h1{font-size:28px;color:var(--cy);text-shadow:0 0 12px var(--cy),0 0 2px #fff}
+h2{color:var(--mg);text-shadow:0 0 8px var(--mg)}
+.dim{color:var(--dim)}
+#app{position:relative;width:100%;height:100%}
+canvas{display:block;width:100%;height:100%}
+.screen{position:absolute;inset:0;display:none;overflow:auto;padding:24px 16px;background:radial-gradient(ellipse at top,#1a0f3a 0%,var(--bg) 70%)}
+.screen.on{display:block}
+.wrap{max-width:900px;margin:0 auto}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin:10px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.unit{display:flex;gap:10px;align-items:center}
+.unit img,.portrait{width:56px;height:56px;border-radius:8px;object-fit:cover;flex:none;border:1px solid var(--line);background:#000}
+.stats{font-size:12px;color:var(--dim)}
+.stats b{color:var(--txt)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:10px;border:1px solid var(--line);color:var(--cy)}
+#hud{position:absolute;left:0;right:0;bottom:0;pointer-events:none;padding:10px;display:none}
+#hud.on{display:block}
+#hud .card{pointer-events:auto;max-width:560px;margin:0 auto;background:rgba(18,15,34,.92)}
+#topbar{position:absolute;top:0;left:0;right:0;padding:8px 12px;display:none;justify-content:space-between;pointer-events:none;font-size:12px}
+#topbar.on{display:flex}
+#turnq{display:flex;gap:4px}
+#turnq span{padding:2px 6px;border-radius:4px;border:1px solid var(--line);background:rgba(18,15,34,.85)}
+#log{position:absolute;top:34px;right:8px;width:260px;max-height:40%;overflow:hidden;font-size:12px;pointer-events:none;display:none;text-align:right}
+#log.on{display:block}
+#log div{background:rgba(7,6,13,.7);margin:2px 0;padding:2px 6px;border-radius:4px}
+.bar{height:6px;background:#2a2340;border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--gr)}
+.map{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.node{width:150px;text-align:center}
+.err{color:var(--rd)}
+@media (max-width:600px){#log{width:180px}h1{font-size:22px}}
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="cv"></canvas>
+  <div id="topbar"><div id="turnq"></div><div id="floorLbl"></div></div>
+  <div id="log"></div>
+  <div id="hud"><div class="card" id="hudCard"></div></div>
+
+  <!-- TITLE -->
+  <div class="screen on" id="sTitle"><div class="wrap">
+    <h1>NEON REQUIEM TACTICS</h1>
+    <p class="dim">A roguelike tactics run through the chrome-and-sorcery undercity of Vel'Kesh. Every soldier is born from a song: drop a Spotify track link and its genre becomes their class, its tempo becomes their body.</p>
+    <div class="card">
+      <h3>How it plays</h3>
+      <ul class="dim">
+        <li>Isometric grid battles. Units act by <b>Charge Time</b>: faster units act more often.</li>
+        <li>Each turn: <b>Move</b> once and <b>Act</b> once (attack or class skill), then <b>Wait</b>.</li>
+        <li>High ground gives +20% damage; hitting someone from behind gives +50%.</li>
+        <li>Fallen allies are lost for good, unless an Idol revives them mid-battle.</li>
+        <li>Clear 8 sectors and defeat the Archon to win the run.</li>
+      </ul>
+    </div>
+    <div class="row"><button class="pri" id="btnNew">New run</button><button id="btnCont" style="display:none">Continue run</button></div>
+  </div></div>
+
+  <!-- RECRUIT -->
+  <div class="screen" id="sRecruit"><div class="wrap">
+    <h2 id="recTitle">Tune in a recruit</h2>
+    <p class="dim" id="recSub"></p>
+    <div class="card">
+      <label class="dim">Spotify track link, URI, or ID</label>
+      <input id="inSong" placeholder="https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC">
+      <details style="margin-top:8px"><summary class="dim">Overrides &amp; Spotify API token (optional)</summary>
+        <div class="grid" style="margin-top:8px">
+          <div><label class="dim">Genre</label><select id="inGenre"><option value="">Auto</option></select></div>
+          <div><label class="dim">BPM</label><input id="inBpm" type="number" min="40" max="220" placeholder="Auto"></div>
+          <div style="grid-column:1/-1"><label class="dim">Spotify Web API token (used to look up artist genre; never stored)</label><input id="inTok" type="password" placeholder="Bearer token"></div>
+        </div>
+        <p class="dim" style="font-size:12px">Without a token, the game reads the track title and cover art from Spotify's public embed info and derives genre and BPM from the track ID itself, so the same song always makes the same character. Spotify no longer gives tempo to most new API apps, so BPM falls back to the ID unless you enter it.</p>
+      </details>
+      <div class="row" style="margin-top:10px">
+        <button class="pri" id="btnScan">Decode signal</button>
+        <button id="btnRandSong">Random signal</button>
+        <span id="recMsg" class="dim"></span>
+      </div>
+    </div>
+    <div id="recPreview"></div>
+    <h3>Your squad</h3>
+    <div class="grid" id="recParty"></div>
+    <div class="row" style="margin-top:12px"><button id="btnRecDone" class="pri">Continue</button></div>
+  </div></div>
+
+  <!-- RUN MAP -->
+  <div class="screen" id="sMap"><div class="wrap">
+    <h2 id="mapTitle"></h2>
+    <p class="dim">Pick your route through the next sector.</p>
+    <div class="map" id="mapNodes"></div>
+    <h3>Squad</h3>
+    <div class="grid" id="mapParty"></div>
+  </div></div>
+
+  <!-- REWARD / GENERIC -->
+  <div class="screen" id="sMsg"><div class="wrap" id="msgBody"></div></div>
+</div>
+
+<script>
+"use strict";
+// ---------- utils ----------
+const $ = id => document.getElementById(id);
+function hashStr(s){let h=2166136261>>>0;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619)>>>0}return h}
+function rng(seed){let a=seed>>>0;return()=>{a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
+let R = Math.random;
+const ri=(a,b)=>a+Math.floor(R()*(b-a+1));
+const pick=a=>a[Math.floor(R()*a.length)];
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const store={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+
+// ---------- classes (genre -> class) ----------
+const CLASSES={
+  rock:      {name:"Chrome Ronin",   genre:"Rock",       col:"#ff5a3c", glyph:"R", hp:34, str:9, tech:3, mov:4, jump:2, rng:1, skill:"overdrive"},
+  metal:     {name:"Iron Juggernaut",genre:"Metal",      col:"#b0b6c8", glyph:"J", hp:46, str:8, tech:2, mov:3, jump:1, rng:1, skill:"bulwark"},
+  electronic:{name:"Netrunner",      genre:"Electronic", col:"#28f0ff", glyph:"N", hp:24, str:3, tech:10,mov:4, jump:2, rng:4, skill:"overload"},
+  hiphop:    {name:"Street Samurai", genre:"Hip-Hop",    col:"#ffe14d", glyph:"S", hp:30, str:8, tech:4, mov:5, jump:3, rng:1, skill:"flurry"},
+  jazz:      {name:"Chronomancer",   genre:"Jazz",       col:"#c78bff", glyph:"C", hp:26, str:3, tech:8, mov:4, jump:2, rng:3, skill:"haste"},
+  classical: {name:"Arc Magus",      genre:"Classical",  col:"#7aa8ff", glyph:"M", hp:24, str:2, tech:11,mov:3, jump:1, rng:4, skill:"storm"},
+  pop:       {name:"Holo Idol",      genre:"Pop",        col:"#ff8ad8", glyph:"I", hp:26, str:3, tech:8, mov:4, jump:2, rng:3, skill:"encore"},
+  punk:      {name:"Riot Saboteur",  genre:"Punk",       col:"#52ff9a", glyph:"P", hp:28, str:6, tech:6, mov:4, jump:3, rng:3, skill:"bomb"},
+  ambient:   {name:"Wire Ghost",     genre:"Ambient",    col:"#9fe7ff", glyph:"G", hp:22, str:7, tech:5, mov:5, jump:4, rng:5, skill:"snipe"},
+  country:   {name:"Dust Gunslinger",genre:"Country/Folk",col:"#e0a060",glyph:"D", hp:28, str:7, tech:4, mov:4, jump:2, rng:4, skill:"deadeye"},
+  rnb:       {name:"Synth Bard",     genre:"R&B/Soul",   col:"#ff6f91", glyph:"B", hp:28, str:4, tech:7, mov:4, jump:2, rng:3, skill:"groove"},
+};
+const CLASS_KEYS=Object.keys(CLASSES);
+const SKILLS={
+  overdrive:{name:"Overdrive Slash",desc:"Melee hit at 1.8x Strength.",rng:1,cd:2,target:"enemy"},
+  bulwark:  {name:"Bulwark",desc:"Self: take half damage until next turn and taunt nearby foes.",rng:0,cd:3,target:"self"},
+  overload: {name:"Overload",desc:"Tech hit (range 4) that also drains 30 CT.",rng:4,cd:2,target:"enemy"},
+  flurry:   {name:"Neon Flurry",desc:"Two quick strikes at 0.8x Strength.",rng:1,cd:2,target:"enemy"},
+  haste:    {name:"Haste Loop",desc:"Ally gets +50 CT now and +2 Speed for the battle.",rng:3,cd:3,target:"ally"},
+  storm:    {name:"Arc Storm",desc:"Tech blast on a target and every unit next to it (allies too).",rng:4,cd:3,target:"enemy"},
+  encore:   {name:"Encore",desc:"Heal an ally for 1.6x Tech, or revive a fallen ally at 40% HP.",rng:3,cd:2,target:"ally"},
+  bomb:     {name:"Pipe Bomb",desc:"Blast a tile and its neighbors; knocks foes back.",rng:3,cd:3,target:"enemy"},
+  snipe:    {name:"Ghost Shot",desc:"Range-5 shot that ignores height and facing, 1.5x Strength.",rng:5,cd:2,target:"enemy"},
+  deadeye:  {name:"Deadeye",desc:"Shot at 1.3x Strength; 2x if the target is below half HP.",rng:4,cd:2,target:"enemy"},
+  groove:   {name:"Groove",desc:"All allies within 2 tiles gain +2 Str and +2 Tech for the battle.",rng:0,cd:4,target:"self"},
+};
+// Genre keyword matching (for real Spotify artist genres)
+const GENRE_MAP=[
+  [/metal|core|djent|thrash|doom/,"metal"],[/punk|hardcore|grunge|emo/,"punk"],[/rock|indie|alt/,"rock"],
+  [/hip hop|hip-hop|rap|trap|drill|grime/,"hiphop"],[/jazz|swing|bebop|fusion/,"jazz"],
+  [/classical|orchestra|baroque|opera|piano|soundtrack|score/,"classical"],
+  [/ambient|lo-fi|lofi|chill|drone|new age/,"ambient"],[/country|folk|bluegrass|americana/,"country"],
+  [/r&b|rnb|soul|funk|neo soul|gospel/,"rnb"],[/edm|house|techno|electro|dubstep|synth|trance|dnb|drum and bass|electronic/,"electronic"],
+  [/pop|k-pop|j-pop|dance/,"pop"],
+];
+function genreToClass(genres){for(const g of genres){const s=g.toLowerCase();for(const[re,k]of GENRE_MAP)if(re.test(s))return k}return null}
+
+const NAMES_A=["Vex","Kira","Juno","Rook","Zeph","Nyx","Orin","Sable","Hex","Lyra","Taz","Echo","Mako","Rhea","Dax","Vale","Cipher","Nova","Ash","Kai"];
+const NAMES_B=["Static","Volt","Neon","Glass","Ember","Null","Chrome","Wraith","Pulse","Shard","Haze","Riot","Byte","Flux","Ion"];
+
+// ---------- Spotify ----------
+function parseTrackId(s){
+  s=(s||"").trim();
+  let m=s.match(/track[\/:]([A-Za-z0-9]{22})/); if(m)return m[1];
+  m=s.match(/^([A-Za-z0-9]{22})$/); if(m)return m[1];
+  return null;
+}
+async function fetchJSON(url,opts,ms=6000){
+  const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);
+  try{const r=await fetch(url,{...opts,signal:c.signal});if(!r.ok)throw new Error(r.status);return await r.json()}finally{clearTimeout(t)}
+}
+async function decodeSong(id,ovGenre,ovBpm,token){
+  const info={id,title:null,artist:null,thumb:null,genres:[],bpm:null,src:[]};
+  try{
+    const o=await fetchJSON("https://open.spotify.com/oembed?url="+encodeURIComponent("https://open.spotify.com/track/"+id));
+    info.title=o.title||null; info.thumb=o.thumbnail_url||null; info.src.push("oEmbed");
+  }catch(e){}
+  if(token){
+    const h={headers:{Authorization:"Bearer "+token.replace(/^Bearer\s+/i,"")}};
+    try{
+      const t=await fetchJSON("https://api.spotify.com/v1/tracks/"+id,h);
+      info.title=t.name; info.artist=(t.artists||[]).map(a=>a.name).join(", ");
+      if(t.album&&t.album.images&&t.album.images[0])info.thumb=t.album.images[0].url;
+      if(t.artists&&t.artists[0]){const a=await fetchJSON("https://api.spotify.com/v1/artists/"+t.artists[0].id,h);info.genres=a.genres||[];info.src.push("artist genres")}
+    }catch(e){}
+    try{const f=await fetchJSON("https://api.spotify.com/v1/audio-features/"+id,h);if(f&&f.tempo){info.bpm=Math.round(f.tempo);info.src.push("tempo")}}catch(e){}
+  }
+  const hr=rng(hashStr(id));
+  let cls=ovGenre||genreToClass(info.genres)||CLASS_KEYS[Math.floor(hr()*CLASS_KEYS.length)];
+  let bpm=ovBpm||info.bpm||Math.round(70+hr()*110);
+  if(!ovGenre&&!info.genres.length)info.src.push("genre from ID");
+  if(!ovBpm&&!info.bpm)info.src.push("BPM from ID");
+  return makeUnit({cls,bpm,seed:hashStr(id),song:info,team:"ally",lvl:1});
+}
+
+// ---------- units ----------
+let UID=1;
+function makeUnit({cls,bpm,seed,song,team,lvl}){
+  const C=CLASSES[cls], r=rng(seed);
+  // BPM shapes the body: slow = heavy hitters, mid = technical, fast = speedsters
+  const t=clamp((bpm-60)/140,0,1);               // 0..1
+  const spd=Math.round(5+t*6+r()*2);             // 5..13
+  const strB=Math.round((1-t)*4 + r()*2);        // slow tempo -> +str
+  const techB=Math.round((1-Math.abs(t-0.5)*2)*4 + r()*2); // mid tempo -> +tech
+  const u={uid:UID++,cls,team,bpm,lvl:1,xp:0,
+    name:(song&&song.title?shortName(song.title,r):NAMES_A[Math.floor(r()*NAMES_A.length)])+" "+NAMES_B[Math.floor(r()*NAMES_B.length)],
+    song:song||null,
+    maxhp:C.hp+Math.round(r()*6),str:C.str+strB,tech:C.tech+techB,spd,mov:C.mov+(bpm>165?1:0),jump:C.jump,
+  };
+  u.hp=u.maxhp;
+  for(let i=1;i<lvl;i++)levelUp(u,true);
+  return u;
+}
+function shortName(title,r){const w=title.replace(/[^A-Za-z0-9 ]/g," ").split(/\s+/).filter(x=>x.length>2);return w.length?w[Math.floor(r()*w.length)].slice(0,10):pick(NAMES_A)}
+function levelUp(u,silent){u.lvl++;u.maxhp+=4;u.hp+=4;u.str+=1;u.tech+=1;if(u.lvl%2===0)u.spd+=1;if(!silent)log(`${u.name} reached Lv ${u.lvl}!`)}
+function giveXp(u,n){u.xp+=n;while(u.xp>=100){u.xp-=100;levelUp(u)}}
+
+// ---------- run state ----------
+let RUN=null;
+const FLOORS=8;
+function newRun(){RUN={floor:0,party:[],seed:Date.now()>>>0,credits:0,needRecruits:3};saveRun();showRecruit()}
+function saveRun(){if(RUN)store.set("nrt_run",RUN)}
+
+// ---------- screens ----------
+function show(id){for(const s of document.querySelectorAll(".screen"))s.classList.toggle("on",s.id===id);
+  const b=id==="battle";$("hud").classList.toggle("on",b);$("topbar").classList.toggle("on",b);$("log").classList.toggle("on",b)}
+function unitCard(u,extra=""){
+  const C=CLASSES[u.cls],sk=SKILLS[C.skill];
+  const img=u.song&&u.song.thumb?`<img src="${esc(u.song.thumb)}" alt="">`:`<div class="portrait" style="display:grid;place-items:center;font-size:26px;color:${C.col};text-shadow:0 0 8px ${C.col}">${C.glyph}</div>`;
+  return `<div class="card unit">${img}<div style="flex:1;min-width:0">
+    <b>${esc(u.name)}</b> <span class="tag" style="color:${C.col}">${C.name}</span><br>
+    <span class="stats">Lv <b>${u.lvl}</b> · HP <b>${u.hp}/${u.maxhp}</b> · STR <b>${u.str}</b> · TECH <b>${u.tech}</b> · SPD <b>${u.spd}</b> · MOV <b>${u.mov}</b></span><br>
+    <span class="stats">${u.bpm} BPM · ${C.genre}${u.song&&u.song.title?" · “"+esc(u.song.title)+"”":""}</span><br>
+    <span class="stats">Skill: <b>${sk.name}</b>: ${sk.desc}</span>${extra}</div></div>`;
+}
+let pendingUnit=null;
+function showRecruit(sub){
+  show("sRecruit");pendingUnit=null;$("recPreview").innerHTML="";$("recMsg").textContent="";$("inSong").value="";
+  const need=RUN.needRecruits;
+  $("recTitle").textContent=need>1?`Tune in your squad (${RUN.party.length}/${RUN.party.length+need})`:"Tune in a recruit";
+  $("recSub").textContent=sub||(need>1?"Start your run with three songs. Each one becomes a soldier.":"A new signal is on the wire. Choose a song to recruit.");
+  $("recParty").innerHTML=RUN.party.map(u=>unitCard(u)).join("")||'<p class="dim">Nobody yet.</p>';
+  $("btnRecDone").textContent=need>0?"Skip":"Continue";
+  $("btnRecDone").disabled=RUN.party.length===0&&need>0;
+}
+const DEMO_IDS=["4uLU6hMCjMI75M1A2tKUQC","7GhIk7Il098yCjg4BQjzvb","3n3Ppam7vgaVa1iaRUc9Lp","0VjIjW4GlUZAMYd2vXMi3b","5ghIJDpPoe3CfHMGu71E6T","2takcwOaAZWiXQijPHIx7B","40riOy7x9W7GXjyGp4pjAv","6habFhsOp2NvshLv26DqMb","1mea3bSkSGXuIRvnydlB5b","3AJwUDP919kvQ9QcozQPxg"];
+function randomId(){const a="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";let s="";for(let i=0;i<22;i++)s+=a[Math.floor(Math.random()*a.length)];return s}
+async function scan(){
+  const id=parseTrackId($("inSong").value);
+  if(!id){$("recMsg").innerHTML='<span class="err">That doesn\'t look like a Spotify track link.</span>';return}
+  if(RUN.party.some(u=>u.song&&u.song.id===id)){$("recMsg").innerHTML='<span class="err">That song is already in your squad.</span>';return}
+  $("recMsg").textContent="Decoding…";$("btnScan").disabled=true;
+  const g=$("inGenre").value||null,b=parseInt($("inBpm").value)||null;
+  const u=await decodeSong(id,g,b?clamp(b,40,220):null,$("inTok").value.trim());
+  // recruits join at roughly party level
+  const avg=RUN.party.length?Math.max(1,Math.round(RUN.party.reduce((s,p)=>s+p.lvl,0)/RUN.party.length)-1):1;
+  for(let i=1;i<avg;i++)levelUp(u,true);
+  pendingUnit=u;$("btnScan").disabled=false;
+  $("recMsg").textContent="Signal decoded ("+u.song.src.join(", ")+")";
+  $("recPreview").innerHTML=unitCard(u,'<div class="row" style="margin-top:6px"><button class="pri" id="btnRecruit">Recruit</button></div>');
+  $("btnRecruit").onclick=()=>{RUN.party.push(pendingUnit);RUN.needRecruits=Math.max(0,RUN.needRecruits-1);saveRun();
+    if(RUN.needRecruits>0)showRecruit();else afterRecruit()};
+}
+function afterRecruit(){const a=RUN.afterRecruit;RUN.afterRecruit=null;saveRun();if(a)startBattle(a);else showMap()}
+$("btnScan").onclick=scan;
+$("inSong").addEventListener("keydown",e=>{if(e.key==="Enter")scan()});
+$("btnRandSong").onclick=()=>{const unused=DEMO_IDS.filter(id=>!RUN.party.some(u=>u.song&&u.song.id===id));$("inSong").value="https://open.spotify.com/track/"+(unused.length?pick(unused):randomId());scan()};
+$("btnRecDone").onclick=()=>{RUN.needRecruits=0;afterRecruit()};
+for(const k of CLASS_KEYS){const o=document.createElement("option");o.value=k;o.textContent=CLASSES[k].genre+" → "+CLASSES[k].name;$("inGenre").appendChild(o)}
+
+function showMap(){
+  show("sMap");R=rng(RUN.seed+RUN.floor*977);
+  $("mapTitle").textContent=RUN.floor>=FLOORS-1?`Sector ${RUN.floor+1}: The Archon's Spire`:`Sector ${RUN.floor+1} of ${FLOORS}`;
+  const nodes=RUN.floor>=FLOORS-1?[{t:"boss"}]:[{t:"battle"},{t:pick(["elite","battle","signal","repair"])},{t:pick(["signal","repair","elite"])}];
+  const info={battle:["Street Skirmish","Standard fight. Earn XP and credits."],elite:["Elite Cell","Tougher enemies. Bigger rewards."],
+    signal:["Pirate Signal","Recruit a new soldier from a song, then a light fight."],repair:["Chop Shop","Heal the whole squad and train one stat."],boss:["The Archon","Final battle."]};
+  $("mapNodes").innerHTML=nodes.map((n,i)=>`<div class="card node"><h3>${info[n.t][0]}</h3><p class="dim" style="font-size:12px">${info[n.t][1]}</p><button class="pri" data-i="${i}">Go</button></div>`).join("");
+  for(const b of $("mapNodes").querySelectorAll("button"))b.onclick=()=>enterNode(nodes[+b.dataset.i].t);
+  $("mapParty").innerHTML=RUN.party.map(u=>unitCard(u)).join("");
+}
+function enterNode(t){
+  if(t==="repair"){for(const u of RUN.party)u.hp=u.maxhp;
+    msg(`<h2>Chop Shop</h2><p class="dim">Your squad is fully patched. Choose one soldier to upgrade.</p><div class="grid">${RUN.party.map((u,i)=>unitCard(u,`<div class="row" style="margin-top:6px"><button data-u="${i}" data-s="str">+2 STR</button><button data-u="${i}" data-s="tech">+2 TECH</button><button data-u="${i}" data-s="spd">+1 SPD</button></div>`)).join("")}</div>`);
+    for(const b of $("msgBody").querySelectorAll("button[data-u]"))b.onclick=()=>{const u=RUN.party[+b.dataset.u];u[b.dataset.s]+=b.dataset.s==="spd"?1:2;RUN.floor++;saveRun();showMap()};
+    return}
+  if(t==="signal"){RUN.needRecruits=1;RUN.afterRecruit="battle";saveRun();showRecruit();return}
+  startBattle(t);
+}
+function msg(html){show("sMsg");$("msgBody").innerHTML=html}
+
+// ---------- battle ----------
+const cv=$("cv"),ctx=cv.getContext("2d");
+let B=null; // battle state
+const TW=64,TH=32,HZ=14;
+function startBattle(kind){
+  R=rng(RUN.seed+RUN.floor*7919+(kind==="elite"?3:0));
+  const W=10,H=10,map=[];
+  // terrain: smoothed random heights + a few pillars
+  for(let y=0;y<H;y++){map[y]=[];for(let x=0;x<W;x++)map[y][x]={h:0,block:false}}
+  for(let i=0;i<5;i++){const cx=ri(0,W-1),cy=ri(0,H-1),r=ri(1,3),hh=ri(1,3);
+    for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(Math.abs(x-cx)+Math.abs(y-cy)<=r)map[y][x].h=Math.max(map[y][x].h,hh-Math.floor((Math.abs(x-cx)+Math.abs(y-cy))/2))}
+  for(let i=0;i<ri(3,6);i++){const x=ri(2,W-3),y=ri(2,H-3);map[y][x].block=true;map[y][x].h+=2}
+  B={W,H,map,units:[],kind,active:null,phase:"idle",moved:false,acted:false,sel:null,hl:[],hlType:null,hover:null,floats:[],turn:0};
+  // allies spawn bottom-left
+  const aSpots=[[0,9],[1,9],[0,8],[1,8],[2,9],[0,7],[2,8],[1,7]];
+  RUN.party.forEach((p,i)=>{const[x,y]=aSpots[i%aSpots.length];map[y][x].block=false;B.units.push(battleUnit(p,x,y,"ally",1))});
+  // enemies
+  const f=RUN.floor, lvl=1+f+(kind==="elite"?1:0)+(kind==="boss"?2:0);
+  const n=Math.min(8,(kind==="boss"?4:3)+Math.floor(f/2)+(kind==="elite"?1:0));
+  const eSpots=[[9,0],[8,0],[9,1],[8,1],[7,0],[9,2],[7,1],[8,2]];
+  for(let i=0;i<n;i++){const[x,y]=eSpots[i];map[y][x].block=false;
+    const e=makeUnit({cls:pick(CLASS_KEYS),bpm:ri(60,200),seed:Math.floor(R()*1e9),song:null,team:"enemy",lvl});
+    e.name=pick(["Corp","Syndic","Drone","Hex","Cult"])+"-"+pick(NAMES_B);
+    B.units.push(battleUnit(e,x,y,"enemy",3))}
+  if(kind==="boss"){const b=B.units[B.units.length-1];b.name="THE ARCHON";b.maxhp=b.hp=Math.round(b.maxhp*3);b.str+=4;b.tech+=4;b.boss=true}
+  show("battle");resize();log(`— Sector ${RUN.floor+1}: ${kind==="boss"?"The Archon":kind==="elite"?"Elite Cell":"Skirmish"} —`);
+  nextTurn();
+}
+function battleUnit(src,x,y,team,face){return{ref:src,team,x,y,face,ct:Math.floor(R()*30),hp:src.hp,maxhp:src.maxhp,str:src.str,tech:src.tech,spd:src.spd,mov:src.mov,jump:src.jump,cd:0,ko:false,guard:false,name:src.name,cls:src.cls,lvl:src.lvl}}
+const tile=(x,y)=>B&&x>=0&&y>=0&&x<B.W&&y<B.H?B.map[y][x]:null;
+const unitAt=(x,y)=>B.units.find(u=>!u.ko&&u.x===x&&u.y===y);
+const koAt=(x,y)=>B.units.find(u=>u.ko&&u.x===x&&u.y===y);
+const alive=t=>B.units.filter(u=>!u.ko&&u.team===t);
+const dist=(a,b)=>Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
+
+function reachable(u){
+  const res=new Map(),q=[[u.x,u.y,0]];res.set(u.x+","+u.y,0);
+  while(q.length){const[x,y,d]=q.shift();if(d>=u.mov)continue;
+    for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy,t=tile(nx,ny);if(!t||t.block)continue;
+      if(Math.abs(t.h-tile(x,y).h)>u.jump)continue;const o=unitAt(nx,ny);if(o&&o.team!==u.team)continue;
+      const k=nx+","+ny;if(res.has(k))continue;res.set(k,d+1);q.push([nx,ny,d+1])}}
+  const out=[];for(const k of res.keys()){const[x,y]=k.split(",").map(Number);const o=unitAt(x,y);if(!o||o===u)out.push([x,y])}return out;
+}
+function inRange(u,r,x,y){
+  const d=Math.abs(u.x-x)+Math.abs(u.y-y);if(r===0)return d===0;if(d<1||d>r)return false;
+  if(r===1)return Math.abs(tile(x,y).h-tile(u.x,u.y).h)<=2;return true;
+}
+function rangeTiles(u,r){const o=[];for(let y=0;y<B.H;y++)for(let x=0;x<B.W;x++)if(inRange(u,r,x,y))o.push([x,y]);return o}
+
+function nextTurn(){
+  B.active=null;
+  if(checkEnd())return;
+  // advance charge time
+  let ready;
+  for(let g=0;g<500;g++){ready=B.units.filter(u=>!u.ko&&u.ct>=100).sort((a,b)=>b.ct-a.ct)[0];if(ready)break;for(const u of B.units)if(!u.ko)u.ct+=u.spd}
+  const u=ready;B.active=u;B.moved=false;B.acted=false;u.guard=false;if(u.cd>0)u.cd--;B.turn++;
+  B.sel=null;B.hl=[];B.hlType=null;
+  updateTop();
+  if(u.team==="enemy"){B.phase="ai";hud(`<b style="color:var(--rd)">${esc(u.name)}</b> is acting…`);setTimeout(()=>aiTurn(u),450)}
+  else{B.phase="menu";menu()}
+}
+function endTurn(){const u=B.active;u.ct-=B.moved&&B.acted?100:(B.moved||B.acted?80:60);nextTurn()}
+function menu(){
+  const u=B.active,C=CLASSES[u.cls],sk=SKILLS[C.skill];
+  B.hl=[];B.hlType=null;
+  hud(`<div class="row" style="justify-content:space-between"><div><b style="color:${C.col}">${esc(u.name)}</b> <span class="tag">${C.name}</span> <span class="stats">HP ${u.hp}/${u.maxhp} · STR ${u.str} · TECH ${u.tech} · SPD ${u.spd}</span></div></div>
+  <div class="row" style="margin-top:8px">
+    <button id="bMove" ${B.moved?"disabled":""}>Move</button>
+    <button id="bAtk" ${B.acted?"disabled":""}>Attack</button>
+    <button id="bSk" ${B.acted||u.cd>0?"disabled":""} title="${esc(sk.desc)}">${sk.name}${u.cd>0?" ("+u.cd+")":""}</button>
+    <button id="bWait" class="pri">Wait</button>
+  </div><div class="stats" style="margin-top:6px">${sk.name}: ${sk.desc}</div>`);
+  $("bMove").onclick=()=>{B.phase="move";B.hl=reachable(u);B.hlType="move";hudBack("Choose where to move.")};
+  $("bAtk").onclick=()=>{B.phase="attack";B.hl=rangeTiles(u,C.rng);B.hlType="atk";hudBack("Choose a target.")};
+  $("bSk").onclick=()=>{if(sk.target==="self"){useSkill(u,u.x,u.y);return}B.phase="skill";B.hl=rangeTiles(u,sk.rng).concat(sk.target==="ally"?[[u.x,u.y]]:[]);B.hlType=sk.target==="ally"?"heal":"atk";hudBack(`${sk.name}: choose a target.`)};
+  $("bWait").onclick=endTurn;
+}
+function hudBack(t){hud(`<div class="row" style="justify-content:space-between"><span>${t}</span><button id="bBack">Back</button></div>`);$("bBack").onclick=()=>{B.phase="menu";menu()}}
+function hud(h){$("hudCard").innerHTML=h}
+function updateTop(){
+  // simulate next 8 turns
+  const sim=B.units.filter(u=>!u.ko).map(u=>({u,ct:u.ct})),q=[];
+  if(B.active)q.push(B.active);
+  for(const s of sim)if(s.u===B.active)s.ct-=100;
+  for(let g=0;g<2000&&q.length<8;g++){const r=sim.filter(s=>s.ct>=100).sort((a,b)=>b.ct-a.ct)[0];if(r){q.push(r.u);r.ct-=100;continue}for(const s of sim)s.ct+=s.u.spd}
+  $("turnq").innerHTML=q.map((u,i)=>`<span style="color:${u.team==="ally"?"var(--cy)":"var(--rd)"};${i===0?"border-color:var(--yl)":""}">${esc(u.name.split(" ")[0])}</span>`).join("");
+  $("floorLbl").textContent=`Sector ${RUN.floor+1}/${FLOORS}`;
+}
+function log(t){const d=document.createElement("div");d.textContent=t;$("log").prepend(d);while($("log").children.length>10)$("log").lastChild.remove()}
+
+// ---------- combat ----------
+function faceTo(u,x,y){const dx=x-u.x,dy=y-u.y;if(!dx&&!dy)return;u.face=Math.abs(dx)>=Math.abs(dy)?(dx>0?0:2):(dy>0?1:3)} // 0:+x 1:+y 2:-x 3:-y
+function backMult(a,t){const dirs=[[1,0],[0,1],[-1,0],[0,-1]];const[fx,fy]=dirs[t.face];const dx=a.x-t.x,dy=a.y-t.y;const dot=fx*Math.sign(dx)+fy*Math.sign(dy);
+  if(dot<0&&(Math.abs(dx)>=Math.abs(dy)?fx!==0:fy!==0))return 1.5;if(dot===0)return 1.2;return 1}
+function calcDmg(a,t,base,opts={}){
+  let m=1;
+  if(!opts.flat){const dh=tile(a.x,a.y).h-tile(t.x,t.y).h;if(dh>0)m*=1.2;else if(dh<0)m*=0.9;m*=backMult(a,t)}
+  if(t.guard)m*=0.5;
+  return Math.max(1,Math.round(base*m*(0.9+R()*0.2)));
+}
+function hit(a,t,dmg,col="#fff"){
+  t.hp=Math.max(0,t.hp-dmg);B.floats.push({x:t.x,y:t.y,t:"-"+dmg,c:col,life:60});
+  if(t.hp<=0){t.ko=true;log(`${t.name} is down!`);if(a.team==="ally")a.xpGain=(a.xpGain||0)+30}
+  else if(a.team==="ally")a.xpGain=(a.xpGain||0)+10;
+}
+function heal(t,n){t.hp=Math.min(t.maxhp,t.hp+n);B.floats.push({x:t.x,y:t.y,t:"+"+n,c:"#52ff9a",life:60})}
+function basicAttack(a,t){
+  const C=CLASSES[a.cls];faceTo(a,t.x,t.y);
+  const base=C.rng>1&&(a.cls==="electronic"||a.cls==="classical"||a.cls==="jazz"||a.cls==="pop"||a.cls==="rnb")?a.tech:a.str;
+  const d=calcDmg(a,t,base);hit(a,t,d);log(`${a.name} hits ${t.name} for ${d}.`);
+}
+function useSkill(a,x,y){
+  const sk=CLASSES[a.cls].skill,t=unitAt(x,y),fallen=koAt(x,y);faceTo(a,x,y);
+  const S=SKILLS[sk];
+  if(S.target==="enemy"&&(!t||t.team===a.team))return false;
+  if(S.target==="ally"&&!((t&&t.team===a.team)||(sk==="encore"&&fallen&&fallen.team===a.team)))return false;
+  switch(sk){
+    case"overdrive":{const d=calcDmg(a,t,a.str*1.8);hit(a,t,d,"#ff5a3c");log(`${a.name}'s Overdrive Slash: ${d}!`);break}
+    case"bulwark":a.guard=true;a.taunt=true;B.floats.push({x:a.x,y:a.y,t:"GUARD",c:"#b0b6c8",life:60});log(`${a.name} braces.`);break;
+    case"overload":{const d=calcDmg(a,t,a.tech*1.2);hit(a,t,d,"#28f0ff");t.ct=Math.max(0,t.ct-30);log(`${a.name} overloads ${t.name}: ${d}, CT drained.`);break}
+    case"flurry":{let tot=0;for(let i=0;i<2&&!t.ko;i++){const d=calcDmg(a,t,a.str*0.8);hit(a,t,d,"#ffe14d");tot+=d}log(`${a.name}'s Neon Flurry: ${tot} total.`);break}
+    case"haste":t.ct+=50;t.spd+=2;B.floats.push({x:t.x,y:t.y,t:"HASTE",c:"#c78bff",life:60});log(`${t.name} is hasted.`);break;
+    case"storm":{for(const u of B.units.filter(u=>!u.ko&&Math.abs(u.x-x)+Math.abs(u.y-y)<=1)){const d=calcDmg(a,u,a.tech*(u===t?1.3:0.8),{flat:true});hit(a,u,d,"#7aa8ff")}log(`${a.name} calls an Arc Storm!`);break}
+    case"encore":if(fallen&&!t){fallen.ko=false;fallen.hp=Math.round(fallen.maxhp*0.4);fallen.ct=0;B.floats.push({x,y,t:"REVIVE",c:"#ff8ad8",life:70});log(`${fallen.name} is revived!`)}
+      else{heal(t,Math.round(a.tech*1.6));log(`${a.name} heals ${t.name}.`)}break;
+    case"bomb":{for(const u of B.units.filter(u=>!u.ko&&Math.abs(u.x-x)+Math.abs(u.y-y)<=1)){const d=calcDmg(a,u,a.tech*1.1,{flat:true});hit(a,u,d,"#52ff9a");
+        if(!u.ko&&u.team!==a.team&&u!==t){const nx=u.x+Math.sign(u.x-x),ny=u.y+Math.sign(u.y-y),tt=tile(nx,ny);if(tt&&!tt.block&&!unitAt(nx,ny)){u.x=nx;u.y=ny}}}
+      log(`${a.name} throws a Pipe Bomb!`);break}
+    case"snipe":{const d=calcDmg(a,t,a.str*1.5,{flat:true});hit(a,t,d,"#9fe7ff");log(`${a.name}'s Ghost Shot: ${d}.`);break}
+    case"deadeye":{const d=calcDmg(a,t,a.str*(t.hp<t.maxhp/2?2:1.3));hit(a,t,d,"#e0a060");log(`${a.name}'s Deadeye: ${d}.`);break}
+    case"groove":for(const u of B.units.filter(u=>!u.ko&&u.team===a.team&&dist(u,a)<=2)){u.str+=2;u.tech+=2;B.floats.push({x:u.x,y:u.y,t:"GROOVE",c:"#ff6f91",life:60})}log(`${a.name} drops the Groove.`);break;
+  }
+  a.cd=S.cd;B.acted=true;
+  if(a.team==="ally"){B.phase="menu";if(!checkEnd())menu()}
+  return true;
+}
+
+// ---------- input ----------
+cv.addEventListener("mousemove",e=>{if(!B)return;B.hover=pickTile(e.offsetX,e.offsetY)});
+cv.addEventListener("click",e=>{
+  if(!B||!B.active||B.active.team!=="ally")return;
+  const p=pickTile(e.offsetX,e.offsetY);if(!p)return;const[x,y]=p,u=B.active;
+  const inHl=B.hl.some(([a,b])=>a===x&&b===y);
+  if(B.phase==="move"&&inHl){faceTo(u,x,y);u.x=x;u.y=y;B.moved=true;B.phase="menu";menu()}
+  else if(B.phase==="attack"&&inHl){const t=unitAt(x,y);if(t&&t.team!=="ally"){basicAttack(u,t);B.acted=true;B.phase="menu";if(!checkEnd())menu()}}
+  else if(B.phase==="skill"&&inHl){useSkill(u,x,y)}
+  else{const t=unitAt(x,y);if(t&&B.phase==="menu")B.sel=t}
+});
+
+// ---------- AI ----------
+function aiTurn(u){
+  if(!B||B.active!==u)return;
+  const C=CLASSES[u.cls],S=SKILLS[C.skill],foes=alive("ally"),friends=alive("enemy");
+  if(!foes.length){endTurn();return}
+  const taunter=foes.find(f=>f.taunt&&f.guard&&dist(f,u)<=4);
+  const moves=reachable(u);let best=null;
+  const ox=u.x,oy=u.y;
+  for(const[mx,my]of moves){
+    u.x=mx;u.y=my;
+    // support skills
+    if(u.cd===0&&S.target==="ally"){for(const f of friends){if(!inRange(u,S.rng,f.x,f.y)&&f!==u)continue;const v=C.skill==="encore"?(f.maxhp-f.hp)*1.2:15;if(v>10&&(!best||v>best.v))best={v,mx,my,kind:"skill",t:f}}}
+    if(u.cd===0&&S.target==="self"){const v=C.skill==="groove"?friends.filter(f=>dist(f,u)<=2).length*6:foes.filter(f=>dist(f,u)<=2).length*7;if(!best||v>best.v)best={v,mx,my,kind:"skill",t:u}}
+    for(const f of foes){
+      if(taunter&&f!==taunter)continue;
+      const canSk=u.cd===0&&S.target==="enemy"&&inRange(u,S.rng,f.x,f.y),canAtk=inRange(u,C.rng,f.x,f.y);
+      if(!canSk&&!canAtk)continue;
+      const base=canSk?(C.skill==="flurry"?1.6:1.4)*(["overload","storm","bomb"].includes(C.skill)?u.tech:u.str):(C.rng>1&&["electronic","classical","jazz","pop","rnb"].includes(u.cls)?u.tech:u.str);
+      let v=base*backMult(u,f)*(tile(mx,my).h>tile(f.x,f.y).h?1.2:1);if(v>=f.hp)v+=25;v+=(f.maxhp-f.hp)*0.1;
+      if(!best||v>best.v)best={v,mx,my,kind:canSk?"skill":"atk",t:f};
+    }
+  }
+  u.x=ox;u.y=oy;
+  const finish=()=>{updateTop();setTimeout(()=>{if(!checkEnd())endTurn()},500)};
+  if(best){
+    if(best.mx!==u.x||best.my!==u.y){faceTo(u,best.mx,best.my);u.x=best.mx;u.y=best.my;B.moved=true}
+    setTimeout(()=>{if(best.kind==="skill")useSkill(u,best.t.x,best.t.y);else{basicAttack(u,best.t);B.acted=true}finish()},350);
+  }else{
+    // advance toward nearest foe
+    const tgt=foes.sort((a,b)=>dist(a,u)-dist(b,u))[0];
+    let bm=null,bd=1e9;for(const[mx,my]of moves){const d=Math.abs(mx-tgt.x)+Math.abs(my-tgt.y);if(d<bd){bd=d;bm=[mx,my]}}
+    if(bm){faceTo(u,bm[0],bm[1]);u.x=bm[0];u.y=bm[1];B.moved=true;faceTo(u,tgt.x,tgt.y)}
+    finish();
+  }
+}
+
+// ---------- end of battle ----------
+function checkEnd(){
+  if(!B)return true;
+  if(!alive("enemy").length){winBattle();return true}
+  if(!alive("ally").length){loseRun();return true}
+  return false;
+}
+function winBattle(){
+  const kind=B.kind,lost=[];
+  for(const bu of B.units.filter(u=>u.team==="ally")){
+    if(bu.ko){lost.push(bu.ref);continue}
+    bu.ref.hp=Math.max(1,Math.min(bu.ref.maxhp,bu.hp+Math.round(bu.ref.maxhp*0.25)));
+    giveXp(bu.ref,(bu.xpGain||0)+20+(kind==="elite"?20:0));
+  }
+  RUN.party=RUN.party.filter(p=>!lost.includes(p));
+  B=null;
+  if(kind==="boss"){store.del("nrt_run");
+    msg(`<h1>RUN COMPLETE</h1><p>The Archon's signal goes dark. Vel'Kesh hums with your squad's music.</p><div class="grid">${RUN.party.map(u=>unitCard(u)).join("")}</div><button class="pri" onclick="location.reload()">New run</button>`);return}
+  RUN.floor++;saveRun();
+  msg(`<h2>Sector cleared</h2>${lost.length?`<p class="err">Lost for good: ${lost.map(u=>esc(u.name)).join(", ")}</p>`:'<p class="dim">No losses.</p>'}
+    <p class="dim">Survivors patch up 25% HP and gain XP.</p><div class="grid">${RUN.party.map(u=>unitCard(u)).join("")}</div>
+    <div class="row">${RUN.party.length<6&&kind==="elite"?'<button id="mRec">Recruit a song (elite bonus)</button>':""}<button class="pri" id="mGo">Onward</button></div>`);
+  $("mGo").onclick=showMap;
+  if($("mRec"))$("mRec").onclick=()=>{RUN.needRecruits=1;saveRun();showRecruit()};
+}
+function loseRun(){
+  store.del("nrt_run");const f=RUN.floor;B=null;
+  msg(`<h1 style="color:var(--rd);text-shadow:0 0 12px var(--rd)">SIGNAL LOST</h1><p>Your squad fell in sector ${f+1}. The playlist ends here.</p><button class="pri" onclick="location.reload()">Try again</button>`);
+}
+
+// ---------- rendering ----------
+let ox=0,oy=0,scale=1;
+function resize(){const d=devicePixelRatio||1;cv.width=innerWidth*d;cv.height=innerHeight*d;ctx.setTransform(d,0,0,d,0,0);
+  scale=Math.min(1.4,Math.max(0.55,Math.min(innerWidth/(10*TW+40),(innerHeight-120)/(10*TH+120))));
+  ox=innerWidth/2;oy=(innerHeight-10*TH*scale)/2-30}
+addEventListener("resize",resize);
+function iso(x,y,h){return[ox+(x-y)*TW/2*scale,oy+(x+y)*TH/2*scale-h*HZ*scale]}
+function pickTile(px,py){
+  if(!B)return null;let best=null;
+  for(let y=0;y<B.H;y++)for(let x=0;x<B.W;x++){const[cx,cy]=iso(x,y,B.map[y][x].h);const dx=Math.abs(px-cx)/(TW/2*scale),dy=Math.abs(py-(cy+TH/2*scale))/(TH/2*scale);
+    if(dx+dy<=1&&(!best||x+y>best[0]+best[1]))best=[x,y]}
+  return best;
+}
+function diamond(cx,cy){const w=TW/2*scale,h=TH/2*scale;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+w,cy+h);ctx.lineTo(cx,cy+2*h);ctx.lineTo(cx-w,cy+h);ctx.closePath()}
+let tAnim=0;
+function draw(){
+  requestAnimationFrame(draw);tAnim++;
+  ctx.fillStyle="#07060d";ctx.fillRect(0,0,innerWidth,innerHeight);
+  // skyline
+  ctx.save();for(let i=0;i<40;i++){const x=(i*97)%innerWidth,h=40+((i*53)%140);ctx.fillStyle=i%3?"#120c26":"#170f30";ctx.fillRect(x,innerHeight*0.35-h,50,h+innerHeight);
+    if(i%2){ctx.fillStyle=i%4?"rgba(40,240,255,.25)":"rgba(255,43,214,.25)";for(let k=0;k<5;k++)ctx.fillRect(x+8+(k%2)*20,innerHeight*0.35-h+10+k*16,8,4)}}ctx.restore();
+  if(!B)return;
+  const w=TW/2*scale,h=TH/2*scale,hl=new Set(B.hl.map(([a,b])=>a+","+b));
+  const order=[];for(let y=0;y<B.H;y++)for(let x=0;x<B.W;x++)order.push([x,y]);order.sort((a,b)=>a[0]+a[1]-b[0]-b[1]);
+  for(const[x,y]of order){
+    const t=B.map[y][x],[cx,cy]=iso(x,y,t.h),dep=(t.h+1)*HZ*scale;
+    // sides
+    ctx.fillStyle=t.block?"#2a1f4a":"#1a1436";ctx.beginPath();ctx.moveTo(cx-w,cy+h);ctx.lineTo(cx,cy+2*h);ctx.lineTo(cx,cy+2*h+dep);ctx.lineTo(cx-w,cy+h+dep);ctx.fill();
+    ctx.fillStyle=t.block?"#20173c":"#130f2a";ctx.beginPath();ctx.moveTo(cx+w,cy+h);ctx.lineTo(cx,cy+2*h);ctx.lineTo(cx,cy+2*h+dep);ctx.lineTo(cx+w,cy+h+dep);ctx.fill();
+    // top
+    diamond(cx,cy);
+    const shade=20+t.h*10;ctx.fillStyle=t.block?"#3a2c66":`rgb(${shade+10},${shade},${shade+40})`;ctx.fill();
+    ctx.strokeStyle=t.block?"#ff2bd6":"rgba(40,240,255,.35)";ctx.lineWidth=1;ctx.stroke();
+    if(hl.has(x+","+y)){diamond(cx,cy);const c=B.hlType==="move"?"40,240,255":B.hlType==="heal"?"82,255,154":"255,77,109";ctx.fillStyle=`rgba(${c},${0.25+0.1*Math.sin(tAnim/8)})`;ctx.fill();ctx.strokeStyle=`rgb(${c})`;ctx.stroke()}
+    if(B.hover&&B.hover[0]===x&&B.hover[1]===y){diamond(cx,cy);ctx.strokeStyle="#ffe14d";ctx.lineWidth=2;ctx.stroke()}
+    // units
+    const k=koAt(x,y);if(k&&!unitAt(x,y)){ctx.fillStyle="rgba(255,77,109,.5)";ctx.fillRect(cx-10*scale,cy+h-3*scale,20*scale,6*scale)}
+    const u=unitAt(x,y);if(u)drawUnit(u,cx,cy+h);
+  }
+  // floats
+  for(const f of B.floats){const[cx,cy]=iso(f.x,f.y,tile(f.x,f.y).h);ctx.font=`bold ${16*scale+4}px sans-serif`;ctx.textAlign="center";ctx.fillStyle=f.c;ctx.globalAlpha=Math.min(1,f.life/30);ctx.fillText(f.t,cx,cy-40*scale-(60-f.life)*0.6);ctx.globalAlpha=1;f.life--}
+  B.floats=B.floats.filter(f=>f.life>0);
+  // info panel on hover
+  const hu=B.hover&&unitAt(B.hover[0],B.hover[1]);
+  if(hu){const C=CLASSES[hu.cls];ctx.fillStyle="rgba(18,15,34,.9)";ctx.fillRect(10,40,220,62);ctx.strokeStyle=hu.team==="ally"?"#28f0ff":"#ff4d6d";ctx.strokeRect(10,40,220,62);
+    ctx.fillStyle="#e9e4ff";ctx.font="bold 13px sans-serif";ctx.textAlign="left";ctx.fillText(hu.name,18,58);ctx.font="12px sans-serif";ctx.fillStyle="#9a90c8";
+    ctx.fillText(`${C.name} Lv${hu.lvl}  HP ${hu.hp}/${hu.maxhp}`,18,76);ctx.fillText(`STR ${hu.str} TECH ${hu.tech} SPD ${hu.spd} CT ${Math.floor(hu.ct)}`,18,94)}
+}
+function drawUnit(u,cx,cy){
+  const C=CLASSES[u.cls],s=scale,act=B.active===u,bob=act?Math.sin(tAnim/6)*2:0;
+  ctx.save();
+  ctx.fillStyle="rgba(0,0,0,.5)";ctx.beginPath();ctx.ellipse(cx,cy,14*s,6*s,0,0,7);ctx.fill();
+  if(act){ctx.strokeStyle="#ffe14d";ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(cx,cy,18*s,8*s,0,0,7);ctx.stroke()}
+  const team=u.team==="ally"?"#28f0ff":"#ff4d6d";
+  ctx.shadowColor=C.col;ctx.shadowBlur=12;
+  // body
+  ctx.fillStyle="#0d0b1a";ctx.strokeStyle=C.col;ctx.lineWidth=2;
+  const bh=(u.boss?52:38)*s,bw=(u.boss?16:11)*s;
+  ctx.beginPath();ctx.moveTo(cx-bw,cy-2+bob);ctx.lineTo(cx-bw*0.8,cy-bh+bob);ctx.lineTo(cx+bw*0.8,cy-bh+bob);ctx.lineTo(cx+bw,cy-2+bob);ctx.closePath();ctx.fill();ctx.stroke();
+  // head
+  ctx.beginPath();ctx.arc(cx,cy-bh-7*s+bob,7*s,0,7);ctx.fill();ctx.stroke();
+  // visor shows facing
+  const fx=[1,-1,-1,1][u.face],fy=[1,1,-1,-1][u.face];
+  ctx.fillStyle=team;ctx.shadowColor=team;ctx.fillRect(cx+fx*2*s-4*s,cy-bh-9*s+bob+(fy<0?-2*s:0),8*s,3*s);
+  ctx.shadowBlur=0;ctx.fillStyle=C.col;ctx.font=`bold ${12*s+2}px monospace`;ctx.textAlign="center";ctx.fillText(C.glyph,cx,cy-bh/2+4+bob);
+  // hp bar
+  const hw=26*s;ctx.fillStyle="#2a2340";ctx.fillRect(cx-hw/2,cy-bh-22*s,hw,4*s);ctx.fillStyle=team;ctx.fillRect(cx-hw/2,cy-bh-22*s,hw*u.hp/u.maxhp,4*s);
+  if(u.guard){ctx.strokeStyle="#b0b6c8";ctx.beginPath();ctx.arc(cx,cy-bh/2,bh*0.7,0,7);ctx.stroke()}
+  ctx.restore();
+}
+
+// ---------- boot ----------
+resize();draw();
+$("btnNew").onclick=newRun;
+const saved=store.get("nrt_run");
+if(saved&&saved.party&&saved.party.length){$("btnCont").style.display="";$("btnCont").onclick=()=>{RUN=saved;UID=1+Math.max(0,...RUN.party.map(u=>u.uid));if(RUN.needRecruits>0)showRecruit();else showMap()}}
+</script>
+</body>
+</html>
