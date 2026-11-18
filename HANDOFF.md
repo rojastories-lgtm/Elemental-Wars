@@ -198,3 +198,4 @@ A browser card + dice battler in one HTML file.
 - Re-added: ally strike FX (allyShot67), one reward per fight (fightWon wonOnce + coopCheck phase guard), discard animation (discardFx67 / hand67 snapshot), Ice Queen "Freeze shield" (fsWhy67 / act.fshield, RULES47.iceFrozenShield=false).
 - New painted art for Electro Hero and Ice Queen (IMG.electro_* / IMG.ice_* card 360x400, face 240x210, banner 467x200). The old Ice Queen video is disabled (vidPut skips 'ice') since it no longer matches her art.
 - Electro Hero video (VID_B64/VID_WEBM 'electro', second half of the supplied clip, ping-pong looped, 576x324, ~0.7 MB each) on his fight banner, the corrupted Electro boss banner and his lobby hero card. The old Ice Queen video data was removed.
+- Electro video now loops only the face close-up (17.4–20.05 s of his clip, ping-pong). Ice Queen video added (her new clip, ping-pong) on her banner, corrupted Ice boss and lobby card.
