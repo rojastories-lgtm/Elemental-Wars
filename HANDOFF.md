@@ -193,3 +193,7 @@ A browser card + dice battler in one HTML file.
 5. **Printables for other heroes:** card sheets like the Electro one.
 6. **Possible:** a touch-friendly way to unlock debug mode, and account-based (Firebase) storage for upgrades so they work for both players online.
 7. The user's own list: ______________________
+
+## v0.67 (rebuilt after a workspace reset, from the GitHub copy)
+- Re-added: ally strike FX (allyShot67), one reward per fight (fightWon wonOnce + coopCheck phase guard), discard animation (discardFx67 / hand67 snapshot), Ice Queen "Freeze shield" (fsWhy67 / act.fshield, RULES47.iceFrozenShield=false).
+- New painted art for Electro Hero and Ice Queen (IMG.electro_* / IMG.ice_* card 360x400, face 240x210, banner 467x200). The old Ice Queen video is disabled (vidPut skips 'ice') since it no longer matches her art.
