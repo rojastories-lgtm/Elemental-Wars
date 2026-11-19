@@ -205,3 +205,4 @@ A browser card + dice battler in one HTML file.
 - HERO_NAMES67 + heroPick wrapper adds .hpname plate (name + epithet) to select cards. Steel/Time names TBD.
 - Names set: steel=Hadrik, the Unbroken Forge; time=Tobias Vane, the Last Second.
 - Story intro: s_pano (now square 900px, tilt-down pan via pantilt67), s_mech, s_unleash, s_electro replaced with new transformation art.
+- Story scene 1 now plays VID_B64/VID_WEBM.pano (854x480, no loop, rate 1.12) over the still via a storyArt wrapper.
