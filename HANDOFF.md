@@ -203,3 +203,5 @@ A browser card + dice battler in one HTML file.
 ## v0.67 art pass 2
 - New art for steel, time, volcanic, dark (card 360x400, face 240x210, banner 467x200 webp); all old copies of those keys replaced in place.
 - HERO_NAMES67 + heroPick wrapper adds .hpname plate (name + epithet) to select cards. Steel/Time names TBD.
+- Names set: steel=Hadrik, the Unbroken Forge; time=Tobias Vane, the Last Second.
+- Story intro: s_pano (now square 900px, tilt-down pan via pantilt67), s_mech, s_unleash, s_electro replaced with new transformation art.
