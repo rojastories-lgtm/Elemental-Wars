@@ -206,3 +206,4 @@ A browser card + dice battler in one HTML file.
 - Names set: steel=Hadrik, the Unbroken Forge; time=Tobias Vane, the Last Second.
 - Story intro: s_pano (now square 900px, tilt-down pan via pantilt67), s_mech, s_unleash, s_electro replaced with new transformation art.
 - Story scene 1 now plays VID_B64/VID_WEBM.pano (854x480, no loop, rate 1.12) over the still via a storyArt wrapper.
+- CARD_IMG67 (name -> webp 400x220) + cardArtSvg wrapper: painted art for the 30 electro-deck cards (incl. shared gen cards), keeps burst badge.
